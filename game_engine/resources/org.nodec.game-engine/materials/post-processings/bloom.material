@@ -1,6 +1,6 @@
 {
     "material": {
-        "shader": "org.nodec-rendering.essentials/shaders/post-processings/bloom",
+        "shader": "org.nodec.game-engine/shaders/post-processings/bloom",
         "cull_mode": 2,
         "float_properties": [
             {

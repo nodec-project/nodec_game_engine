@@ -104,11 +104,11 @@ public:
 
         // Get quad mesh from resource registry.
         {
-            auto quadMesh = resourceRegistry.get_resource_direct<Mesh>("org.nodec-rendering.essentials/meshes/quad.mesh");
+            auto quadMesh = resourceRegistry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
 
             if (!quadMesh) {
                 logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'quad.mesh'.\n"
-                                                           "Make sure the 'org.nodec-rendering.essentials' resource-package is installed.";
+                                                           "Make sure the 'org.nodec.game-engine' resource-package is installed.";
             }
 
             mQuadMesh = std::static_pointer_cast<MeshBackend>(quadMesh);

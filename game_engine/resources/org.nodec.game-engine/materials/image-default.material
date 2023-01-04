@@ -1,6 +1,6 @@
 {
     "material": {
-        "shader": "org.nodec-rendering.essentials/shaders/image",
+        "shader": "org.nodec.game-engine/shaders/image",
         "cull_mode": 0,
         "float_properties": [],
         "vector4_properties": [],
