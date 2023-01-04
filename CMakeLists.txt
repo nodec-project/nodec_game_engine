@@ -17,7 +17,6 @@ option(NODEC_GAME_EDITOR_ENABLED ON)
 add_subdirectory(nodec/nodec)
 
 # set(THREAD_SAFE ON)
-
 add_subdirectory(nodec/modules/nodec_engine)
 add_subdirectory(nodec/modules/nodec_input)
 add_subdirectory(nodec/modules/nodec_rendering)
@@ -34,6 +33,7 @@ add_subdirectory(nodec/modules/nodec_physics)
 if(NODEC_GAME_EDITOR_ENABLED)
     set(BUILD_SHARED_LIBS ON)
     add_subdirectory(nodec/modules/assimp/assimp)
+
     add_subdirectory(nodec/modules/imgui)
     add_subdirectory(nodec/modules/imessentials)
     add_subdirectory(nodec/modules/imwindows)
@@ -87,7 +87,6 @@ target_include_directories(BulletSoftBody PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/sr
 target_include_directories(LinearMath PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/src)
 
 # End bullet3 configuration ===
-
 add_subdirectory(nodec/platforms/sdks/nodec_bullet3_compat)
 
 add_subdirectory(nodec/platforms/sdks/DirectXTex/DirectXTex)
@@ -111,3 +110,10 @@ if(WIN32)
 else()
     message(FATAL_MESSAGE "This platform does not supported.")
 endif()
+
+# === Configure shader build system ===
+set_target_properties(${PROJECT_NAME}
+    PROPERTIES
+    SHADER_COMMON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/game_engine/resources/org.nodec.game_engine/shaders
+)
+
