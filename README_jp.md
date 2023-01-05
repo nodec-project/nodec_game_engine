@@ -1,6 +1,8 @@
 # nodec_game_engine
 
-`nodec_game_engine`は、`nodec`フレームワークを用いて作られたゲームエンジンです。
+[English](./README.md) | 日本語
+
+`nodec_game_engine`は、`nodec`フレームワークで作られたゲームエンジンです。
 
 ## 対応環境
 
