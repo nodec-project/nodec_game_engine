@@ -1,10 +1,13 @@
 #include <Engine.hpp>
 
-Engine::Engine() {
+Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     using namespace nodec_world;
     using namespace nodec_world::impl;
     using namespace nodec_screen::impl;
     using namespace nodec_screen;
+    using namespace nodec_input;
+    using namespace nodec_resources;
+    using namespace nodec_scene_serialization;
 
     nodec::logging::InfoStream(__FILE__, __LINE__) << "[Engine] >>> Created!";
 
@@ -14,40 +17,41 @@ Engine::Engine() {
 
     // --- screen ---
     screen_module_.reset(new ScreenModule());
-    add_module<Screen>(screen_module_);
 
     screen_handler_.reset(new ScreenHandler(screen_module_.get()));
     screen_handler_->BindHandlersOnBoot();
 
     // --- world ---
     world_module_.reset(new WorldModule());
-    add_module<World>(world_module_);
 
     // --- input ---
     input_devices_.reset(new nodec_input::InputDevices());
-    add_module<nodec_input::InputDevices>(input_devices_);
 
     keyboard_device_system_ = &input_devices_->emplace_device_system<KeyboardDeviceSystem>();
     mouse_device_system_ = &input_devices_->emplace_device_system<MouseDeviceSystem>();
 
     // --- resources ---
     resources_module_.reset(new ResourcesModuleBackend());
-    add_module<Resources>(resources_module_);
 
     resources_module_->setup_on_boot();
 
     // --- scene serialization ---
     scene_serialization_module_.reset(new SceneSerializationModuleBackend(&resources_module_->registry()));
-    add_module<SceneSerialization>(scene_serialization_module_);
-
     scene_loader_.reset(new nodec_scene_serialization::SceneLoader(*scene_serialization_module_, world_module_->scene(), resources_module_->registry()));
-    add_module<nodec_scene_serialization::SceneLoader>(scene_loader_);
 
-    // ---
-
+    // --- others ---
     physics_system_.reset(new PhysicsSystemBackend(*world_module_));
 
     visibility_system_.reset(new nodec_rendering::systems::VisibilitySystem(world_module_->scene()));
+
+    // --- Export the services to application.
+    app.add_service<Screen>(screen_module_);
+    app.add_service<World>(world_module_);
+    app.add_service<InputDevices>(input_devices_);
+    app.add_service<Resources>(resources_module_);
+    app.add_service<SceneSerialization>(scene_serialization_module_);
+    app.add_service<SceneLoader>(scene_loader_);
+
 }
 
 void Engine::setup() {

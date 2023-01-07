@@ -17,7 +17,7 @@ option(NODEC_GAME_EDITOR_ENABLED ON)
 add_subdirectory(nodec/nodec)
 
 # set(THREAD_SAFE ON)
-add_subdirectory(nodec/modules/nodec_engine)
+add_subdirectory(nodec/modules/nodec_application)
 add_subdirectory(nodec/modules/nodec_input)
 add_subdirectory(nodec/modules/nodec_rendering)
 add_subdirectory(nodec/modules/nodec_resources)
@@ -46,7 +46,7 @@ add_library(${PROJECT_NAME} INTERFACE)
 target_link_libraries(${PROJECT_NAME}
     INTERFACE
     nodec
-    nodec_engine
+    nodec_application
     nodec_animations
     nodec_input
     nodec_rendering
@@ -117,7 +117,7 @@ set_target_properties(${PROJECT_NAME}
     SHADER_COMMON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/game_engine/resources/org.nodec.game-engine/shaders
 )
 
-# # https://stackoverflow.com/questions/71299716/how-to-compile-hlsl-shaders-during-build-with-cmake
+# https://stackoverflow.com/questions/71299716/how-to-compile-hlsl-shaders-during-build-with-cmake
 add_custom_target(nodec_game_engine_shaders)
 
 if(MSVC)
@@ -192,12 +192,16 @@ if(MSVC)
         get_source_file_property(SHADER_TYPE ${FILE} SHADER_TYPE)
         get_source_file_property(SHADER_MODEL ${FILE} SHADER_MODEL)
         get_source_file_property(ENTRY_POINT_NAME ${FILE} ENTRY_POINT_NAME)
+
         add_custom_command(TARGET nodec_game_engine_shaders
+            #OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${FILE_WE}.cso
             COMMAND fxc.exe /nologo /E${ENTRY_POINT_NAME} /T${SHADER_TYPE}_${SHADER_MODEL} /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
             MAIN_DEPENDENCY ${FILE}
             COMMENT "HLSL ${FILE}"
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             VERBATIM)
+
+        # add_dependencies(nodec_game_engine_shaders ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${FILE_WE}.cso)
     endforeach(FILE)
 endif()
 

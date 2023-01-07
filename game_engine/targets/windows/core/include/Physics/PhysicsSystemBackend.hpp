@@ -9,7 +9,8 @@
 
 class PhysicsSystemBackend final : public nodec_physics::systems::PhysicsSystem {
 public:
-    PhysicsSystemBackend(nodec_world::World &world) {
+    PhysicsSystemBackend(nodec_world::World &world)
+        : PhysicsSystem(collision_signal_) {
         collision_config_.reset(new btDefaultCollisionConfiguration());
         dispatcher_.reset(new btCollisionDispatcher(collision_config_.get()));
         overlapping_pair_cache_.reset(new btDbvtBroadphase());
@@ -28,6 +29,8 @@ private:
     void on_stepped(nodec_world::World &world);
 
 private:
+    CollisionSignal collision_signal_;
+
     std::unique_ptr<btDefaultCollisionConfiguration> collision_config_;
     std::unique_ptr<btCollisionDispatcher> dispatcher_;
     std::unique_ptr<btBroadphaseInterface> overlapping_pair_cache_;

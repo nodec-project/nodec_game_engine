@@ -2,14 +2,14 @@
 #include <Physics/RigidBodyActivity.hpp>
 #include <Physics/RigidBodyBackend.hpp>
 
+#include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
-#include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 
 #include <nodec/logging.hpp>
 #include <nodec/math/gfx.hpp>
 
-bool operator==(const btVector3& left, const nodec::Vector3f& right) {
+bool operator==(const btVector3 &left, const nodec::Vector3f &right) {
     return left.x() == right.x && left.y() == right.y && left.z() == right.z;
 }
 
@@ -17,12 +17,12 @@ bool operator!=(const btVector3 &left, const nodec::Vector3f &right) {
     return !(left == right);
 }
 
-
 void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
     using namespace nodec;
     using namespace nodec_scene;
     using namespace nodec_scene::components;
     using namespace nodec_physics::components;
+    using namespace nodec_physics;
 
     // Pre process for step of simulation.
     world.scene().registry().view<RigidBody, PhysicsShape, Transform>().each(
@@ -92,8 +92,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             const auto world_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
             const auto world_rotation = static_cast<Quaternionf>(to_quatenion(rb_trfm.getRotation()));
 
-            //activity.prev_world_position = world_position;
-            //activity.prev_world_rotation = world_rotation;
+            // activity.prev_world_position = world_position;
+            // activity.prev_world_rotation = world_rotation;
 
             auto delta_position = world_position - activity.prev_world_position;
             auto delta_rotation = math::inv(activity.prev_world_rotation) * world_rotation;
@@ -103,4 +103,26 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
             trfm.dirty = true;
         });
+
+    // https://github.com/bulletphysics/bullet3/issues/1745
+    {
+        const int num_of_manifolds = dynamics_world_->getDispatcher()->getNumManifolds();
+
+        for (int i = 0; i < num_of_manifolds; ++i) {
+            auto *contact_manifold = dynamics_world_->getDispatcher()->getManifoldByIndexInternal(i);
+
+            const int num_of_contacts = contact_manifold->getNumContacts();
+            if (num_of_contacts == 0) continue;
+
+            
+            CollisionInfo collision_info;
+            collision_info.num_of_contacts = num_of_contacts;
+
+            for (int j = 0; j < num_of_contacts; ++j) {
+                const auto &point = contact_manifold->getContactPoint(j);
+            }
+
+            collision_signal_(collision_info);
+        }
+    }
 }

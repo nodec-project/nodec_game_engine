@@ -29,7 +29,7 @@ target_compile_definitions(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
     nodec
-    nodec_engine
+    nodec_application
     nodec_input
     nodec_rendering
     nodec_resources

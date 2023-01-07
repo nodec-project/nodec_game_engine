@@ -1,29 +1,35 @@
 #pragma once
 
-#include "Window.hpp"
 #include "Logging.hpp"
+#include "Window.hpp"
 
-#include <nodec/application.hpp>
+#include <nodec_application/impl/application_impl.hpp>
+
 #include <nodec/logging.hpp>
 
-#define NOMINMAX
 #include <Windows.h>
 
 #include <memory>
 
-
-class WinDesktopApplication : public nodec::Application {
+class WinDesktopApplication : public nodec_application::impl::ApplicationImpl {
 public:
     WinDesktopApplication() {}
+    virtual ~WinDesktopApplication() {}
 
+    int run() {
+        try {
+            return main();
+        } catch (...) {
+            return on_error_exit();
+        }
+    }
 
 protected:
-
     virtual void setup() = 0;
     virtual void loop() = 0;
 
-
-    int main() final {
+private:
+    int main() {
         // --- Init Logging ---
         InitLogging(nodec::logging::Level::Debug);
 
@@ -34,7 +40,6 @@ protected:
         //    InitLogging(nodec::logging::Level::Info);
         //#endif
         // end Init Logging ---
-
 
         nodec::logging::InfoStream(__FILE__, __LINE__)
             << "[Main] >>> Hello world. Application start." << std::flush;
@@ -56,14 +61,12 @@ protected:
         return exitCode;
     }
 
-    int on_error_exit() final {
+    int on_error_exit() {
         try {
             throw;
-        }
-        catch (const std::exception& e) {
+        } catch (const std::exception &e) {
             nodec::logging::fatal(e.what(), __FILE__, __LINE__);
-        }
-        catch (...) {
+        } catch (...) {
             nodec::logging::fatal("Unknown Error Exception Occurs.", __FILE__, __LINE__);
         }
 

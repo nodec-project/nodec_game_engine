@@ -14,7 +14,7 @@
 #include "ScreenHandler.hpp"
 #include "Window.hpp"
 
-#include <nodec_engine/impl/nodec_engine_module.hpp>
+#include <nodec_application/impl/application_impl.hpp>
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
@@ -28,19 +28,10 @@
 #include <nodec_world/impl/world_module.hpp>
 
 #include <nodec/logging.hpp>
-#include <nodec/unicode.hpp>
 
-class Engine : public nodec_engine::impl::NodecEngineModule {
-
-    using Scene = nodec_scene::Scene;
-
-    using ResourcesModule = nodec_resources::impl::ResourcesModule;
-    using Resources = nodec_resources::Resources;
-
-    using SceneSerialization = nodec_scene_serialization::SceneSerialization;
-
+class Engine final {
 public:
-    Engine();
+    Engine(nodec_application::impl::ApplicationImpl &app);
 
     ~Engine() {
         nodec::logging::InfoStream(__FILE__, __LINE__) << "[Engine] >>> Destructed.";
@@ -67,10 +58,11 @@ public:
         return *world_module_;
     }
 
-    ResourcesModule &resources_module() {
+    nodec_resources::impl::ResourcesModule &resources_module() {
         return *resources_module_;
     }
-    SceneSerialization &scene_serialization() {
+
+    nodec_scene_serialization::SceneSerialization &scene_serialization() {
         return *scene_serialization_module_;
     }
     AudioPlatform &audio_platform() {
