@@ -15,11 +15,11 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
     using namespace nodec_rendering::resources;
     using namespace DirectX;
 
-    mScenePropertiesCB.BindVS(mpGfx, SCENE_PROPERTIES_CB_SLOT);
-    mScenePropertiesCB.BindPS(mpGfx, SCENE_PROPERTIES_CB_SLOT);
+    mScenePropertiesCB.BindVS(gfx_, SCENE_PROPERTIES_CB_SLOT);
+    mScenePropertiesCB.BindPS(gfx_, SCENE_PROPERTIES_CB_SLOT);
 
-    mTextureConfigCB.BindVS(mpGfx, TEXTURE_CONFIG_CB_SLOT);
-    mTextureConfigCB.BindPS(mpGfx, TEXTURE_CONFIG_CB_SLOT);
+    mTextureConfigCB.BindVS(gfx_, TEXTURE_CONFIG_CB_SLOT);
+    mTextureConfigCB.BindPS(gfx_, TEXTURE_CONFIG_CB_SLOT);
 
     SetupSceneLighting(scene);
 
@@ -44,7 +44,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
             if (activePostProcessEffects.size() > 0) {
                 auto &buffer = mGeometryBuffers["screen"];
                 if (!buffer) {
-                    buffer.reset(new GeometryBuffer(mpGfx, width, height));
+                    buffer.reset(new GeometryBuffer(gfx_, width, height));
                 }
 
                 // Set the render target.
@@ -81,13 +81,13 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
 
         // --- Post Processing ---
         if (activePostProcessEffects.size() > 0) {
-            mpGfx->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
             if (activePostProcessEffects.size() > 1) {
                 // if multiple effects, needs the back buffer.
                 auto &backBuffer = mGeometryBuffers["screen_back"];
                 if (!backBuffer) {
-                    backBuffer.reset(new GeometryBuffer(mpGfx, width, height));
+                    backBuffer.reset(new GeometryBuffer(gfx_, width, height));
                 }
             }
 
@@ -105,18 +105,18 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
                 auto shaderBackend = std::static_pointer_cast<ShaderBackend>(materialBackend->shader());
 
                 SetCullMode(materialBackend->cull_mode());
-                materialBackend->bind_constant_buffer(mpGfx, MATERIAL_PROPERTIES_CB_SLOT);
+                materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
 
                 mTextureConfig.texHasFlag = 0x00;
-                const auto slotOffset = BindTextureEntries(materialBackend->texture_entries(), mTextureConfig.texHasFlag);
-                mTextureConfigCB.Update(mpGfx, &mTextureConfig);
+                const auto slotOffset = bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag);
+                mTextureConfigCB.Update(gfx_, &mTextureConfig);
 
                 for (int passNum = 0; passNum < shaderBackend->pass_count(); ++passNum) {
                     if (passNum == shaderBackend->pass_count() - 1) {
                         // If last pass.
                         // The render target must be one final target.
 
-                        mpGfx->GetContext().OMSetRenderTargets(1, &pCameraRenderTargetView, nullptr);
+                        gfx_->GetContext().OMSetRenderTargets(1, &pCameraRenderTargetView, nullptr);
 
                     } else {
                         // If halfway pass.
@@ -128,31 +128,31 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
                             const auto &name = targets[i];
                             auto &buffer = mGeometryBuffers[name];
                             if (!buffer) {
-                                buffer.reset(new GeometryBuffer(mpGfx, width, height));
+                                buffer.reset(new GeometryBuffer(gfx_, width, height));
                             }
                             renderTargets[i] = &buffer->GetRenderTargetView();
-                            mpGfx->GetContext().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+                            gfx_->GetContext().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
                         }
 
-                        mpGfx->GetContext().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), nullptr);
+                        gfx_->GetContext().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), nullptr);
                     }
 
                     // --- Bind texture resources.
                     // Bind sampler for textures.
 
-                    GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(mpGfx, slotOffset);
+                    GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(gfx_, slotOffset);
                     const auto &textureResources = shaderBackend->texture_resources(passNum);
                     for (std::size_t i = 0; i < textureResources.size(); ++i) {
                         const auto &name = textureResources[i];
                         auto &buffer = mGeometryBuffers[name];
                         if (!buffer) continue;
                         auto *view = &buffer->GetShaderResourceView();
-                        mpGfx->GetContext().PSSetShaderResources(slotOffset + i, 1u, &view);
+                        gfx_->GetContext().PSSetShaderResources(slotOffset + i, 1u, &view);
                     }
-                    shaderBackend->bind(mpGfx, passNum);
+                    shaderBackend->bind(gfx_, passNum);
 
-                    mScreenQuadMesh->bind(mpGfx);
-                    mpGfx->DrawIndexed(mScreenQuadMesh->triangles.size());
+                    mScreenQuadMesh->bind(gfx_);
+                    gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
                 } // End foreach pass.
 
                 std::swap(mGeometryBuffers["screen"], mGeometryBuffers["screen_back"]);
@@ -167,11 +167,11 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, n
     using namespace DirectX;
     using namespace nodec;
 
-    mScenePropertiesCB.BindVS(mpGfx, SCENE_PROPERTIES_CB_SLOT);
-    mScenePropertiesCB.BindPS(mpGfx, SCENE_PROPERTIES_CB_SLOT);
+    mScenePropertiesCB.BindVS(gfx_, SCENE_PROPERTIES_CB_SLOT);
+    mScenePropertiesCB.BindPS(gfx_, SCENE_PROPERTIES_CB_SLOT);
 
-    mTextureConfigCB.BindVS(mpGfx, TEXTURE_CONFIG_CB_SLOT);
-    mTextureConfigCB.BindPS(mpGfx, TEXTURE_CONFIG_CB_SLOT);
+    mTextureConfigCB.BindVS(gfx_, TEXTURE_CONFIG_CB_SLOT);
+    mTextureConfigCB.BindPS(gfx_, TEXTURE_CONFIG_CB_SLOT);
 
     SetupSceneLighting(scene);
 
@@ -237,7 +237,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
     // TODO: Consider skybox.
     {
         const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
-        mpGfx->GetContext().ClearRenderTargetView(pTarget, color);
+        gfx_->GetContext().ClearRenderTargetView(pTarget, color);
     }
 
     XMStoreFloat4x4(&mSceneProperties.matrixP, matrixP);
@@ -277,18 +277,18 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
         }
     }
 
-    mScenePropertiesCB.Update(mpGfx, &mSceneProperties);
+    mScenePropertiesCB.Update(gfx_, &mSceneProperties);
 
     // Reset depth buffer.
-    mpGfx->GetContext().ClearDepthStencilView(mpDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+    gfx_->GetContext().ClearDepthStencilView(mpDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
     // Executes the shader programs.
     for (auto *activeShader : activeShaders) {
         if (activeShader->pass_count() == 1) {
             // One pass shader.
-            mpGfx->GetContext().OMSetRenderTargets(1, &pTarget, mpDepthStencilView.Get());
-            mpGfx->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            activeShader->bind(mpGfx);
+            gfx_->GetContext().OMSetRenderTargets(1, &pTarget, mpDepthStencilView.Get());
+            gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            activeShader->bind(gfx_);
 
             // now lets draw the mesh.
             RenderModel(scene, activeShader, matrixV, matrixP);
@@ -303,17 +303,17 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
                     const auto &name = targets[i];
                     auto &buffer = mGeometryBuffers[name];
                     if (!buffer) {
-                        buffer.reset(new GeometryBuffer(mpGfx, width, height));
+                        buffer.reset(new GeometryBuffer(gfx_, width, height));
                     }
                     renderTargets[i] = &buffer->GetRenderTargetView();
-                    mpGfx->GetContext().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+                    gfx_->GetContext().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
                 }
 
-                mpGfx->GetContext().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), mpDepthStencilView.Get());
-                mpGfx->GetContext().ClearDepthStencilView(mpDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+                gfx_->GetContext().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), mpDepthStencilView.Get());
+                gfx_->GetContext().ClearDepthStencilView(mpDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-                mpGfx->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                activeShader->bind(mpGfx, 0);
+                gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                activeShader->bind(gfx_, 0);
 
                 RenderModel(scene, activeShader, matrixV, matrixP);
             }
@@ -329,8 +329,8 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
             {
                 const auto passNum = passCount - 1;
 
-                mpGfx->GetContext().OMSetRenderTargets(1, &pTarget, nullptr);
-                mpGfx->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                gfx_->GetContext().OMSetRenderTargets(1, &pTarget, nullptr);
+                gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                 const auto &textureResources = activeShader->texture_resources(passNum);
                 for (size_t i = 0; i < textureResources.size(); ++i) {
@@ -338,15 +338,17 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
                     auto &buffer = mGeometryBuffers[name];
                     if (!buffer) continue;
                     auto *view = &buffer->GetShaderResourceView();
-                    mpGfx->GetContext().PSSetShaderResources(i, 1u, &view);
+                    gfx_->GetContext().PSSetShaderResources(i, 1u, &view);
                 }
 
-                activeShader->bind(mpGfx, passNum);
+                activeShader->bind(gfx_, passNum);
 
-                GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(mpGfx, 0);
+                GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(gfx_, 0);
 
-                mScreenQuadMesh->bind(mpGfx);
-                mpGfx->DrawIndexed(mScreenQuadMesh->triangles.size());
+                mScreenQuadMesh->bind(gfx_);
+                gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
+
+                unbind_all_shader_resources(textureResources.size());
             }
         }
     }
@@ -363,9 +365,12 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
     using namespace nodec_rendering::resources;
     using namespace DirectX;
 
-    mModelPropertiesCB.BindVS(mpGfx, MODEL_PROPERTIES_CB_SLOT);
-    mModelPropertiesCB.BindPS(mpGfx, MODEL_PROPERTIES_CB_SLOT);
+    mModelPropertiesCB.BindVS(gfx_, MODEL_PROPERTIES_CB_SLOT);
+    mModelPropertiesCB.BindPS(gfx_, MODEL_PROPERTIES_CB_SLOT);
 
+    UINT used_slot_max = 0;
+
+    // TODO: Extract sub rebderer class.
     scene.registry().view<const Transform, const MeshRenderer>(type_list<NonVisible>{}).each([&](auto entt, const Transform &trfm, const MeshRenderer &meshRenderer) {
         if (meshRenderer.meshes.size() == 0) return;
         if (meshRenderer.meshes.size() != meshRenderer.materials.size()) return;
@@ -388,7 +393,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
         XMStoreFloat4x4(&mModelProperties.matrixMInverse, matrixMInverse);
         XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
 
-        mModelPropertiesCB.Update(mpGfx, &mModelProperties);
+        mModelPropertiesCB.Update(gfx_, &mModelProperties);
 
         for (int i = 0; i < meshRenderer.meshes.size(); ++i) {
             auto &mesh = meshRenderer.meshes[i];
@@ -401,22 +406,22 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
             if (shaderBackend != activeShader) continue;
 
-            materialBackend->bind_constant_buffer(mpGfx, MATERIAL_PROPERTIES_CB_SLOT);
+            materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
             SetCullMode(materialBackend->cull_mode());
 
             mTextureConfig.texHasFlag = 0x00;
-            BindTextureEntries(materialBackend->texture_entries(), mTextureConfig.texHasFlag);
-            mTextureConfigCB.Update(mpGfx, &mTextureConfig);
+            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
+            mTextureConfigCB.Update(gfx_, &mTextureConfig);
 
-            meshBackend->bind(mpGfx);
-            mpGfx->DrawIndexed(meshBackend->triangles.size());
+            meshBackend->bind(gfx_);
+            gfx_->DrawIndexed(meshBackend->triangles.size());
         } // End foreach mesh
     });   // End foreach mesh renderer
 
     [&]() {
         if (!mQuadMesh) return;
 
-        mBSAlphaBlend.Bind(mpGfx);
+        mBSAlphaBlend.Bind(gfx_);
 
         scene.registry().view<const Transform, const ImageRenderer>(type_list<NonVisible>{}).each([&](auto entt, const Transform &trfm, const ImageRenderer &renderer) {
             using namespace DirectX;
@@ -435,12 +440,12 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             auto savedAlbedo = materialBackend->get_texture_entry("albedo");
             materialBackend->set_texture_entry("albedo", {image, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
 
-            materialBackend->bind_constant_buffer(mpGfx, MATERIAL_PROPERTIES_CB_SLOT);
+            materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
             SetCullMode(materialBackend->cull_mode());
 
             mTextureConfig.texHasFlag = 0x00;
-            BindTextureEntries(materialBackend->texture_entries(), mTextureConfig.texHasFlag);
-            mTextureConfigCB.Update(mpGfx, &mTextureConfig);
+            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
+            mTextureConfigCB.Update(gfx_, &mTextureConfig);
 
             XMMATRIX matrixM{trfm.local2world.m};
             const auto width = imageBackend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
@@ -458,21 +463,21 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             XMStoreFloat4x4(&mModelProperties.matrixMInverse, matrixMInverse);
             XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
 
-            mModelPropertiesCB.Update(mpGfx, &mModelProperties);
+            mModelPropertiesCB.Update(gfx_, &mModelProperties);
 
-            mQuadMesh->bind(mpGfx);
-            mpGfx->DrawIndexed(mQuadMesh->triangles.size());
+            mQuadMesh->bind(gfx_);
+            gfx_->DrawIndexed(mQuadMesh->triangles.size());
 
             if (savedAlbedo) {
                 materialBackend->set_texture_entry("albedo", *savedAlbedo);
             }
         });
 
-        mBSDefault.Bind(mpGfx);
+        mBSDefault.Bind(gfx_);
     }();
 
     [&]() {
-        mBSAlphaBlend.Bind(mpGfx);
+        mBSAlphaBlend.Bind(gfx_);
         scene.registry().view<const Transform, const TextRenderer>(type_list<NonVisible>{}).each([&](auto entt, const Transform &trfm, const TextRenderer &renderer) {
             using namespace DirectX;
             using namespace nodec_rendering;
@@ -517,12 +522,12 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 materialBackend->set_texture_entry("mask", {character.pFontTexture, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
                 materialBackend->set_vector4_property("albedo", renderer.color);
 
-                materialBackend->bind_constant_buffer(mpGfx, 3);
+                materialBackend->bind_constant_buffer(gfx_, 3);
                 SetCullMode(materialBackend->cull_mode());
 
                 mTextureConfig.texHasFlag = 0x00;
-                BindTextureEntries(materialBackend->texture_entries(), mTextureConfig.texHasFlag);
-                mTextureConfigCB.Update(mpGfx, &mTextureConfig);
+                used_slot_max = std::max(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
+                mTextureConfigCB.Update(gfx_, &mTextureConfig);
 
                 XMMATRIX matrixM{trfm.local2world.m};
                 matrixM = XMMatrixScaling(w / 2, h / 2, 1.0f) * XMMatrixTranslation(posX + w / 2, posY + h / 2, 0.0f) * matrixM;
@@ -538,9 +543,9 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 XMStoreFloat4x4(&mModelProperties.matrixMInverse, matrixMInverse);
                 XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
 
-                mModelPropertiesCB.Update(mpGfx, &mModelProperties);
-                mScreenQuadMesh->bind(mpGfx);
-                mpGfx->DrawIndexed(mScreenQuadMesh->triangles.size());
+                mModelPropertiesCB.Update(gfx_, &mModelProperties);
+                mScreenQuadMesh->bind(gfx_);
+                gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
             }
 
             if (savedMask) {
@@ -552,6 +557,42 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             }
         });
 
-        mBSDefault.Bind(mpGfx);
+        mBSDefault.Bind(gfx_);
     }();
+
+    unbind_all_shader_resources(used_slot_max);
+}
+
+UINT SceneRenderer::bind_texture_entries(const std::vector<TextureEntry> &textureEntries, uint32_t &texHasFlag) {
+    UINT slot = 0;
+
+    for (auto &entry : textureEntries) {
+        if (!entry.texture) {
+            // texture not setted.
+            // skip bind texture,
+            // but bind sampler because the The Pixel Shader unit expects a Sampler to be set at Slot 0.
+            auto &defaultSamplerState = GetSamplerState({});
+            defaultSamplerState.BindPS(gfx_, slot);
+            defaultSamplerState.BindVS(gfx_, slot);
+
+            ++slot;
+            continue;
+        }
+
+        auto *textureBackend = static_cast<TextureBackend *>(entry.texture.get());
+        {
+            auto *view = &textureBackend->shader_resource_view();
+            gfx_->GetContext().VSSetShaderResources(slot, 1u, &view);
+            gfx_->GetContext().PSSetShaderResources(slot, 1u, &view);
+        }
+
+        auto &samplerState = GetSamplerState(entry.sampler);
+        samplerState.BindVS(gfx_, slot);
+        samplerState.BindPS(gfx_, slot);
+
+        texHasFlag |= 0x01 << slot;
+
+        ++slot;
+    }
+    return slot;
 }

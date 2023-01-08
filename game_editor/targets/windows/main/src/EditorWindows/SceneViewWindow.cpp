@@ -104,10 +104,10 @@ void SceneViewWindow::on_gui() {
             const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
 
             // Apply rotation around the local right vector after current rotation.
-            rotation = math::gfx::quatenion_from_angle_axis(delta.y * SCALE_FACTOR, right) * rotation;
+            rotation = math::gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * rotation;
 
             // And apply rotation arround the world up vector.
-            rotation = math::gfx::quatenion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * rotation;
+            rotation = math::gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * rotation;
 
             ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
         }

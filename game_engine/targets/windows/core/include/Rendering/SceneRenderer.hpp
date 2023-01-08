@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <unordered_set>
+#include <cassert>
 
 class SceneRenderer {
     using TextureEntry = nodec_rendering::resources::Material::TextureEntry;
@@ -89,7 +90,7 @@ public:
 
 public:
     SceneRenderer(Graphics *pGfx, nodec::resource_management::ResourceRegistry &resourceRegistry)
-        : mpGfx(pGfx),
+        : gfx_(pGfx),
           mScenePropertiesCB(pGfx, sizeof(SceneProperties), &mSceneProperties),
           mModelPropertiesCB(pGfx, sizeof(ModelProperties), &mModelProperties),
           mTextureConfigCB(pGfx, sizeof(TextureConfig), &mTextureConfig),
@@ -133,7 +134,7 @@ public:
             mScreenQuadMesh->triangles[3] = 0;
             mScreenQuadMesh->triangles[4] = 2;
             mScreenQuadMesh->triangles[5] = 3;
-            mScreenQuadMesh->update_device_memory(mpGfx);
+            mScreenQuadMesh->update_device_memory(gfx_);
         }
 
         {
@@ -141,7 +142,7 @@ public:
             Microsoft::WRL::ComPtr<ID3D11Texture2D> depthStencilTexture;
             D3D11_TEXTURE2D_DESC depthStencilBufferDesc{};
             depthStencilBufferDesc.Width = pGfx->GetWidth();
-            depthStencilBufferDesc.Height = mpGfx->GetHeight();
+            depthStencilBufferDesc.Height = gfx_->GetHeight();
             depthStencilBufferDesc.MipLevels = 1;
             depthStencilBufferDesc.ArraySize = 1;
             depthStencilBufferDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -203,12 +204,12 @@ private:
         switch (mode) {
         default:
         case CullMode::Back:
-            mRSCullBack.Bind(mpGfx);
+            mRSCullBack.Bind(gfx_);
             break;
         case CullMode::Front:
             // TODO: impl
         case CullMode::Off:
-            mRSCullNone.Bind(mpGfx);
+            mRSCullNone.Bind(gfx_);
             break;
         }
     }
@@ -220,45 +221,23 @@ private:
      * @param texHasFlag
      * @return UINT next slot number.
      */
-    UINT BindTextureEntries(const std::vector<TextureEntry> &textureEntries, uint32_t &texHasFlag) {
-        UINT slot = 0;
+    UINT bind_texture_entries(const std::vector<TextureEntry> &textureEntries, uint32_t &texHasFlag);
 
-        for (auto &entry : textureEntries) {
-            if (!entry.texture) {
-                // texture not setted.
-                // skip bind texture,
-                // but bind sampler because the The Pixel Shader unit expects a Sampler to be set at Slot 0.
-                auto &defaultSamplerState = GetSamplerState({});
-                defaultSamplerState.BindPS(mpGfx, slot);
-                defaultSamplerState.BindVS(mpGfx, slot);
+    void unbind_all_shader_resources(UINT count) {
+        assert(count <= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
 
-                ++slot;
-                continue;
-            }
+        static ID3D11ShaderResourceView* const nulls[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{nullptr};
 
-            auto *textureBackend = static_cast<TextureBackend *>(entry.texture.get());
-            {
-                auto *view = &textureBackend->shader_resource_view();
-                mpGfx->GetContext().VSSetShaderResources(slot, 1u, &view);
-                mpGfx->GetContext().PSSetShaderResources(slot, 1u, &view);
-            }
-
-            auto &samplerState = GetSamplerState(entry.sampler);
-            samplerState.BindVS(mpGfx, slot);
-            samplerState.BindPS(mpGfx, slot);
-
-            texHasFlag |= 0x01 << slot;
-
-            ++slot;
-        }
-        return slot;
+        gfx_->GetContext().VSSetShaderResources(0, count, nulls);
+        gfx_->GetContext().PSSetShaderResources(0, count, nulls);
     }
+
 
     SamplerState &GetSamplerState(const nodec_rendering::Sampler &sampler) {
         auto &state = mSamplerStates[sampler];
         if (state) return *state;
 
-        state = SamplerState::Create(mpGfx, sampler);
+        state = SamplerState::Create(gfx_, sampler);
         return *state;
     }
 
@@ -283,7 +262,7 @@ private:
     BlendState mBSDefault;
     BlendState mBSAlphaBlend;
 
-    Graphics *mpGfx;
+    Graphics *gfx_;
 
     std::shared_ptr<MeshBackend> mQuadMesh;
     std::unique_ptr<MeshBackend> mScreenQuadMesh;
@@ -292,4 +271,5 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDepthStencilView;
 
     FontCharacterDatabase mFontCharacterDatabase;
+
 };
