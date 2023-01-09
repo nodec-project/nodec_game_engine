@@ -3,6 +3,7 @@
 #include "../ResourceExporter.hpp"
 #include "../ResourceImporter.hpp"
 
+#include <imessentials/text_buffer.hpp>
 #include <imessentials/window.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 
@@ -39,39 +40,42 @@ public:
 
         if (ImGui::BeginTabBar("TabBar")) {
             if (ImGui::BeginTabItem("Import")) {
-                set_str_buffer(temp_str_buffer, IM_ARRAYSIZE(temp_str_buffer), import_path);
-                ImGui::InputText("Source", temp_str_buffer, IM_ARRAYSIZE(temp_str_buffer));
-                import_path = temp_str_buffer;
+                {
+                    auto &buffer = imessentials::get_text_buffer(1024, import_path_);
+                    ImGui::InputText("Source", buffer.data(), buffer.size());
+                    import_path_ = buffer.data();
+                }
 
-                ImGui::Combo("Target", &import_target, "Root\0Selected Entity");
+                {
+                    int current = static_cast<int>(import_target);
+                    ImGui::Combo("Target", &current, "Root\0Selected Entity");
+                    import_target = static_cast<Target>(current);
+                }
 
                 if (ImGui::Button("Import")) {
                     import_messages.clear();
 
                     bool success = false;
                     switch (import_target) {
-                    case 0: // Root
-                    {
-                        success = ResourceImporter::ImportSceneGraph(import_path, null_entity, *resource_registry_, *scene_, *scene_serialization_);
+                    case Target::Root: {
+                        success = ResourceImporter::ImportSceneGraph(import_path_, null_entity, *resource_registry_, *scene_, *scene_serialization_);
                         break;
                     }
-                    case 1: // Selected Entity
-                    {
+                    case Target::SelectedEntity: {
                         if (scene_->registry().is_valid(selected_entity_)) {
-                            success = ResourceImporter::ImportSceneGraph(import_path, selected_entity_, *resource_registry_, *scene_, *scene_serialization_);
+                            success = ResourceImporter::ImportSceneGraph(import_path_, selected_entity_, *resource_registry_, *scene_, *scene_serialization_);
                         }
                         break;
                     }
-                    default:
-                        break;
+                    default: break;
                     }
 
                     if (success) {
                         import_messages.emplace_back(ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
-                                                     Formatter() << "Scene import success: " << import_path);
+                                                     Formatter() << "Scene import success: " << import_path_);
                     } else {
                         import_messages.emplace_back(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
-                                                     Formatter() << "Scene import failed: " << import_path);
+                                                     Formatter() << "Scene import failed: " << import_path_);
                     }
                 }
 
@@ -81,22 +85,27 @@ public:
             }
 
             if (ImGui::BeginTabItem("Export")) {
-                ImGui::Combo("Source", &export_target, "Root\0Selected Entity");
+                {
+                    int current = static_cast<int>(export_target);
+                    ImGui::Combo("Source", &current, "Root\0Selected Entity");
+                    export_target = static_cast<Target>(current);
+                }
 
-                set_str_buffer(temp_str_buffer, IM_ARRAYSIZE(temp_str_buffer), export_path);
-                ImGui::InputText("Target", temp_str_buffer, IM_ARRAYSIZE(temp_str_buffer));
-                export_path = temp_str_buffer;
+                {
+                    auto &buffer = imessentials::get_text_buffer(1024, export_path_);
+                    ImGui::InputText("Target", buffer.data(), buffer.size());
+                    export_path_ = buffer.data();
+                }
 
                 bool success = false;
 
                 if (ImGui::Button("Export")) {
                     export_messages.clear();
 
-                    std::string dest_path = Formatter() << resource_path_ << "/" << export_path;
+                    std::string dest_path = Formatter() << resource_path_ << "/" << export_path_;
 
                     switch (export_target) {
-                    case 0: // Root
-                    {
+                    case Target::Root: {
                         std::vector<SceneEntity> roots;
 
                         auto root = scene_->hierarchy_system().root_hierarchy().first;
@@ -109,8 +118,7 @@ public:
                         break;
                     }
 
-                    case 1: // Selected Entity
-                    {
+                    case Target::SelectedEntity: {
                         if (scene_->registry().is_valid(selected_entity_)) {
                             std::vector<SceneEntity> roots{selected_entity_};
                             success = ResourceExporter::ExportSceneGraph(roots, scene_->registry(), *scene_serialization_, *resource_registry_, dest_path);
@@ -118,8 +126,7 @@ public:
                         break;
                     }
 
-                    default:
-                        break;
+                    default: break;
                     }
 
                     if (success) {
@@ -151,13 +158,6 @@ private:
     };
 
 private:
-    static void set_str_buffer(char *buffer, const size_t buffer_size, const std::string &source) {
-        source.copy(buffer, buffer_size - 1);
-
-        auto null_pos = std::min(source.size(), buffer_size - 1);
-        buffer[null_pos] = '\0';
-    }
-
     static void print_messages(const std::vector<MessageRecord> &messages) {
         for (auto &record : messages) {
             ImGui::PushStyleColor(ImGuiCol_Text, record.color);
@@ -167,15 +167,19 @@ private:
     }
 
 private:
-    std::string import_path;
-    std::string export_path{"level0.scene"};
+    enum class Target {
+        Root,
+        SelectedEntity
+    };
+
+    std::string import_path_{"level0.scene"};
+    std::string export_path_{"level0.scene"};
 
     std::vector<MessageRecord> export_messages;
     std::vector<MessageRecord> import_messages;
 
-    int import_target;
-    int export_target;
-    char temp_str_buffer[512]{0};
+    Target import_target{Target::Root};
+    Target export_target{Target::Root};
 
     std::string resource_path_;
     Scene *scene_;

@@ -58,7 +58,7 @@ public:
         float intensity;
     };
 
-    static constexpr size_t MAX_NUM_OF_POINT_LIGHTS = 100;
+    static constexpr size_t MAX_NUM_OF_POINT_LIGHTS = 1024;
 
     struct SceneLighting {
         nodec::Vector4f ambientColor;

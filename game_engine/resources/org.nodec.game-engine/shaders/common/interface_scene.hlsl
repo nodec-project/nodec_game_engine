@@ -14,7 +14,7 @@ struct PointLight {
     float intensity;
 };
 
-#define MAX_NUM_OF_POINT_LIGHTS 100
+#define MAX_NUM_OF_POINT_LIGHTS 1024
 
 struct SceneLighting
 {
