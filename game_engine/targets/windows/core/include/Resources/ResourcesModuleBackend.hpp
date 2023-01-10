@@ -81,7 +81,6 @@ public:
     }
 
 private:
-    ResourcesModule::ResourcePathChangedSignal::Connection
-        resource_path_changed_connection_;
+    nodec::signals::Connection resource_path_changed_connection_;
     std::unique_ptr<ResourceLoader> resource_loader_;
 };

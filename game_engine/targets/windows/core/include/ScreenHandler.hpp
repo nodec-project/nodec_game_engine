@@ -5,7 +5,7 @@
 #include <nodec_screen/impl/screen_module.hpp>
 
 #include <nodec/macros.hpp>
-#include <nodec/signals.hpp>
+#include <nodec/signals/signal.hpp>
 
 #include <cassert>
 
@@ -68,14 +68,9 @@ private:
 
     Window *mpWindow{nullptr};
 
-    ScreenModule::ResolutionChangedSignal::Connection
-        mResolutionChangedConnection;
-
-    ScreenModule::SizeChangedSignal::Connection
-        mSizeChangedConnection;
-
-    ScreenModule::TitleChangedSignal::Connection
-        mTitleChangedConnection;
+    nodec::signals::Connection mResolutionChangedConnection;
+    nodec::signals::Connection mSizeChangedConnection;
+    nodec::signals::Connection mTitleChangedConnection;
 
 private:
     NODEC_DISABLE_COPY(ScreenHandler)

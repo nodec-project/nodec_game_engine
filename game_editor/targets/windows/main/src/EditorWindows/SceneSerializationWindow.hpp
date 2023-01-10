@@ -188,5 +188,5 @@ private:
 
     SceneEntity selected_entity_;
 
-    SelectedEntityChangedSignal::Connection selected_entity_changed_signal_connection_;
+    nodec::signals::Connection selected_entity_changed_signal_connection_;
 };

@@ -7,7 +7,7 @@
 
 #include <nodec/formatter.hpp>
 #include <nodec/macros.hpp>
-#include <nodec/signals.hpp>
+#include <nodec/signals/signal.hpp>
 
 #define NOMINMAX
 #include <Windows.h>
