@@ -7,3 +7,7 @@ English | [日本語](./README_jp.md)
 ## Architecture
 
 ![](./docs/architecture.drawio.png)
+
+## Template Project
+
+<https://github.com/ContentsViewer/hello-nodec-game>
