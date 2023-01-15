@@ -3,6 +3,7 @@
 #include <Physics/RigidBodyBackend.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
+#include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
 
@@ -75,6 +76,20 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         }
     }
 
+    // Apply force.
+    {
+        std::vector<SceneEntity> to_deletes;
+        world.scene().registry().view<RigidBodyActivity, ImpulseForce>().each([&](auto entt, RigidBodyActivity &activity, ImpulseForce &force) {
+            activity.rigid_body_backend->native().applyCentralImpulse(btVector3{0, 0, 100});
+            to_deletes.emplace_back(entt);
+        });
+
+        for (auto &entt : to_deletes) {
+            world.scene().registry().remove_component<ImpulseForce>(entt);
+        }
+    }
+
+    // Step simulation.
     {
         const auto delta_time = world.clock().delta_time();
         if (delta_time == 0.f) return;
@@ -114,7 +129,6 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             const int num_of_contacts = contact_manifold->getNumContacts();
             if (num_of_contacts == 0) continue;
 
-            
             CollisionInfo collision_info;
             collision_info.num_of_contacts = num_of_contacts;
 
