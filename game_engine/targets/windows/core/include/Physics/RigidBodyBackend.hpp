@@ -87,7 +87,7 @@ public:
         //const auto &rb_trfm = native_->getWorldTransform();
 
         const auto rb_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
-        const auto rb_rotation = static_cast<Quaternionf>(to_quatenion(rb_trfm.getRotation()));
+        const auto rb_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
 
         if (math::approx_equal(world_position, rb_position) && math::approx_equal_rotation(world_rotation, rb_rotation, math::default_rel_tol<float>, 0.001f)) return;
 

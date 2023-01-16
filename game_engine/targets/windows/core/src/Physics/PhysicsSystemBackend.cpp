@@ -80,7 +80,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
     {
         std::vector<SceneEntity> to_deletes;
         world.scene().registry().view<RigidBodyActivity, ImpulseForce>().each([&](auto entt, RigidBodyActivity &activity, ImpulseForce &force) {
-            activity.rigid_body_backend->native().applyCentralImpulse(btVector3{0, 0, 100});
+            activity.rigid_body_backend->native().applyCentralImpulse(to_bt_vector3(force.force));
             to_deletes.emplace_back(entt);
         });
 
@@ -105,7 +105,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             activity.rigid_body_backend->native().getMotionState()->getWorldTransform(rb_trfm);
 
             const auto world_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
-            const auto world_rotation = static_cast<Quaternionf>(to_quatenion(rb_trfm.getRotation()));
+            const auto world_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
 
             // activity.prev_world_position = world_position;
             // activity.prev_world_rotation = world_rotation;
