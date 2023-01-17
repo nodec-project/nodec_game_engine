@@ -18,6 +18,7 @@
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
+#include <nodec_physics/systems/physics_system.hpp>
 #include <nodec_rendering/systems/visibility_system.hpp>
 #include <nodec_resources/impl/resources_module.hpp>
 #include <nodec_scene/scene.hpp>

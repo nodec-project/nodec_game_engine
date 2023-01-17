@@ -3,6 +3,7 @@
 #include <Physics/RigidBodyBackend.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
+#include <nodec_physics/components/collision_stay.hpp>
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
@@ -43,7 +44,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
                 if (result.second) {
                     // When the activity is first created.
 
-                    auto rigid_body_backend = std::make_unique<RigidBodyBackend>(rigid_body.mass, shape, world_scale);
+                    auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entt, rigid_body.mass, shape, world_scale);
                     rigid_body_backend->update_transform(world_position, world_rotation);
                     activity->prev_world_position = world_position;
                     activity->prev_world_rotation = world_rotation;
@@ -89,6 +90,11 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         }
     }
 
+    {
+        world.scene().registry().clear_component<CollisionStay>();
+    }
+
+
     // Step simulation.
     {
         const auto delta_time = world.clock().delta_time();
@@ -121,6 +127,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     // https://github.com/bulletphysics/bullet3/issues/1745
     {
+
         const int num_of_manifolds = dynamics_world_->getDispatcher()->getNumManifolds();
 
         for (int i = 0; i < num_of_manifolds; ++i) {
@@ -130,13 +137,23 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             if (num_of_contacts == 0) continue;
 
             CollisionInfo collision_info;
-            collision_info.num_of_contacts = num_of_contacts;
 
-            for (int j = 0; j < num_of_contacts; ++j) {
-                const auto &point = contact_manifold->getContactPoint(j);
-            }
+            const auto *body0 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody0()->getUserPointer());
+            const auto *body1 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody1()->getUserPointer());
 
-            collision_signal_(collision_info);
+            world.scene().registry().emplace_component<CollisionStay>(body0->entity());
+            world.scene().registry().emplace_component<CollisionStay>(body1->entity());
+
+            //collision_info.entity0 = body0->entity();
+            //collision_info.entity1 = body1->entity();
+
+            //collision_info.num_of_contacts = num_of_contacts;
+
+            //for (int j = 0; j < num_of_contacts; ++j) {
+            //    const auto &point = contact_manifold->getContactPoint(j);
+            //}
+
+            //collision_stay_signal_(collision_info);
         }
     }
 }

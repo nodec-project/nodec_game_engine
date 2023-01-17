@@ -2,10 +2,11 @@
 
 #include "RigidBodyMotionState.hpp"
 
-#include <nodec_physics/components/physics_shape.hpp>
-#include <nodec_physics/components/rigid_body.hpp>
 #include <nodec/math/math.hpp>
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
+#include <nodec_physics/components/physics_shape.hpp>
+#include <nodec_physics/components/rigid_body.hpp>
+#include <nodec_scene/scene_registry.hpp>
 
 #include <btBulletDynamicsCommon.h>
 
@@ -15,10 +16,10 @@
 
 class RigidBodyBackend final {
 public:
-    RigidBodyBackend(float mass,
+    RigidBodyBackend(nodec_scene::SceneEntity entity, float mass,
                      const nodec_physics::components::PhysicsShape &shape,
                      const nodec::Vector3f &world_shape_scale)
-        : world_shape_scale_(world_shape_scale) {
+        : entity_(entity), world_shape_scale_(world_shape_scale) {
         using namespace nodec_physics::components;
         // const btVector3 &local_inertia = btVector3(0, 0, 0)
 
@@ -49,6 +50,8 @@ public:
         motion_state_.reset(new RigidBodyMotionState());
         native_.reset(new btRigidBody(btRigidBody::btRigidBodyConstructionInfo(mass, motion_state_.get(), collision_shape_.get(), local_inertia)));
 
+        native_->setUserPointer(this);
+
         if (mass == 0.0f) {
             native_->setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT | btCollisionObject::CF_STATIC_OBJECT);
             native_->setActivationState(DISABLE_DEACTIVATION);
@@ -59,6 +62,10 @@ public:
         if (binded_world) {
             binded_world->removeRigidBody(native_.get());
         }
+    }
+
+    nodec_scene::SceneEntity entity() const noexcept {
+        return entity_;
     }
 
     btRigidBody &native() {
@@ -79,12 +86,12 @@ public:
         binded_world->removeRigidBody(native_.get());
     }
 
-    void update_transform(const nodec::Vector3f& world_position, const nodec::Quaternionf& world_rotation) {
+    void update_transform(const nodec::Vector3f &world_position, const nodec::Quaternionf &world_rotation) {
         using namespace nodec;
 
         btTransform rb_trfm;
         motion_state_->getWorldTransform(rb_trfm);
-        //const auto &rb_trfm = native_->getWorldTransform();
+        // const auto &rb_trfm = native_->getWorldTransform();
 
         const auto rb_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
         const auto rb_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
@@ -105,6 +112,7 @@ public:
     }
 
 private:
+    nodec_scene::SceneEntity entity_;
     std::unique_ptr<RigidBodyMotionState> motion_state_;
     std::unique_ptr<btCollisionShape> collision_shape_;
     std::unique_ptr<btRigidBody> native_;

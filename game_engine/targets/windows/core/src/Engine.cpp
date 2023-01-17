@@ -8,6 +8,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     using namespace nodec_input;
     using namespace nodec_resources;
     using namespace nodec_scene_serialization;
+    using namespace nodec_physics::systems;
 
     nodec::logging::InfoStream(__FILE__, __LINE__) << "[Engine] >>> Created!";
 
@@ -51,6 +52,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     app.add_service<Resources>(resources_module_);
     app.add_service<SceneSerialization>(scene_serialization_module_);
     app.add_service<SceneLoader>(scene_loader_);
+    app.add_service<PhysicsSystem>(physics_system_);
 
 }
 
