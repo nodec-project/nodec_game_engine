@@ -94,7 +94,6 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         world.scene().registry().clear_component<CollisionStay>();
     }
 
-
     // Step simulation.
     {
         const auto delta_time = world.clock().delta_time();
