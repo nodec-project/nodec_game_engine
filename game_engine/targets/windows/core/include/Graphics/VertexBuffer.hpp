@@ -20,16 +20,16 @@ public:
         D3D11_SUBRESOURCE_DATA sd = {};
         sd.pSysMem = pSysMem;
         ThrowIfFailedGfx(
-            pGraphics->GetDevice().CreateBuffer(&bd, &sd, &pVertexBuffer),
+            pGraphics->device().CreateBuffer(&bd, &sd, &pVertexBuffer),
             pGraphics, __FILE__, __LINE__);
     }
 
     void Bind(Graphics* pGraphics) {
         const UINT offset = 0u;
 
-        pGraphics->GetContext().IASetVertexBuffers(0u, 1u, pVertexBuffer.GetAddressOf(), &mStrideBytes, &offset);
+        pGraphics->context().IASetVertexBuffers(0u, 1u, pVertexBuffer.GetAddressOf(), &mStrideBytes, &offset);
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[VertexShader::Bind] >>> DXGI Logs:"

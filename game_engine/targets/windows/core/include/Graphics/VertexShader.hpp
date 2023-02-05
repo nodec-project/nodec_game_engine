@@ -17,7 +17,7 @@ public:
         );
 
         ThrowIfFailedGfx(
-            pGraphics->GetDevice().CreateVertexShader(
+            pGraphics->device().CreateVertexShader(
                 mpBytecodeBlob->GetBufferPointer(), mpBytecodeBlob->GetBufferSize(),
                 nullptr, &mpVertexShader
             ),
@@ -26,9 +26,9 @@ public:
     }
 
     void Bind(Graphics* pGraphics) {
-        pGraphics->GetContext().VSSetShader(mpVertexShader.Get(), nullptr, 0u);
+        pGraphics->context().VSSetShader(mpVertexShader.Get(), nullptr, 0u);
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[VertexShader::Bind] >>> DXGI Logs:"

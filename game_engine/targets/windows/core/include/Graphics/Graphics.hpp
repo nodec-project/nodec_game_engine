@@ -13,7 +13,6 @@
 
 #include <stdexcept>
 
-
 class Graphics {
 public:
     Graphics(HWND hWnd, int width, int height);
@@ -23,37 +22,38 @@ public:
     void EndFrame();
     void DrawIndexed(UINT count);
 
-    ID3D11Device &GetDevice() noexcept {
-        return *mpDevice.Get();
+    ID3D11Device &device() noexcept {
+        return *device_.Get();
     }
-    ID3D11DeviceContext &GetContext() noexcept {
-        return *mpContext.Get();
+    ID3D11DeviceContext &context() noexcept {
+        return *context_.Get();
     }
-    DxgiInfoLogger &GetInfoLogger() noexcept {
+
+    DxgiInfoLogger &info_logger() noexcept {
         return mInfoLogger;
     };
 
-    ID3D11RenderTargetView &GetRenderTargetView() noexcept {
-        return *mpTarget.Get();
+    ID3D11RenderTargetView &render_target_view() noexcept {
+        return *render_target_view_.Get();
     }
 
-    UINT GetWidth() const noexcept {
-        return mWidth;
+    UINT width() const noexcept {
+        return width_;
     };
-    UINT GetHeight() const noexcept {
-        return mHeight;
+    UINT height() const noexcept {
+        return height_;
     };
 
 private:
-    UINT mWidth;
-    UINT mHeight;
+    UINT width_;
+    UINT height_;
 
     DxgiInfoLogger mInfoLogger;
-    Microsoft::WRL::ComPtr<ID3D11Device> mpDevice;
+    Microsoft::WRL::ComPtr<ID3D11Device> device_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> mpSwap;
-    Microsoft::WRL::ComPtr<ID3D11DeviceContext> mpContext;
-    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> mpTarget;
-    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDSV;
+    Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
+    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+    //Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDSV;
 
 private:
     NODEC_DISABLE_COPY(Graphics)
@@ -62,7 +62,7 @@ private:
 inline void ThrowIfFailedGfx(const std::string &type, HRESULT hr, Graphics *pGfx, const char *file, size_t line) {
     using namespace nodec;
     if (FAILED(hr)) {
-        const auto logs = pGfx->GetInfoLogger().Dump();
+        const auto logs = pGfx->info_logger().Dump();
 
         throw std::runtime_error(
             ErrorFormatter<std::runtime_error>(file, line)

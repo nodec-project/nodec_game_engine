@@ -67,13 +67,15 @@ void Engine::setup() {
 
     screen_handler_->Setup(window_.get());
 
-    resources_module_->setup_on_runtime(&window_->GetGraphics(), font_library_.get());
+    resources_module_->setup_on_runtime(&window_->graphics(), font_library_.get());
 
-    scene_renderer_.reset(new SceneRenderer(&window_->GetGraphics(), resources_module_->registry()));
+    scene_renderer_.reset(new SceneRenderer(&window_->graphics(), resources_module_->registry()));
 
     audio_platform_.reset(new AudioPlatform());
 
     scene_audio_system_.reset(new SceneAudioSystem(audio_platform_.get(), &world_module_->scene().registry()));
+
+    scene_rendering_context_.reset(new SceneRenderingContext(window_->graphics().width(), window_->graphics().height(), &window_->graphics()));
 
     world_module_->stepped().connect([&](auto &world) {
         scene_audio_system_->UpdateAudio(world_module_->scene().registry());
@@ -93,8 +95,8 @@ void Engine::frame_end() {
     }
 
     scene_renderer_->Render(world_module_->scene(),
-                            &window_->GetGraphics().GetRenderTargetView(),
-                            window_->GetGraphics().GetWidth(), window_->GetGraphics().GetHeight());
+                            window_->graphics().render_target_view(),
+                            *scene_rendering_context_);
 
-    window_->GetGraphics().EndFrame();
+    window_->graphics().EndFrame();
 }

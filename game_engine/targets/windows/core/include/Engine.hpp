@@ -46,7 +46,7 @@ public:
     void setup();
 
     void frame_begin() {
-        window_->GetGraphics().BeginFrame();
+        window_->graphics().BeginFrame();
     }
 
     void frame_end();
@@ -109,6 +109,8 @@ private:
     std::unique_ptr<SceneAudioSystem> scene_audio_system_;
 
     std::shared_ptr<PhysicsSystemBackend> physics_system_;
+
+    std::unique_ptr<SceneRenderingContext> scene_rendering_context_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

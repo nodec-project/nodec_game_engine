@@ -17,15 +17,15 @@ public:
         isd.pSysMem = pSysMem;
 
         ThrowIfFailedGfx(
-            pGraphics->GetDevice().CreateBuffer(&ibd, &isd, &pIndexBuffer),
+            pGraphics->device().CreateBuffer(&ibd, &isd, &pIndexBuffer),
             pGraphics, __FILE__, __LINE__
         );
     }
 
     void Bind(Graphics* pGraphics) {
-        pGraphics->GetContext().IASetIndexBuffer(pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0u);
+        pGraphics->context().IASetIndexBuffer(pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0u);
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[IndexBuffer::Bind] >>> DXGI Logs:"

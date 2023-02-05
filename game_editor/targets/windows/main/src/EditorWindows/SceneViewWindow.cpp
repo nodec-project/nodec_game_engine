@@ -19,7 +19,7 @@ SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, Scene
     texture_desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
     ThrowIfFailedGfx(
-        gfx.GetDevice().CreateTexture2D(&texture_desc, nullptr, &texture_),
+        gfx.device().CreateTexture2D(&texture_desc, nullptr, &texture_),
         &gfx, __FILE__, __LINE__);
 
     // Generate the render target views.
@@ -29,7 +29,7 @@ SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, Scene
         desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 
         ThrowIfFailedGfx(
-            gfx.GetDevice().CreateRenderTargetView(texture_.Get(), &desc, &render_target_view_),
+            gfx.device().CreateRenderTargetView(texture_.Get(), &desc, &render_target_view_),
             &gfx, __FILE__, __LINE__);
     }
 
@@ -41,10 +41,11 @@ SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, Scene
         desc.Texture2D.MipLevels = 1;
 
         ThrowIfFailedGfx(
-            gfx.GetDevice().CreateShaderResourceView(texture_.Get(), &desc, &shader_resource_view_),
+            gfx.device().CreateShaderResourceView(texture_.Get(), &desc, &shader_resource_view_),
             &gfx, __FILE__, __LINE__);
     }
 
+    rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, &gfx));
     scene_ = &scene;
     renderer_ = &renderer;
 }
@@ -69,7 +70,7 @@ void SceneViewWindow::on_gui() {
         XMStoreFloat4x4(&matrix, XMMatrixPerspectiveFovLH(
                                      XMConvertToRadians(45),
                                      view_aspect,
-                                     0.01f, 100.0f));
+                                     0.01f, 10000.0f));
 
         projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
     }
@@ -122,7 +123,7 @@ void SceneViewWindow::on_gui() {
 
     // ImGuizmo::SetDrawlist();
 
-    renderer_->Render(*scene_, view_, projection_, render_target_view_.Get(), VIEW_WIDTH, VIEW_HEIGHT);
+    renderer_->Render(*scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
 
     ImGui::Image((void *)shader_resource_view_.Get(), ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
 

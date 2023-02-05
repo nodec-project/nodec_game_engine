@@ -31,8 +31,77 @@
 #include <DirectXMath.h>
 
 #include <algorithm>
-#include <unordered_set>
 #include <cassert>
+#include <unordered_set>
+
+class SceneRenderingContext {
+public:
+    SceneRenderingContext(std::uint32_t target_width, std::uint32_t target_height, Graphics *gfx)
+        : gfx_(gfx), target_width_(target_width), target_height_(target_height) {
+        assert(gfx_);
+
+        {
+            // Generate the depth stencil buffer texture.
+            Microsoft::WRL::ComPtr<ID3D11Texture2D> depthStencilTexture;
+            D3D11_TEXTURE2D_DESC depthStencilBufferDesc{};
+            depthStencilBufferDesc.Width = target_width;
+            depthStencilBufferDesc.Height = target_height;
+            depthStencilBufferDesc.MipLevels = 1;
+            depthStencilBufferDesc.ArraySize = 1;
+            depthStencilBufferDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+            depthStencilBufferDesc.SampleDesc.Count = 1;
+            depthStencilBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+            depthStencilBufferDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+            ThrowIfFailedGfx(
+                gfx->device().CreateTexture2D(&depthStencilBufferDesc, nullptr, &depthStencilTexture),
+                gfx, __FILE__, __LINE__);
+
+            D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc{};
+            depthStencilViewDesc.Format = depthStencilBufferDesc.Format;
+            depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+
+            ThrowIfFailedGfx(
+                gfx->device().CreateDepthStencilView(depthStencilTexture.Get(), &depthStencilViewDesc, &depth_stencil_view_),
+                gfx, __FILE__, __LINE__);
+        }
+    }
+
+    GeometryBuffer &geometry_buffer(const std::string &name) {
+        return geometry_buffer(name, target_width_, target_height_);
+    }
+
+    GeometryBuffer &geometry_buffer(const std::string &name, std::uint32_t width, std::uint32_t height) {
+        auto &buffer = geometry_buffers_[name];
+        if (!buffer) {
+            buffer.reset(new GeometryBuffer(gfx_, width, height));
+        }
+        return *buffer;
+    }
+
+    void swap_geometry_buffers(const std::string &lhs, const std::string &rhs) {
+        std::swap(geometry_buffers_[lhs], geometry_buffers_[rhs]);
+    }
+
+    std::uint32_t target_width() const noexcept {
+        return target_width_;
+    }
+
+    std::uint32_t target_height() const noexcept {
+        return target_height_;
+    }
+
+    ID3D11DepthStencilView &depth_stencil_view() {
+        return *depth_stencil_view_.Get();
+    }
+
+private:
+    std::uint32_t target_width_;
+    std::uint32_t target_height_;
+    Graphics *gfx_;
+    std::unordered_map<std::string, std::unique_ptr<GeometryBuffer>> geometry_buffers_;
+
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> depth_stencil_view_;
+};
 
 class SceneRenderer {
     using TextureEntry = nodec_rendering::resources::Material::TextureEntry;
@@ -89,84 +158,13 @@ public:
     };
 
 public:
-    SceneRenderer(Graphics *pGfx, nodec::resource_management::ResourceRegistry &resourceRegistry)
-        : gfx_(pGfx),
-          mScenePropertiesCB(pGfx, sizeof(SceneProperties), &mSceneProperties),
-          mModelPropertiesCB(pGfx, sizeof(ModelProperties), &mModelProperties),
-          mTextureConfigCB(pGfx, sizeof(TextureConfig), &mTextureConfig),
-          mBSDefault(BlendState::CreateDefaultBlend(pGfx)),
-          mBSAlphaBlend(BlendState::CreateAlphaBlend(pGfx)),
-          mRSCullBack{pGfx, D3D11_CULL_BACK},
-          mRSCullNone{pGfx, D3D11_CULL_NONE},
-          mFontCharacterDatabase{pGfx} {
-        using namespace nodec_rendering::resources;
-        using namespace nodec::resource_management;
-        using namespace nodec;
+    SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resourceRegistry);
 
-        // Get quad mesh from resource registry.
-        {
-            auto quadMesh = resourceRegistry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
-
-            if (!quadMesh) {
-                logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'quad.mesh'.\n"
-                                                           "Make sure the 'org.nodec.game-engine' resource-package is installed.";
-            }
-
-            mQuadMesh = std::static_pointer_cast<MeshBackend>(quadMesh);
-        }
-
-        // Make screen quad mesh in NDC space which is not depend on target view size.
-        {
-            mScreenQuadMesh.reset(new MeshBackend());
-
-            mScreenQuadMesh->vertices.resize(4);
-            mScreenQuadMesh->triangles.resize(6);
-
-            mScreenQuadMesh->vertices[0] = {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}};
-            mScreenQuadMesh->vertices[1] = {{-1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}};
-            mScreenQuadMesh->vertices[2] = {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}};
-            mScreenQuadMesh->vertices[3] = {{1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}};
-
-            mScreenQuadMesh->triangles[0] = 0;
-            mScreenQuadMesh->triangles[1] = 1;
-            mScreenQuadMesh->triangles[2] = 2;
-
-            mScreenQuadMesh->triangles[3] = 0;
-            mScreenQuadMesh->triangles[4] = 2;
-            mScreenQuadMesh->triangles[5] = 3;
-            mScreenQuadMesh->update_device_memory(gfx_);
-        }
-
-        {
-            // Generate the depth stencil buffer texture.
-            Microsoft::WRL::ComPtr<ID3D11Texture2D> depthStencilTexture;
-            D3D11_TEXTURE2D_DESC depthStencilBufferDesc{};
-            depthStencilBufferDesc.Width = pGfx->GetWidth();
-            depthStencilBufferDesc.Height = gfx_->GetHeight();
-            depthStencilBufferDesc.MipLevels = 1;
-            depthStencilBufferDesc.ArraySize = 1;
-            depthStencilBufferDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-            depthStencilBufferDesc.SampleDesc.Count = 1;
-            depthStencilBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-            depthStencilBufferDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-            ThrowIfFailedGfx(
-                pGfx->GetDevice().CreateTexture2D(&depthStencilBufferDesc, nullptr, &depthStencilTexture),
-                pGfx, __FILE__, __LINE__);
-
-            D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc{};
-            depthStencilViewDesc.Format = depthStencilBufferDesc.Format;
-            depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-
-            ThrowIfFailedGfx(
-                pGfx->GetDevice().CreateDepthStencilView(depthStencilTexture.Get(), &depthStencilViewDesc, &mpDepthStencilView),
-                pGfx, __FILE__, __LINE__);
-        }
-    }
-
-    void Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pTarget, UINT width, UINT height);
+    // void Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pTarget, UINT width, UINT height);
+    void Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &render_target, SceneRenderingContext &context);
 
     void Render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, nodec::Matrix4x4f &projection,
-                ID3D11RenderTargetView *pTarget, UINT width, UINT height);
+                ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
 
 private:
     void SetupSceneLighting(nodec_scene::Scene &scene) {
@@ -194,7 +192,7 @@ private:
     void Render(nodec_scene::Scene &scene,
                 const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixVInverse,
                 const DirectX::XMMATRIX &matrixP, const DirectX::XMMATRIX &matrixPInverse,
-                ID3D11RenderTargetView *pTarget, UINT width, UINT height);
+                ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
 
     void RenderModel(nodec_scene::Scene &scene, ShaderBackend *activeShader,
                      const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixP);
@@ -226,12 +224,11 @@ private:
     void unbind_all_shader_resources(UINT count) {
         assert(count <= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
 
-        static ID3D11ShaderResourceView* const nulls[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{nullptr};
+        static ID3D11ShaderResourceView *const nulls[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{nullptr};
 
-        gfx_->GetContext().VSSetShaderResources(0, count, nulls);
-        gfx_->GetContext().PSSetShaderResources(0, count, nulls);
+        gfx_->context().VSSetShaderResources(0, count, nulls);
+        gfx_->context().PSSetShaderResources(0, count, nulls);
     }
-
 
     SamplerState &GetSamplerState(const nodec_rendering::Sampler &sampler) {
         auto &state = mSamplerStates[sampler];
@@ -266,10 +263,6 @@ private:
 
     std::shared_ptr<MeshBackend> mQuadMesh;
     std::unique_ptr<MeshBackend> mScreenQuadMesh;
-    std::unordered_map<std::string, std::unique_ptr<GeometryBuffer>> mGeometryBuffers;
-
-    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDepthStencilView;
 
     FontCharacterDatabase mFontCharacterDatabase;
-
 };

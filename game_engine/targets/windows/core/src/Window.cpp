@@ -78,7 +78,7 @@ Window::Window(int width, int height,
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
     // create graphics object
-    mpGraphics = std::make_unique<Graphics>(hWnd, gfxWidth, gfxHeight);
+    graphics_ = std::make_unique<Graphics>(hWnd, gfxWidth, gfxHeight);
 
     // Init ImGUI Win32 Impl
     ImGui_ImplWin32_Init(hWnd);

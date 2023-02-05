@@ -35,4 +35,5 @@ private:
     nodec::Matrix4x4f view_;
     nodec_scene::Scene *scene_{nullptr};
     SceneRenderer *renderer_{nullptr};
+    std::unique_ptr<SceneRenderingContext> rendering_context_;
 };

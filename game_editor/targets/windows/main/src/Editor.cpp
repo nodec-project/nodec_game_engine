@@ -32,7 +32,7 @@ Editor::Editor(Engine *engine)
     });
 
     window_manager().register_window<SceneViewWindow>([=]() {
-        return std::make_unique<SceneViewWindow>(engine->window().GetGraphics(),
+        return std::make_unique<SceneViewWindow>(engine->window().graphics(),
                                                  engine->world_module().scene(), engine->scene_renderer());
     });
 
@@ -240,7 +240,7 @@ void Editor::setup() {
 
     // TODO: At first we should fix SceneRenderer.
     //  SceneRenderer is so buggy for using multi-target rendering.
-    // window_manager().get_window<SceneViewWindow>();
+    window_manager().get_window<SceneViewWindow>();
 
     window_manager().get_window<SceneHierarchyWindow>();
     window_manager().get_window<EntityInspectorWindow>();

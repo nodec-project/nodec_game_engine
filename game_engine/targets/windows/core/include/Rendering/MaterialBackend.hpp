@@ -75,7 +75,7 @@ public:
     }
 
 public:
-    void bind_constant_buffer(Graphics* gfx, UINT slot) {
+    void bind_constant_buffer(Graphics *gfx, UINT slot) {
         update_device_memory();
 
         if (constant_buffer_) {
@@ -87,7 +87,6 @@ public:
     ConstantBuffer *constant_buffer() {
         return constant_buffer_.get();
     }
-
 
     const auto &texture_entries() const {
         return texture_entries_;

@@ -28,12 +28,12 @@ public:
 
     BlendState(Graphics *pGfx, const D3D11_BLEND_DESC &desc) {
         ThrowIfFailedGfx(
-            pGfx->GetDevice().CreateBlendState(&desc, &mpBlendState),
+            pGfx->device().CreateBlendState(&desc, &mpBlendState),
             pGfx, __FILE__, __LINE__);
     }
 
     void Bind(Graphics *pGfx) {
-        pGfx->GetContext().OMSetBlendState(mpBlendState.Get(), nullptr, 0xFFFFFFFFu);
+        pGfx->context().OMSetBlendState(mpBlendState.Get(), nullptr, 0xFFFFFFFFu);
     }
 
 private:

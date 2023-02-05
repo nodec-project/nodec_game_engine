@@ -18,7 +18,7 @@ public:
         );
 
         ThrowIfFailedGfx(
-            pGraphics->GetDevice().CreatePixelShader(
+            pGraphics->device().CreatePixelShader(
                 pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
                 nullptr, &mpPixelShader
             ),
@@ -27,9 +27,9 @@ public:
     }
 
     void Bind(Graphics* pGraphics) {
-        pGraphics->GetContext().PSSetShader(mpPixelShader.Get(), nullptr, 0u);
+        pGraphics->context().PSSetShader(mpPixelShader.Get(), nullptr, 0u);
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[PixelShader::Bind] >>> DXGI Logs:"

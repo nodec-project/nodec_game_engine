@@ -7,11 +7,10 @@
 #include <memory>
 
 class TextureBackend : public nodec_rendering::resources::Texture {
-
 public:
     TextureBackend() {}
 
-    ID3D11ShaderResourceView& shader_resource_view() {
+    ID3D11ShaderResourceView &shader_resource_view() {
         return *shader_resource_view_;
     }
 
@@ -33,7 +32,7 @@ protected:
     }
 
 private:
-    ID3D11ShaderResourceView* shader_resource_view_{nullptr};
+    ID3D11ShaderResourceView *shader_resource_view_{nullptr};
     int width_;
     int height_;
 };

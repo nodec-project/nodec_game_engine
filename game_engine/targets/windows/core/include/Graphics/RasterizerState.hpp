@@ -8,14 +8,14 @@ public:
         desc.CullMode = cullMode;
         //desc.FillMode = D3D11_FILL_WIREFRAME;
 
-        ThrowIfFailedGfx(pGfx->GetDevice().CreateRasterizerState(&desc, &mpRasterizerState),
+        ThrowIfFailedGfx(pGfx->device().CreateRasterizerState(&desc, &mpRasterizerState),
                          pGfx, __FILE__, __LINE__);
     }
 
     void Bind(Graphics *pGfx) {
-        pGfx->GetContext().RSSetState(mpRasterizerState.Get());
+        pGfx->context().RSSetState(mpRasterizerState.Get());
 
-        const auto logs = pGfx->GetInfoLogger().Dump();
+        const auto logs = pGfx->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[RasterizerState::Bind] >>> DXGI Logs:" << logs;

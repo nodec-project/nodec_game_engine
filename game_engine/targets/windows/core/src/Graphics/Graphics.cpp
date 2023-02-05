@@ -16,7 +16,7 @@ namespace wrl = Microsoft::WRL;
 //  * https://docs.microsoft.com/en-us/windows/win32/direct3d11/dx-graphics-overviews
 
 Graphics::Graphics(HWND hWnd, int width, int height)
-    : mWidth(width), mHeight(height) {
+    : width_(width), height_(height) {
     DXGI_SWAP_CHAIN_DESC sd = {};
     sd.BufferDesc.Width = width;
     sd.BufferDesc.Height = height;
@@ -51,26 +51,26 @@ Graphics::Graphics(HWND hWnd, int width, int height)
                          D3D11_SDK_VERSION,
                          &sd,
                          &mpSwap,
-                         &mpDevice,
+                         &device_,
                          nullptr,
-                         &mpContext),
+                         &context_),
                      this, __FILE__, __LINE__);
 
     // gain access to texture subresource in swap chain (back buffer)
     wrl::ComPtr<ID3D11Texture2D> pBackBuffer;
 
     ThrowIfFailedGfx(mpSwap->GetBuffer(0, __uuidof(ID3D11Texture2D), &pBackBuffer), this, __FILE__, __LINE__);
-    ThrowIfFailedGfx(mpDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &mpTarget), this, __FILE__, __LINE__);
+    ThrowIfFailedGfx(device_->CreateRenderTargetView(pBackBuffer.Get(), nullptr, &render_target_view_), this, __FILE__, __LINE__);
 
     D3D11_DEPTH_STENCIL_DESC dsDesc = {};
     dsDesc.DepthEnable = TRUE;
     dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     dsDesc.DepthFunc = D3D11_COMPARISON_LESS;
     wrl::ComPtr<ID3D11DepthStencilState> pDSState;
-    ThrowIfFailedGfx(mpDevice->CreateDepthStencilState(&dsDesc, &pDSState), this, __FILE__, __LINE__);
+    ThrowIfFailedGfx(device_->CreateDepthStencilState(&dsDesc, &pDSState), this, __FILE__, __LINE__);
 
     // bind depth state
-    mpContext->OMSetDepthStencilState(pDSState.Get(), 1u);
+    context_->OMSetDepthStencilState(pDSState.Get(), 1u);
 
     // create depth stensil texture
     wrl::ComPtr<ID3D11Texture2D> pDepthStencil;
@@ -84,19 +84,19 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     descDepth.SampleDesc.Quality = 0u;
     descDepth.Usage = D3D11_USAGE_DEFAULT;
     descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-    ThrowIfFailedGfx(mpDevice->CreateTexture2D(&descDepth, nullptr, &pDepthStencil), this, __FILE__, __LINE__);
+    ThrowIfFailedGfx(device_->CreateTexture2D(&descDepth, nullptr, &pDepthStencil), this, __FILE__, __LINE__);
 
-    // create view of depth stensil texture
-    D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
-    descDSV.Format = DXGI_FORMAT_D32_FLOAT;
-    descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    descDSV.Texture2D.MipSlice = 0u;
-    ThrowIfFailedGfx(
-        mpDevice->CreateDepthStencilView(pDepthStencil.Get(), &descDSV, &mpDSV),
-        this, __FILE__, __LINE__);
+    //// create view of depth stensil texture
+    //D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
+    //descDSV.Format = DXGI_FORMAT_D32_FLOAT;
+    //descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    //descDSV.Texture2D.MipSlice = 0u;
+    //ThrowIfFailedGfx(
+    //    device_->CreateDepthStencilView(pDepthStencil.Get(), &descDSV, &mpDSV),
+    //    this, __FILE__, __LINE__);
 
-    // bind depth stencil view to OM
-    mpContext->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
+    //// bind depth stencil view to OM
+    //context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
 
     // configure viewport
     D3D11_VIEWPORT vp;
@@ -106,10 +106,10 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0.0f;
     vp.TopLeftY = 0.0f;
-    mpContext->RSSetViewports(1u, &vp);
+    context_->RSSetViewports(1u, &vp);
 
     // init imgui d3d impl
-    ImGui_ImplDX11_Init(mpDevice.Get(), mpContext.Get());
+    ImGui_ImplDX11_Init(device_.Get(), context_.Get());
 
     nodec::logging::InfoStream(__FILE__, __LINE__)
         << "[Graphics] >>> DXGI Debug Logs:\n"
@@ -132,18 +132,18 @@ void Graphics::BeginFrame() noexcept {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    mpContext->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
+    //context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
 
-    const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
+    //const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
 
-    mpContext->ClearRenderTargetView(mpTarget.Get(), color);
-    mpContext->ClearDepthStencilView(mpDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0u);
+    //context_->ClearRenderTargetView(mpTarget.Get(), color);
+    //context_->ClearDepthStencilView(mpDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0u);
 }
 
 void Graphics::EndFrame() {
     ImGui::Render();
 
-    mpContext->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
+    //context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
 
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
@@ -165,7 +165,7 @@ void Graphics::EndFrame() {
 }
 
 void Graphics::DrawIndexed(UINT count) {
-    mpContext->DrawIndexed(count, 0u, 0u);
+    context_->DrawIndexed(count, 0u, 0u);
     const auto logs = mInfoLogger.Dump();
     if (!logs.empty()) {
         nodec::logging::WarnStream(__FILE__, __LINE__)
