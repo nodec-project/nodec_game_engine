@@ -18,7 +18,7 @@ public:
         csd.pSysMem = pSysMem;
 
         ThrowIfFailedGfx(
-            pGraphics->GetDevice().CreateBuffer(&cbd, &csd, &mpConstantBuffer),
+            pGraphics->device().CreateBuffer(&cbd, &csd, &mpConstantBuffer),
             pGraphics, __FILE__, __LINE__
         );
     }
@@ -27,7 +27,7 @@ public:
     void Update(Graphics* pGraphics, const void* pSysMem) {
         D3D11_MAPPED_SUBRESOURCE msr;
         ThrowIfFailedGfx(
-            pGraphics->GetContext().Map(
+            pGraphics->context().Map(
                 mpConstantBuffer.Get(), 0u,
                 D3D11_MAP_WRITE_DISCARD, 0u,
                 &msr
@@ -35,14 +35,14 @@ public:
             pGraphics, __FILE__, __LINE__
         );
         memcpy(msr.pData, pSysMem, mSizeBytes);
-        pGraphics->GetContext().Unmap(mpConstantBuffer.Get(), 0u);
+        pGraphics->context().Unmap(mpConstantBuffer.Get(), 0u);
     }
 
 
     void BindVS(Graphics* pGraphics, UINT slot) {
-        pGraphics->GetContext().VSSetConstantBuffers(slot, 1u, mpConstantBuffer.GetAddressOf());
+        pGraphics->context().VSSetConstantBuffers(slot, 1u, mpConstantBuffer.GetAddressOf());
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[ConstantBuffer::BindVS] >>> DXGI Logs:"
@@ -51,9 +51,9 @@ public:
     }
 
     void BindPS(Graphics* pGraphics, UINT slot) {
-        pGraphics->GetContext().PSSetConstantBuffers(slot, 1u, mpConstantBuffer.GetAddressOf());
+        pGraphics->context().PSSetConstantBuffers(slot, 1u, mpConstantBuffer.GetAddressOf());
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[ConstantBuffer::BindPS] >>> DXGI Logs:"

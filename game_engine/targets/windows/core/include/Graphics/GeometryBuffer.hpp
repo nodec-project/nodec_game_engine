@@ -4,8 +4,8 @@
 
 class GeometryBuffer {
 public:
-    GeometryBuffer(Graphics *pGfx, UINT width, UINT height)
-        : mWidth{width}, mHeight{height} {
+    GeometryBuffer(Graphics *gfx, UINT width, UINT height)
+        : width_{width}, height_{height} {
         // Generate the render target textures.
         D3D11_TEXTURE2D_DESC textureDesc{};
         textureDesc.Width = width;
@@ -18,8 +18,8 @@ public:
         textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
         ThrowIfFailedGfx(
-            pGfx->GetDevice().CreateTexture2D(&textureDesc, nullptr, &mpTexture),
-            pGfx, __FILE__, __LINE__);
+            gfx->device().CreateTexture2D(&textureDesc, nullptr, &texture_),
+            gfx, __FILE__, __LINE__);
 
         // Generate the render target views.
         D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc{};
@@ -27,8 +27,8 @@ public:
         renderTargetViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 
         ThrowIfFailedGfx(
-            pGfx->GetDevice().CreateRenderTargetView(mpTexture.Get(), &renderTargetViewDesc, &mpRenderTargetView),
-            pGfx, __FILE__, __LINE__);
+            gfx->device().CreateRenderTargetView(texture_.Get(), &renderTargetViewDesc, &render_target_view_),
+            gfx, __FILE__, __LINE__);
 
         // Generate the shader resource views.
         D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc{};
@@ -37,34 +37,34 @@ public:
         shaderResourceViewDesc.Texture2D.MipLevels = 1;
 
         ThrowIfFailedGfx(
-            pGfx->GetDevice().CreateShaderResourceView(mpTexture.Get(), &shaderResourceViewDesc, &mpShaderResourceView),
-            pGfx, __FILE__, __LINE__);
+            gfx->device().CreateShaderResourceView(texture_.Get(), &shaderResourceViewDesc, &shader_resource_view_),
+            gfx, __FILE__, __LINE__);
     }
 
-    ID3D11Texture2D& GetTexture() noexcept {
-        return *mpTexture.Get();
+    ID3D11Texture2D& texture() noexcept {
+        return *texture_.Get();
     }
 
-    ID3D11RenderTargetView &GetRenderTargetView() noexcept {
-        return *mpRenderTargetView.Get();
+    ID3D11RenderTargetView &render_target_view() noexcept {
+        return *render_target_view_.Get();
     }
 
-    ID3D11ShaderResourceView &GetShaderResourceView() noexcept {
-        return *mpShaderResourceView.Get();
+    ID3D11ShaderResourceView &shader_resource_view() noexcept {
+        return *shader_resource_view_.Get();
     }
 
-    UINT GetWidth() const noexcept {
-        return mWidth;
+    UINT width() const noexcept {
+        return width_;
     }
 
-    UINT GetHeight() const noexcept {
-        return mHeight;
+    UINT height() const noexcept {
+        return height_;
     }
 
 private:
-    UINT mWidth;
-    UINT mHeight;
-    Microsoft::WRL::ComPtr<ID3D11Texture2D> mpTexture;
-    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> mpRenderTargetView;
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> mpShaderResourceView;
+    UINT width_;
+    UINT height_;
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> texture_;
+    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view_;
 };

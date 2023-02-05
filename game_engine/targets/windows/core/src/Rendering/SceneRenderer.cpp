@@ -5,10 +5,74 @@
 
 #include <DirectXMath.h>
 
-void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pTarget, UINT width, UINT height) {
-    assert(pTarget != nullptr);
+// namespace {
+//
+// D3D11_VIEWPORT make_viewport(float width, float height) {
+//     D3D11_VIEWPORT vp;
+//     vp.Width = width;
+//     vp.Height = height;
+//     vp.MinDepth = 0.0f;
+//     vp.MaxDepth = 1.0f;
+//     vp.TopLeftX = 0.0f;
+//     vp.TopLeftY = 0.0f;
+//     return vp;
+// }
+// } // namespace
+
+SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resourceRegistry)
+    : gfx_(gfx),
+      mScenePropertiesCB(gfx, sizeof(SceneProperties), &mSceneProperties),
+      mModelPropertiesCB(gfx, sizeof(ModelProperties), &mModelProperties),
+      mTextureConfigCB(gfx, sizeof(TextureConfig), &mTextureConfig),
+      mBSDefault(BlendState::CreateDefaultBlend(gfx)),
+      mBSAlphaBlend(BlendState::CreateAlphaBlend(gfx)),
+      mRSCullBack{gfx, D3D11_CULL_BACK},
+      mRSCullNone{gfx, D3D11_CULL_NONE},
+      mFontCharacterDatabase{gfx} {
+    using namespace nodec_rendering::resources;
+    using namespace nodec::resource_management;
+    using namespace nodec;
+
+    // Get quad mesh from resource registry.
+    {
+        auto quadMesh = resourceRegistry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
+
+        if (!quadMesh) {
+            logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'quad.mesh'.\n"
+                                                       "Make sure the 'org.nodec.game-engine' resource-package is installed.";
+        }
+
+        mQuadMesh = std::static_pointer_cast<MeshBackend>(quadMesh);
+    }
+
+    // Make screen quad mesh in NDC space which is not depend on target view size.
+    {
+        mScreenQuadMesh.reset(new MeshBackend());
+
+        mScreenQuadMesh->vertices.resize(4);
+        mScreenQuadMesh->triangles.resize(6);
+
+        mScreenQuadMesh->vertices[0] = {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}};
+        mScreenQuadMesh->vertices[1] = {{-1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}};
+        mScreenQuadMesh->vertices[2] = {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}};
+        mScreenQuadMesh->vertices[3] = {{1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}};
+
+        mScreenQuadMesh->triangles[0] = 0;
+        mScreenQuadMesh->triangles[1] = 1;
+        mScreenQuadMesh->triangles[2] = 2;
+
+        mScreenQuadMesh->triangles[3] = 0;
+        mScreenQuadMesh->triangles[4] = 2;
+        mScreenQuadMesh->triangles[5] = 3;
+        mScreenQuadMesh->update_device_memory(gfx_);
+    }
+}
+
+void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &render_target, SceneRenderingContext &context) {
+    // assert(context != nullptr);
 
     using namespace nodec;
+    using namespace nodec_scene;
     using namespace nodec_scene::components;
     using namespace nodec_rendering;
     using namespace nodec_rendering::components;
@@ -24,13 +88,13 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
     SetupSceneLighting(scene);
 
     // Render the scene per each camera.
-    scene.registry().view<const Camera, const Transform>().each([&](auto cameraEntt, const Camera &camera, const Transform &cameraTrfm) {
-        ID3D11RenderTargetView *pCameraRenderTargetView = pTarget;
+    scene.registry().view<const Camera, const Transform>().each([&](SceneEntity cameraEntt, const Camera &camera, const Transform &cameraTrfm) {
+        ID3D11RenderTargetView *pCameraRenderTargetView = &render_target;
 
         // --- Get active post process effects. ---
         std::vector<const PostProcessing::Effect *> activePostProcessEffects;
         {
-            const PostProcessing *postProcessing = scene.registry().try_get_component<const PostProcessing>(cameraEntt);
+            const auto *postProcessing = scene.registry().try_get_component<const PostProcessing>(cameraEntt);
 
             if (postProcessing) {
                 for (const auto &effect : postProcessing->effects) {
@@ -42,19 +106,16 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
 
             // If some effects, the off-screen buffer is needed.
             if (activePostProcessEffects.size() > 0) {
-                auto &buffer = mGeometryBuffers["screen"];
-                if (!buffer) {
-                    buffer.reset(new GeometryBuffer(gfx_, width, height));
-                }
+                auto &buffer = context.geometry_buffer("screen");
 
                 // Set the render target.
-                pCameraRenderTargetView = &buffer->GetRenderTargetView();
+                pCameraRenderTargetView = &buffer.render_target_view();
             }
         }
 
         auto matrixP = XMMatrixIdentity();
 
-        const auto aspect = static_cast<float>(width) / height;
+        const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
         switch (camera.projection) {
         case Camera::Projection::Perspective:
             matrixP = XMMatrixPerspectiveFovLH(
@@ -77,26 +138,18 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
         auto matrixV = XMMatrixInverse(nullptr, matrixVInverse);
 
         Render(scene, matrixV, matrixVInverse, matrixP, matrixPInverse,
-               pCameraRenderTargetView, width, height);
+               pCameraRenderTargetView, context);
 
         // --- Post Processing ---
         if (activePostProcessEffects.size() > 0) {
-            gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-            if (activePostProcessEffects.size() > 1) {
-                // if multiple effects, needs the back buffer.
-                auto &backBuffer = mGeometryBuffers["screen_back"];
-                if (!backBuffer) {
-                    backBuffer.reset(new GeometryBuffer(gfx_, width, height));
-                }
-            }
+            gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
             for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
                 if (i != activePostProcessEffects.size() - 1) {
-                    pCameraRenderTargetView = &mGeometryBuffers["screen_back"]->GetRenderTargetView();
+                    pCameraRenderTargetView = &context.geometry_buffer("screen_back").render_target_view();
                 } else {
                     // if last, render target is frame buffer.
-                    pCameraRenderTargetView = pTarget;
+                    pCameraRenderTargetView = &render_target;
                 }
 
                 // It is assured that material and shader are exists.
@@ -115,26 +168,28 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
                     if (passNum == shaderBackend->pass_count() - 1) {
                         // If last pass.
                         // The render target must be one final target.
-
-                        gfx_->GetContext().OMSetRenderTargets(1, &pCameraRenderTargetView, nullptr);
+                        D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
+                        gfx_->context().RSSetViewports(1u, &vp);
+                        gfx_->context().OMSetRenderTargets(1, &pCameraRenderTargetView, nullptr);
 
                     } else {
                         // If halfway pass.
                         // Support the multiple render targets.
 
                         const auto &targets = shaderBackend->render_targets(passNum);
+
                         std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
+                        std::vector<D3D11_VIEWPORT> vps(targets.size());
                         for (size_t i = 0; i < targets.size(); ++i) {
-                            const auto &name = targets[i];
-                            auto &buffer = mGeometryBuffers[name];
-                            if (!buffer) {
-                                buffer.reset(new GeometryBuffer(gfx_, width, height));
-                            }
-                            renderTargets[i] = &buffer->GetRenderTargetView();
-                            gfx_->GetContext().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+                            auto &buffer = context.geometry_buffer(targets[i]);
+                            renderTargets[i] = &buffer.render_target_view();
+                            gfx_->context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+
+                            vps[i] = CD3D11_VIEWPORT(0.f, 0.f, buffer.width(), buffer.height());
                         }
 
-                        gfx_->GetContext().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), nullptr);
+                        gfx_->context().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), nullptr);
+                        gfx_->context().RSSetViewports(vps.size() , vps.data());
                     }
 
                     // --- Bind texture resources.
@@ -143,11 +198,9 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
                     GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(gfx_, slotOffset);
                     const auto &textureResources = shaderBackend->texture_resources(passNum);
                     for (std::size_t i = 0; i < textureResources.size(); ++i) {
-                        const auto &name = textureResources[i];
-                        auto &buffer = mGeometryBuffers[name];
-                        if (!buffer) continue;
-                        auto *view = &buffer->GetShaderResourceView();
-                        gfx_->GetContext().PSSetShaderResources(slotOffset + i, 1u, &view);
+                        auto &buffer = context.geometry_buffer(textureResources[i]);
+                        auto *view = &buffer.shader_resource_view();
+                        gfx_->context().PSSetShaderResources(slotOffset + i, 1u, &view);
                     }
                     shaderBackend->bind(gfx_, passNum);
 
@@ -155,13 +208,13 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView *pT
                     gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
                 } // End foreach pass.
 
-                std::swap(mGeometryBuffers["screen"], mGeometryBuffers["screen_back"]);
+                context.swap_geometry_buffers("screen", "screen_back");
             } // End foreach effect.
         }
     }); // End foreach camera
 }
 
-void SceneRenderer::Render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, nodec::Matrix4x4f &projection, ID3D11RenderTargetView *pTarget, UINT width, UINT height) {
+void SceneRenderer::Render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, nodec::Matrix4x4f &projection, ID3D11RenderTargetView *pTarget, SceneRenderingContext &context) {
     assert(pTarget != nullptr);
 
     using namespace DirectX;
@@ -182,10 +235,13 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, n
     auto matrixPInverse = XMMatrixInverse(nullptr, matrixP);
 
     Render(scene, matrixV, matrixVInverse, matrixP, matrixPInverse,
-           pTarget, width, height);
+           pTarget, context);
 }
 
-void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixVInverse, const DirectX::XMMATRIX &matrixP, const DirectX::XMMATRIX &matrixPInverse, ID3D11RenderTargetView *pTarget, UINT width, UINT height) {
+void SceneRenderer::Render(nodec_scene::Scene &scene,
+                           const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixVInverse,
+                           const DirectX::XMMATRIX &matrixP, const DirectX::XMMATRIX &matrixPInverse,
+                           ID3D11RenderTargetView *pTarget, SceneRenderingContext &context) {
     assert(pTarget != nullptr);
     using namespace nodec;
     using namespace nodec_scene::components;
@@ -237,7 +293,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
     // TODO: Consider skybox.
     {
         const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
-        gfx_->GetContext().ClearRenderTargetView(pTarget, color);
+        gfx_->context().ClearRenderTargetView(pTarget, color);
     }
 
     XMStoreFloat4x4(&mSceneProperties.matrixP, matrixP);
@@ -280,14 +336,16 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
     mScenePropertiesCB.Update(gfx_, &mSceneProperties);
 
     // Reset depth buffer.
-    gfx_->GetContext().ClearDepthStencilView(mpDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+    gfx_->context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
     // Executes the shader programs.
     for (auto *activeShader : activeShaders) {
         if (activeShader->pass_count() == 1) {
             // One pass shader.
-            gfx_->GetContext().OMSetRenderTargets(1, &pTarget, mpDepthStencilView.Get());
-            gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            gfx_->context().OMSetRenderTargets(1, &pTarget, &context.depth_stencil_view());
+            D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
+            gfx_->context().RSSetViewports(1u, &vp);
+            gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             activeShader->bind(gfx_);
 
             // now lets draw the mesh.
@@ -298,21 +356,22 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
             // first pass
             {
                 const auto &targets = activeShader->render_targets(0);
+
                 std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
+                std::vector<D3D11_VIEWPORT> vps(targets.size());
                 for (size_t i = 0; i < targets.size(); ++i) {
-                    const auto &name = targets[i];
-                    auto &buffer = mGeometryBuffers[name];
-                    if (!buffer) {
-                        buffer.reset(new GeometryBuffer(gfx_, width, height));
-                    }
-                    renderTargets[i] = &buffer->GetRenderTargetView();
-                    gfx_->GetContext().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+                    auto &buffer = context.geometry_buffer(targets[i]);
+                    renderTargets[i] = &buffer.render_target_view();
+                    gfx_->context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+
+                    vps[i] = CD3D11_VIEWPORT(0.f, 0.f, buffer.width(), buffer.height());
                 }
 
-                gfx_->GetContext().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), mpDepthStencilView.Get());
-                gfx_->GetContext().ClearDepthStencilView(mpDepthStencilView.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+                gfx_->context().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), &context.depth_stencil_view());
+                gfx_->context().RSSetViewports(vps.size(), vps.data());
+                gfx_->context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-                gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                 activeShader->bind(gfx_, 0);
 
                 RenderModel(scene, activeShader, matrixV, matrixP);
@@ -329,16 +388,16 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, const DirectX::XMMATRIX &m
             {
                 const auto passNum = passCount - 1;
 
-                gfx_->GetContext().OMSetRenderTargets(1, &pTarget, nullptr);
-                gfx_->GetContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                gfx_->context().OMSetRenderTargets(1, &pTarget, nullptr);
+                D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
+                gfx_->context().RSSetViewports(1u, &vp);
+                gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                 const auto &textureResources = activeShader->texture_resources(passNum);
                 for (size_t i = 0; i < textureResources.size(); ++i) {
-                    const auto &name = textureResources[i];
-                    auto &buffer = mGeometryBuffers[name];
-                    if (!buffer) continue;
-                    auto *view = &buffer->GetShaderResourceView();
-                    gfx_->GetContext().PSSetShaderResources(i, 1u, &view);
+                    auto &buffer = context.geometry_buffer(textureResources[i]);
+                    auto *view = &buffer.shader_resource_view();
+                    gfx_->context().PSSetShaderResources(i, 1u, &view);
                 }
 
                 activeShader->bind(gfx_, passNum);
@@ -582,8 +641,8 @@ UINT SceneRenderer::bind_texture_entries(const std::vector<TextureEntry> &textur
         auto *textureBackend = static_cast<TextureBackend *>(entry.texture.get());
         {
             auto *view = &textureBackend->shader_resource_view();
-            gfx_->GetContext().VSSetShaderResources(slot, 1u, &view);
-            gfx_->GetContext().PSSetShaderResources(slot, 1u, &view);
+            gfx_->context().VSSetShaderResources(slot, 1u, &view);
+            gfx_->context().PSSetShaderResources(slot, 1u, &view);
         }
 
         auto &samplerState = GetSamplerState(entry.sampler);

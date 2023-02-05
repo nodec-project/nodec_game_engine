@@ -6,8 +6,8 @@
 
 #include <nodec_rendering/resources/shader.hpp>
 
-#include <nodec/vector4.hpp>
 #include <nodec/optional.hpp>
+#include <nodec/vector4.hpp>
 
 #include <cassert>
 #include <string>
@@ -109,13 +109,13 @@ public:
         return texture_entries_.size();
     }
 
-    const std::string& get_float_property_name(int index) const override {
+    const std::string &get_float_property_name(int index) const override {
         return float_properties_[index].name;
     }
-    const std::string& get_vector4_property_name(int index) const override {
+    const std::string &get_vector4_property_name(int index) const override {
         return vector4_properties_[index].name;
     }
-    const std::string& get_texture_entry_name(int index) const override {
+    const std::string &get_texture_entry_name(int index) const override {
         return texture_entries_[index].name;
     }
 

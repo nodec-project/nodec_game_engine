@@ -194,7 +194,8 @@ if(MSVC)
         get_source_file_property(ENTRY_POINT_NAME ${FILE} ENTRY_POINT_NAME)
 
         add_custom_command(TARGET nodec_game_engine_shaders
-            #OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${FILE_WE}.cso
+
+            # OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${FILE_WE}.cso
             COMMAND fxc.exe /nologo /E${ENTRY_POINT_NAME} /T${SHADER_TYPE}_${SHADER_MODEL} /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
             MAIN_DEPENDENCY ${FILE}
             COMMENT "HLSL ${FILE}"
@@ -205,6 +206,10 @@ if(MSVC)
     endforeach(FILE)
 endif()
 
-add_dependencies(${PROJECT_NAME} nodec_game_engine_shaders)
+option(NODEC_GAME_ENGINE_BUILD_SHADERS OFF)
+
+if(NODEC_GAME_ENGINE_BUILD_SHADERS)
+    add_dependencies(${PROJECT_NAME} nodec_game_engine_shaders)
+endif()
 
 # END Configure shader build system ===

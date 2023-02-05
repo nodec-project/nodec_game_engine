@@ -27,7 +27,7 @@ public:
         init_data.SysMemSlicePitch = 0;
 
         ThrowIfFailedGfx(
-            gfx->GetDevice().CreateTexture2D(&texture_desc, &init_data, &texture_),
+            gfx->device().CreateTexture2D(&texture_desc, &init_data, &texture_),
             gfx, __FILE__, __LINE__);
 
         {
@@ -37,7 +37,7 @@ public:
             desc.Texture2D.MipLevels = texture_desc.MipLevels;
             desc.Texture2D.MostDetailedMip = 0;
             ThrowIfFailedGfx(
-                gfx->GetDevice().CreateShaderResourceView(texture_.Get(), &desc, &shader_resource_view_),
+                gfx->device().CreateShaderResourceView(texture_.Get(), &desc, &shader_resource_view_),
                 gfx, __FILE__, __LINE__);
         }
 

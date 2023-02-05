@@ -38,14 +38,14 @@ public:
 
     SamplerState(Graphics *pGfx, const D3D11_SAMPLER_DESC &desc) {
         ThrowIfFailedGfx(
-            pGfx->GetDevice().CreateSamplerState(&desc, &mpSamplerState),
+            pGfx->device().CreateSamplerState(&desc, &mpSamplerState),
             pGfx, __FILE__, __LINE__);
     }
 
     void BindVS(Graphics *pGraphics, UINT slot) {
-        pGraphics->GetContext().VSSetSamplers(slot, 1, mpSamplerState.GetAddressOf());
+        pGraphics->context().VSSetSamplers(slot, 1, mpSamplerState.GetAddressOf());
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[SamplerState::BindVS] >>> DXGI Logs:"
@@ -54,9 +54,9 @@ public:
     }
 
     void BindPS(Graphics *pGraphics, UINT slot) {
-        pGraphics->GetContext().PSSetSamplers(slot, 1, mpSamplerState.GetAddressOf());
+        pGraphics->context().PSSetSamplers(slot, 1, mpSamplerState.GetAddressOf());
 
-        const auto logs = pGraphics->GetInfoLogger().Dump();
+        const auto logs = pGraphics->info_logger().Dump();
         if (!logs.empty()) {
             nodec::logging::WarnStream(__FILE__, __LINE__)
                 << "[SamplerState::BindPS] >>> DXGI Logs:"

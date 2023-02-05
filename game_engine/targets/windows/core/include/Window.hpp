@@ -70,8 +70,8 @@ public:
     static bool ProcessMessages(int &exit_code) noexcept;
     void SetTitle(const std::string &title);
 
-    Graphics &GetGraphics() {
-        return *mpGraphics;
+    Graphics &graphics() {
+        return *graphics_;
     }
 
 public:
@@ -93,7 +93,7 @@ private:
     int mWidth;
     int mHeight;
     HWND hWnd;
-    std::unique_ptr<Graphics> mpGraphics;
+    std::unique_ptr<Graphics> graphics_;
     nodec_input::keyboard::impl::KeyboardDevice *mpKeyboard;
     nodec_input::mouse::impl::MouseDevice *mpMouse;
 
