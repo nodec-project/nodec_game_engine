@@ -4,9 +4,11 @@
 
 #include <DirectXMath.h>
 
-SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer)
+SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer,
+                                 nodec_scene::SceneEntity init_selected_entity,
+                                 nodec::signals::SignalInterface<void(nodec_scene::SceneEntity)> selected_change_signal)
     : BaseWindow("Scene View##EditorWindows", nodec::Vector2f(VIEW_WIDTH, VIEW_HEIGHT)),
-      scene_(&scene), renderer_(&renderer) {
+      scene_(&scene), renderer_(&renderer), selected_entity_(init_selected_entity) {
     // Generate the render target textures.
     D3D11_TEXTURE2D_DESC texture_desc{};
     texture_desc.Width = VIEW_WIDTH;
@@ -48,11 +50,37 @@ SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, Scene
     rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, &gfx));
     scene_ = &scene;
     renderer_ = &renderer;
+
+    selected_entity_changed_conn_ = selected_change_signal.connect([&](auto entity) { selected_entity_ = entity; });
 }
 
 void SceneViewWindow::on_gui() {
     using namespace nodec;
     using namespace DirectX;
+    using namespace nodec_scene::components;
+
+    if (ImGui::RadioButton("Translate", gizmo_operation_ == ImGuizmo::TRANSLATE)) {
+        gizmo_operation_ = ImGuizmo::TRANSLATE;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Rotate", gizmo_operation_ == ImGuizmo::ROTATE)) {
+        gizmo_operation_ = ImGuizmo::ROTATE;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Scale", gizmo_operation_ == ImGuizmo::SCALE)) {
+        gizmo_operation_ = ImGuizmo::SCALE;
+    }
+
+    ImGui::SameLine();
+    ImGui::Spacing();
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Local", gizmo_mode_ == ImGuizmo::LOCAL)) {
+        gizmo_mode_ = ImGuizmo::LOCAL;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("World", gizmo_mode_ == ImGuizmo::WORLD)) {
+        gizmo_mode_ = ImGuizmo::WORLD;
+    }
 
     // ImGui::BeginChildFrame(100, ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
     ImGui::BeginChild("SceneRender", ImVec2(VIEW_WIDTH, VIEW_HEIGHT), false, ImGuiWindowFlags_NoMove);
@@ -75,7 +103,7 @@ void SceneViewWindow::on_gui() {
         projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
     }
 
-    if (ImGui::IsWindowFocused()) {
+    if (ImGui::IsWindowHovered()) {
         auto &io = ImGui::GetIO();
         Vector3f position;
         Vector3f scale;
@@ -121,16 +149,43 @@ void SceneViewWindow::on_gui() {
 
     // logging::InfoStream(__FILE__, __LINE__) << io.MouseWheel;
 
-    // ImGuizmo::SetDrawlist();
-
     renderer_->Render(*scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
 
     ImGui::Image((void *)shader_resource_view_.Get(), ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
 
-    // ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, VIEW_WIDTH, VIEW_HEIGHT);
+    ImGuizmo::SetDrawlist();
+
+    ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, VIEW_WIDTH, VIEW_HEIGHT);
 
     // ImGuizmo::DrawGrid(view_.m, projection_.m, Matrix4x4f::identity.m, 100.f);
     // ImGuizmo::ViewManipulate(view_.m, 0.8f, ImVec2(view_manipulate_right - 128, view_manipulate_top), ImVec2(128, 128), 0x10101010);
+
+    // Edit transformation.
+    [&]() {
+        if (!scene_->registry().is_valid(selected_entity_)) return;
+
+        auto *trfm = scene_->registry().try_get_component<Transform>(selected_entity_);
+        if (!trfm) return;
+
+        auto model_matrix = trfm->local2world;
+        Matrix4x4f delta_matrix;
+
+        if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, model_matrix.m, delta_matrix.m)) {
+            Vector3f delta_translation;
+            Vector3f delta_scale;
+            Quaternionf delta_rotation;
+            math::gfx::decompose_trs(delta_matrix, delta_translation, delta_rotation, delta_scale);
+
+            // I dont know why translation is not zero even if in rotate mode.
+            if (gizmo_operation_ == ImGuizmo::ROTATE) delta_translation =  Vector3f::zero;
+
+            trfm->local_position += delta_translation;
+            trfm->local_rotation = delta_rotation * trfm->local_rotation;
+            trfm->local_scale *= delta_scale;
+
+            trfm->dirty = true;
+        }
+    }();
 
     ImGui::EndChild();
 }

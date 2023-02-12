@@ -131,19 +131,10 @@ void Graphics::BeginFrame() noexcept {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-
-    //context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
-
-    //const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
-
-    //context_->ClearRenderTargetView(mpTarget.Get(), color);
-    //context_->ClearDepthStencilView(mpDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0u);
 }
 
 void Graphics::EndFrame() {
     ImGui::Render();
-
-    //context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
 
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 

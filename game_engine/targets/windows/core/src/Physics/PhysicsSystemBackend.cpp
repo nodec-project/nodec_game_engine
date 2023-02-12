@@ -28,7 +28,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     // Pre process for step of simulation.
     world.scene().registry().view<RigidBody, PhysicsShape, Transform>().each(
-        [&](auto entt, RigidBody &rigid_body, PhysicsShape &shape, Transform &trfm) {
+        [&](SceneEntity entt, RigidBody &rigid_body, PhysicsShape &shape, Transform &trfm) {
             Vector3f world_position;
             Quaternionf world_rotation;
             Vector3f world_scale;

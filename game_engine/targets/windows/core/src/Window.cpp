@@ -285,6 +285,7 @@ bool Window::ProcessMessages(int &exit_code) noexcept {
     MSG msg;
 
     // while queue has message, remove and dispatch them (but do not block on empty queue)
+    // while (GetMessage(&msg, nullptr, 0, 0)) {
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
             exit_code = (int)msg.wParam;

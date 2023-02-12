@@ -14,8 +14,6 @@
 #include <imwindows/material_editor_window.hpp>
 #include <imwindows/scene_hierarchy_window.hpp>
 
-//#include <nodec_rendering/components/main_camera.hpp>
-
 Editor::Editor(Engine *engine)
     : engine_{engine} {
     using namespace nodec;
@@ -33,7 +31,8 @@ Editor::Editor(Engine *engine)
 
     window_manager().register_window<SceneViewWindow>([=]() {
         return std::make_unique<SceneViewWindow>(engine->window().graphics(),
-                                                 engine->world_module().scene(), engine->scene_renderer());
+                                                 engine->world_module().scene(), engine->scene_renderer(),
+                                                 selection().active_scene_entity(), selection().active_scene_entity_changed());
     });
 
     window_manager().register_window<SceneHierarchyWindow>([=]() {
@@ -200,11 +199,6 @@ Editor::Editor(Engine *engine)
             inspector_gui_->on_gui_non_visible(non_visible);
         });
 
-    // inspector_component_registry_impl().register_component<MainCamera>(
-    //     "Main Camera",
-    //     [=](auto &camera) {
-    //     });
-
     [=]() {
         std::ifstream file("editor-config.json", std::ios::binary);
         if (!file) return;
@@ -266,13 +260,6 @@ void Editor::update() {
         break;
     }
 
-    // switch (mode_) {
-    // case Mode::Edit:
-    //     update_on_edit_mode();
-    //     break;
-    // default: break;
-    // }
-
     imessentials::impl::show_main_menu();
 
     ImGuizmo::BeginFrame();
@@ -282,7 +269,3 @@ void Editor::update() {
     bool showDemoWindow = true;
     ImGui::ShowDemoWindow(&showDemoWindow);
 }
-//
-// void Editor::update_on_edit_mode() {
-//    auto &scene_registry = engine_->world_module().scene().registry();
-//}
