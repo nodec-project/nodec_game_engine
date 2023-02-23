@@ -15,11 +15,12 @@ public:
     void Bind(Graphics *pGfx) {
         pGfx->context().RSSetState(mpRasterizerState.Get());
 
-        const auto logs = pGfx->info_logger().Dump();
-        if (!logs.empty()) {
-            nodec::logging::WarnStream(__FILE__, __LINE__)
-                << "[RasterizerState::Bind] >>> DXGI Logs:" << logs;
-        }
+        // NOTE: The following code is too heavy to run for each model.
+        // const auto logs = pGfx->info_logger().Dump();
+        // if (!logs.empty()) {
+        //     nodec::logging::WarnStream(__FILE__, __LINE__)
+        //         << "[RasterizerState::Bind] >>> DXGI Logs:" << logs;
+        // }
     }
 
 private:

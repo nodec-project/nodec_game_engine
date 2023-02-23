@@ -87,16 +87,16 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     ThrowIfFailedGfx(device_->CreateTexture2D(&descDepth, nullptr, &pDepthStencil), this, __FILE__, __LINE__);
 
     //// create view of depth stensil texture
-    //D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
-    //descDSV.Format = DXGI_FORMAT_D32_FLOAT;
-    //descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    //descDSV.Texture2D.MipSlice = 0u;
-    //ThrowIfFailedGfx(
-    //    device_->CreateDepthStencilView(pDepthStencil.Get(), &descDSV, &mpDSV),
-    //    this, __FILE__, __LINE__);
+    // D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
+    // descDSV.Format = DXGI_FORMAT_D32_FLOAT;
+    // descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    // descDSV.Texture2D.MipSlice = 0u;
+    // ThrowIfFailedGfx(
+    //     device_->CreateDepthStencilView(pDepthStencil.Get(), &descDSV, &mpDSV),
+    //     this, __FILE__, __LINE__);
 
     //// bind depth stencil view to OM
-    //context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
+    // context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
 
     // configure viewport
     D3D11_VIEWPORT vp;
@@ -157,10 +157,12 @@ void Graphics::EndFrame() {
 
 void Graphics::DrawIndexed(UINT count) {
     context_->DrawIndexed(count, 0u, 0u);
-    const auto logs = mInfoLogger.Dump();
-    if (!logs.empty()) {
-        nodec::logging::WarnStream(__FILE__, __LINE__)
-            << "[Graphics::DrawIndexed] >>> DXGI debug having messages:\n"
-            << logs;
-    }
+
+    // NOTE: The following code is too heavy to run for each model.
+    // const auto logs = mInfoLogger.Dump();
+    // if (!logs.empty()) {
+    //    nodec::logging::WarnStream(__FILE__, __LINE__)
+    //        << "[Graphics::DrawIndexed] >>> DXGI debug having messages:\n"
+    //        << logs;
+    //}
 }

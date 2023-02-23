@@ -42,23 +42,25 @@ public:
     void BindVS(Graphics* pGraphics, UINT slot) {
         pGraphics->context().VSSetConstantBuffers(slot, 1u, mpConstantBuffer.GetAddressOf());
 
-        const auto logs = pGraphics->info_logger().Dump();
-        if (!logs.empty()) {
-            nodec::logging::WarnStream(__FILE__, __LINE__)
-                << "[ConstantBuffer::BindVS] >>> DXGI Logs:"
-                << logs;
-        }
+        // NOTE: The following code is too heavy to run for each model.
+        // const auto logs = pGraphics->info_logger().Dump();
+        // if (!logs.empty()) {
+        //     nodec::logging::WarnStream(__FILE__, __LINE__)
+        //         << "[ConstantBuffer::BindVS] >>> DXGI Logs:"
+        //         << logs;
+        // }
     }
 
     void BindPS(Graphics* pGraphics, UINT slot) {
         pGraphics->context().PSSetConstantBuffers(slot, 1u, mpConstantBuffer.GetAddressOf());
 
-        const auto logs = pGraphics->info_logger().Dump();
-        if (!logs.empty()) {
-            nodec::logging::WarnStream(__FILE__, __LINE__)
-                << "[ConstantBuffer::BindPS] >>> DXGI Logs:"
-                << logs;
-        }
+        // NOTE: The following code is too heavy to run for each model.
+        // const auto logs = pGraphics->info_logger().Dump();
+        // if (!logs.empty()) {
+        //     nodec::logging::WarnStream(__FILE__, __LINE__)
+        //         << "[ConstantBuffer::BindPS] >>> DXGI Logs:"
+        //         << logs;
+        // }
     }
 
 private:

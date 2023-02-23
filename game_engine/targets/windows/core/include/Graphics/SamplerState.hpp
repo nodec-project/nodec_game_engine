@@ -45,23 +45,25 @@ public:
     void BindVS(Graphics *pGraphics, UINT slot) {
         pGraphics->context().VSSetSamplers(slot, 1, mpSamplerState.GetAddressOf());
 
-        const auto logs = pGraphics->info_logger().Dump();
-        if (!logs.empty()) {
-            nodec::logging::WarnStream(__FILE__, __LINE__)
-                << "[SamplerState::BindVS] >>> DXGI Logs:"
-                << logs;
-        }
+        // NOTE: The following code is too heavy to run for each model.
+        // const auto logs = pGraphics->info_logger().Dump();
+        // if (!logs.empty()) {
+        //    nodec::logging::WarnStream(__FILE__, __LINE__)
+        //        << "[SamplerState::BindVS] >>> DXGI Logs:"
+        //        << logs;
+        //}
     }
 
     void BindPS(Graphics *pGraphics, UINT slot) {
         pGraphics->context().PSSetSamplers(slot, 1, mpSamplerState.GetAddressOf());
 
-        const auto logs = pGraphics->info_logger().Dump();
-        if (!logs.empty()) {
-            nodec::logging::WarnStream(__FILE__, __LINE__)
-                << "[SamplerState::BindPS] >>> DXGI Logs:"
-                << logs;
-        }
+        // NOTE: The following code is too heavy to run for each model.
+        // const auto logs = pGraphics->info_logger().Dump();
+        // if (!logs.empty()) {
+        //    nodec::logging::WarnStream(__FILE__, __LINE__)
+        //        << "[SamplerState::BindPS] >>> DXGI Logs:"
+        //        << logs;
+        //}
     }
 
 private:
