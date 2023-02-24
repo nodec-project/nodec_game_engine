@@ -13,7 +13,8 @@ public:
 
         enum class ImageType {
             TGA,
-            WIC
+            WIC,
+            HDR
         };
 
         ImageType image_type = ImageType::WIC;
@@ -24,6 +25,10 @@ public:
 
             if (extention == ".tga" || extention == ".TGA") {
                 image_type = ImageType::TGA;
+            }
+
+            if (extention == ".hdr") {
+                image_type = ImageType::HDR;
             }
         }
 
@@ -36,7 +41,11 @@ public:
                 LoadFromTGAFile(path_wide.c_str(), &metadata_, image),
                 gfx, __FILE__, __LINE__);
             break;
-
+        case ImageType::HDR:
+            ThrowIfFailedGfx(
+                LoadFromHDRFile(path_wide.c_str(), &metadata_, image),
+                gfx, __FILE__, __LINE__);
+            break;
         default:
         case ImageType::WIC:
             ThrowIfFailedGfx(
