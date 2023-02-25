@@ -186,11 +186,13 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
         [](const SceneLighting &lighting) {
             auto serializable = std::make_unique<SerializableSceneLighting>();
             serializable->ambient_color = lighting.ambient_color;
+            serializable->skybox = lighting.skybox;
             return serializable;
         },
         [](const SerializableSceneLighting &serializable, SceneEntity entity, SceneRegistry &registry) {
             auto &lighting = registry.emplace_component<SceneLighting>(entity).first;
             lighting.ambient_color = serializable.ambient_color;
+            lighting.skybox = serializable.skybox;
         });
 
     register_component<AudioSource, SerializableAudioSource>(

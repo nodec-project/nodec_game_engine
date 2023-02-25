@@ -1,0 +1,13 @@
+{
+    "meta": {
+        "float_properties": [],
+        "vector4_properties": [],
+        "texture_entries": [
+            {
+                "name": "main"
+            }
+        ],
+        "pass": [],
+        "rendering_priority": 0
+    }
+}

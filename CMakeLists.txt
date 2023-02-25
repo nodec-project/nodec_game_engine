@@ -163,6 +163,8 @@ if(MSVC)
         "game_engine/resources/org.nodec.game-engine/shaders/post-processings/hdr/hdr_vs.hlsl")
     add_vertex_shader(HLSL_SHADER_FILES
         "game_engine/resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_vs.hlsl")
+    add_vertex_shader(HLSL_SHADER_FILES
+        "game_engine/resources/org.nodec.game-engine/shaders/skybox/panoramic/vertex.hlsl")
 
     add_pixel_shader(HLSL_SHADER_FILES
         "game_engine/resources/org.nodec.game-engine/shaders/image/pixel.hlsl")
@@ -184,6 +186,8 @@ if(MSVC)
         "game_engine/resources/org.nodec.game-engine/shaders/post-processings/hdr/hdr_ps.hlsl")
     add_pixel_shader(HLSL_SHADER_FILES
         "game_engine/resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_ps.hlsl")
+    add_pixel_shader(HLSL_SHADER_FILES
+        "game_engine/resources/org.nodec.game-engine/shaders/skybox/panoramic/pixel.hlsl")
 
     foreach(FILE ${HLSL_SHADER_FILES})
         get_target_property(SHADER_COMMON_INCLUDE_DIR ${PROJECT_NAME} SHADER_COMMON_INCLUDE_DIR)

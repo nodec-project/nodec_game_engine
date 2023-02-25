@@ -197,17 +197,18 @@ private:
     void RenderModel(nodec_scene::Scene &scene, ShaderBackend *activeShader,
                      const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixP);
 
-    void SetCullMode(const nodec_rendering::CullMode &mode) {
+    void set_cull_mode(const nodec_rendering::CullMode &mode) {
         using namespace nodec_rendering;
         switch (mode) {
         default:
         case CullMode::Back:
-            mRSCullBack.Bind(gfx_);
+            rs_cull_back_.Bind(gfx_);
             break;
         case CullMode::Front:
-            // TODO: impl
+            rs_cull_front_.Bind(gfx_);
+            break;
         case CullMode::Off:
-            mRSCullNone.Bind(gfx_);
+            rs_cull_none_.Bind(gfx_);
             break;
         }
     }
@@ -253,16 +254,18 @@ private:
 
     std::unordered_map<nodec_rendering::Sampler, nodec::optional<SamplerState>> mSamplerStates;
 
-    RasterizerState mRSCullNone;
-    RasterizerState mRSCullBack;
+    RasterizerState rs_cull_none_;
+    RasterizerState rs_cull_front_;
+    RasterizerState rs_cull_back_;
 
     BlendState mBSDefault;
     BlendState mBSAlphaBlend;
 
     Graphics *gfx_;
 
-    std::shared_ptr<MeshBackend> mQuadMesh;
-    std::unique_ptr<MeshBackend> mScreenQuadMesh;
+    std::shared_ptr<MeshBackend> quad_mesh_;
+    std::unique_ptr<MeshBackend> screen_quad_mesh_;
+    std::shared_ptr<MeshBackend> norm_cube_mesh_;
 
     FontCharacterDatabase mFontCharacterDatabase;
 };

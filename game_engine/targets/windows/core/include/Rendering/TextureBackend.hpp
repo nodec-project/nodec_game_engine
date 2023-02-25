@@ -33,6 +33,6 @@ protected:
 
 private:
     ID3D11ShaderResourceView *shader_resource_view_{nullptr};
-    int width_;
-    int height_;
+    int width_{0};
+    int height_{0};
 };
