@@ -136,9 +136,7 @@ public:
         }
     }
 
-    void on_gui_scene_lighting(nodec_rendering::components::SceneLighting &lighting) {
-        ImGui::ColorEdit4("Ambient Color", lighting.ambient_color.v, ImGuiColorEditFlags_Float);
-    }
+    void on_gui_scene_lighting(nodec_rendering::components::SceneLighting &lighting);
 
     void on_gui_audio_source(nodec_scene_audio::components::AudioSource &source) {
         source.clip = resource_name_edit("Clip", source.clip);

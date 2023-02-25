@@ -7,8 +7,8 @@ using namespace nodec_rendering::components;
 using namespace nodec;
 
 void InspectorGUI::on_gui_transform(Transform &trfm) {
-    //static ImGuizmo::OPERATION currentGizmoOperation = ImGuizmo::TRANSLATE;
-    //static ImGuizmo::MODE currentGizmoMode = ImGuizmo::LOCAL;
+    // static ImGuizmo::OPERATION currentGizmoOperation = ImGuizmo::TRANSLATE;
+    // static ImGuizmo::MODE currentGizmoMode = ImGuizmo::LOCAL;
 
     {
         ImGui::Text("Position");
@@ -46,20 +46,19 @@ void InspectorGUI::on_gui_transform(Transform &trfm) {
         }
     }
 
-    //if (currentGizmoOperation != ImGuizmo::SCALE) {
-    //    if (ImGui::RadioButton("Local", currentGizmoMode == ImGuizmo::LOCAL)) {
-    //        currentGizmoMode = ImGuizmo::LOCAL;
-    //    }
-    //    ImGui::SameLine();
-    //    if (ImGui::RadioButton("World", currentGizmoMode == ImGuizmo::WORLD)) {
-    //        currentGizmoMode = ImGuizmo::WORLD;
-    //    }
-    //}
+    // if (currentGizmoOperation != ImGuizmo::SCALE) {
+    //     if (ImGui::RadioButton("Local", currentGizmoMode == ImGuizmo::LOCAL)) {
+    //         currentGizmoMode = ImGuizmo::LOCAL;
+    //     }
+    //     ImGui::SameLine();
+    //     if (ImGui::RadioButton("World", currentGizmoMode == ImGuizmo::WORLD)) {
+    //         currentGizmoMode = ImGuizmo::WORLD;
+    //     }
+    // }
 
-    //ImGuiIO &io = ImGui::GetIO();
-    //ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    // ImGuiIO &io = ImGui::GetIO();
+    // ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
     ////ImGuizmo::Manipulate()
-
 }
 
 void InspectorGUI::on_gui_camera(Camera &camera) {
@@ -85,7 +84,6 @@ void InspectorGUI::on_gui_camera(Camera &camera) {
 void InspectorGUI::on_gui_physics_shape(nodec_physics::components::PhysicsShape &shape) {
     using namespace nodec_physics::components;
 
-    
     {
         int current = static_cast<int>(shape.shape_type);
         ImGui::Combo("Shape Type", &current, "Box\0Sphere");
@@ -105,4 +103,9 @@ void InspectorGUI::on_gui_physics_shape(nodec_physics::components::PhysicsShape 
         ImGui::Text("Unsupported shape.");
         break;
     }
+}
+
+void InspectorGUI::on_gui_scene_lighting(nodec_rendering::components::SceneLighting &lighting) {
+    lighting.skybox = resource_name_edit("Skybox", lighting.skybox);
+    ImGui::ColorEdit4("Ambient Color", lighting.ambient_color.v, ImGuiColorEditFlags_Float);
 }

@@ -19,15 +19,16 @@
 // }
 // } // namespace
 
-SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resourceRegistry)
+SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resource_registry)
     : gfx_(gfx),
       mScenePropertiesCB(gfx, sizeof(SceneProperties), &mSceneProperties),
       mModelPropertiesCB(gfx, sizeof(ModelProperties), &mModelProperties),
       mTextureConfigCB(gfx, sizeof(TextureConfig), &mTextureConfig),
       mBSDefault(BlendState::CreateDefaultBlend(gfx)),
       mBSAlphaBlend(BlendState::CreateAlphaBlend(gfx)),
-      mRSCullBack{gfx, D3D11_CULL_BACK},
-      mRSCullNone{gfx, D3D11_CULL_NONE},
+      rs_cull_back_{gfx, D3D11_CULL_BACK},
+      rs_cull_none_{gfx, D3D11_CULL_NONE},
+      rs_cull_front_ {gfx, D3D11_CULL_FRONT},
       mFontCharacterDatabase{gfx} {
     using namespace nodec_rendering::resources;
     using namespace nodec::resource_management;
@@ -35,36 +36,45 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
 
     // Get quad mesh from resource registry.
     {
-        auto quadMesh = resourceRegistry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
+        auto quadMesh = resource_registry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
 
         if (!quadMesh) {
             logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'quad.mesh'.\n"
                                                        "Make sure the 'org.nodec.game-engine' resource-package is installed.";
         }
 
-        mQuadMesh = std::static_pointer_cast<MeshBackend>(quadMesh);
+        quad_mesh_ = std::static_pointer_cast<MeshBackend>(quadMesh);
+    }
+
+    {
+        auto norm_cube_mesh = resource_registry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/norm-cube.mesh");
+        if (!norm_cube_mesh) {
+            logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'norm-cube.mesh'.\n"
+                                                       "Make sure the 'org.nodec.game-engine' resource-package is installed.";
+        }
+        norm_cube_mesh_ = std::static_pointer_cast<MeshBackend>(norm_cube_mesh);
     }
 
     // Make screen quad mesh in NDC space which is not depend on target view size.
     {
-        mScreenQuadMesh.reset(new MeshBackend());
+        screen_quad_mesh_.reset(new MeshBackend());
 
-        mScreenQuadMesh->vertices.resize(4);
-        mScreenQuadMesh->triangles.resize(6);
+        screen_quad_mesh_->vertices.resize(4);
+        screen_quad_mesh_->triangles.resize(6);
 
-        mScreenQuadMesh->vertices[0] = {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}};
-        mScreenQuadMesh->vertices[1] = {{-1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}};
-        mScreenQuadMesh->vertices[2] = {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}};
-        mScreenQuadMesh->vertices[3] = {{1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}};
+        screen_quad_mesh_->vertices[0] = {{-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}};
+        screen_quad_mesh_->vertices[1] = {{-1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}};
+        screen_quad_mesh_->vertices[2] = {{1.0f, 1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}};
+        screen_quad_mesh_->vertices[3] = {{1.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}};
 
-        mScreenQuadMesh->triangles[0] = 0;
-        mScreenQuadMesh->triangles[1] = 1;
-        mScreenQuadMesh->triangles[2] = 2;
+        screen_quad_mesh_->triangles[0] = 0;
+        screen_quad_mesh_->triangles[1] = 1;
+        screen_quad_mesh_->triangles[2] = 2;
 
-        mScreenQuadMesh->triangles[3] = 0;
-        mScreenQuadMesh->triangles[4] = 2;
-        mScreenQuadMesh->triangles[5] = 3;
-        mScreenQuadMesh->update_device_memory(gfx_);
+        screen_quad_mesh_->triangles[3] = 0;
+        screen_quad_mesh_->triangles[4] = 2;
+        screen_quad_mesh_->triangles[5] = 3;
+        screen_quad_mesh_->update_device_memory(gfx_);
     }
 }
 
@@ -157,7 +167,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
                 auto materialBackend = std::static_pointer_cast<MaterialBackend>(activePostProcessEffects[i]->material);
                 auto shaderBackend = std::static_pointer_cast<ShaderBackend>(materialBackend->shader());
 
-                SetCullMode(materialBackend->cull_mode());
+                set_cull_mode(materialBackend->cull_mode());
                 materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
 
                 mTextureConfig.texHasFlag = 0x00;
@@ -189,7 +199,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
                         }
 
                         gfx_->context().OMSetRenderTargets(renderTargets.size(), renderTargets.data(), nullptr);
-                        gfx_->context().RSSetViewports(vps.size() , vps.data());
+                        gfx_->context().RSSetViewports(vps.size(), vps.data());
                     }
 
                     // --- Bind texture resources.
@@ -204,8 +214,8 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
                     }
                     shaderBackend->bind(gfx_, passNum);
 
-                    mScreenQuadMesh->bind(gfx_);
-                    gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
+                    screen_quad_mesh_->bind(gfx_);
+                    gfx_->DrawIndexed(screen_quad_mesh_->triangles.size());
                 } // End foreach pass.
 
                 context.swap_geometry_buffers("screen", "screen_back");
@@ -244,6 +254,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
                            ID3D11RenderTargetView *pTarget, SceneRenderingContext &context) {
     assert(pTarget != nullptr);
     using namespace nodec;
+    using namespace nodec_scene;
     using namespace nodec_scene::components;
     using namespace nodec_rendering::components;
     using namespace nodec_rendering;
@@ -290,7 +301,6 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
     if (activeShaders.size() == 0) return;
 
     // Clear render target view with solid color.
-    // TODO: Consider skybox.
     {
         const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
         gfx_->context().ClearRenderTargetView(pTarget, color);
@@ -310,6 +320,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
         XMVectorGetByIndex(trans, 1),
         XMVectorGetByIndex(trans, 2),
         XMVectorGetByIndex(trans, 3));
+
 
     // Update active point lights.
     {
@@ -337,6 +348,42 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
 
     // Reset depth buffer.
     gfx_->context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+    
+    // Render skybox.
+    [&]() {
+        if (!norm_cube_mesh_) return;
+
+        auto view = scene.registry().view<nodec_rendering::components::SceneLighting>();
+        if (view.begin() == view.end()) return;
+
+        auto entt = *view.begin();
+        const auto &lighting = view.get<nodec_rendering::components::SceneLighting>(entt);
+
+        auto material_backend = static_cast<MaterialBackend*>(lighting.skybox.get());
+        if (!material_backend) return;
+
+        auto shader_backend = static_cast<ShaderBackend *>(material_backend->shader().get());
+        if (!shader_backend) return;
+
+        gfx_->context().OMSetRenderTargets(1, &pTarget, nullptr);
+        D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
+        gfx_->context().RSSetViewports(1u, &vp);
+        gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        shader_backend->bind(gfx_);
+
+        material_backend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
+        set_cull_mode(material_backend->cull_mode());
+
+        mTextureConfig.texHasFlag = 0x00;
+        bind_texture_entries(material_backend->texture_entries(), mTextureConfig.texHasFlag);
+        mTextureConfigCB.Update(gfx_, &mTextureConfig);
+
+        //set_cull_mode(nodec_rendering::CullMode::Back);
+
+        norm_cube_mesh_->bind(gfx_);
+        gfx_->DrawIndexed(norm_cube_mesh_->triangles.size());
+    }();
 
     // Executes the shader programs.
     for (auto *activeShader : activeShaders) {
@@ -404,8 +451,8 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
 
                 GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(gfx_, 0);
 
-                mScreenQuadMesh->bind(gfx_);
-                gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
+                screen_quad_mesh_->bind(gfx_);
+                gfx_->DrawIndexed(screen_quad_mesh_->triangles.size());
 
                 unbind_all_shader_resources(textureResources.size());
             }
@@ -418,6 +465,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
     if (activeShader == nullptr) return;
 
     using namespace nodec;
+    using namespace nodec_scene;
     using namespace nodec_scene::components;
     using namespace nodec_rendering;
     using namespace nodec_rendering::components;
@@ -466,7 +514,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             if (shaderBackend != activeShader) continue;
 
             materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
-            SetCullMode(materialBackend->cull_mode());
+            set_cull_mode(materialBackend->cull_mode());
 
             mTextureConfig.texHasFlag = 0x00;
             used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
@@ -478,11 +526,11 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
     });   // End foreach mesh renderer
 
     [&]() {
-        if (!mQuadMesh) return;
+        if (!quad_mesh_) return;
 
         mBSAlphaBlend.Bind(gfx_);
 
-        scene.registry().view<const Transform, const ImageRenderer>(type_list<NonVisible>{}).each([&](auto entt, const Transform &trfm, const ImageRenderer &renderer) {
+        scene.registry().view<const Transform, const ImageRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const Transform &trfm, const ImageRenderer &renderer) {
             using namespace DirectX;
             using namespace nodec_rendering;
 
@@ -500,7 +548,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             materialBackend->set_texture_entry("albedo", {image, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
 
             materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
-            SetCullMode(materialBackend->cull_mode());
+            set_cull_mode(materialBackend->cull_mode());
 
             mTextureConfig.texHasFlag = 0x00;
             used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
@@ -524,8 +572,8 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
             mModelPropertiesCB.Update(gfx_, &mModelProperties);
 
-            mQuadMesh->bind(gfx_);
-            gfx_->DrawIndexed(mQuadMesh->triangles.size());
+            quad_mesh_->bind(gfx_);
+            gfx_->DrawIndexed(quad_mesh_->triangles.size());
 
             if (savedAlbedo) {
                 materialBackend->set_texture_entry("albedo", *savedAlbedo);
@@ -582,7 +630,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 materialBackend->set_vector4_property("albedo", renderer.color);
 
                 materialBackend->bind_constant_buffer(gfx_, 3);
-                SetCullMode(materialBackend->cull_mode());
+                set_cull_mode(materialBackend->cull_mode());
 
                 mTextureConfig.texHasFlag = 0x00;
                 used_slot_max = std::max(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
@@ -603,8 +651,8 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
 
                 mModelPropertiesCB.Update(gfx_, &mModelProperties);
-                mScreenQuadMesh->bind(gfx_);
-                gfx_->DrawIndexed(mScreenQuadMesh->triangles.size());
+                screen_quad_mesh_->bind(gfx_);
+                gfx_->DrawIndexed(screen_quad_mesh_->triangles.size());
             }
 
             if (savedMask) {

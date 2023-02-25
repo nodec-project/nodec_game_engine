@@ -148,10 +148,9 @@ public:
             return {};
         }
 
-        cereal::JSONInputArchive archive(file);
-
         ShaderMetaInfo metaInfo;
         try {
+            cereal::JSONInputArchive archive(file);
             archive(metaInfo);
         } catch (...) {
             HandleException(Formatter() << "Shader::" << path);
@@ -162,9 +161,9 @@ public:
         for (const auto &subShaderName : metaInfo.pass) {
             std::ifstream file(Formatter() << path << "/" << subShaderName << ".meta");
             if (!file) return {};
-            cereal::JSONInputArchive archive(file);
             SubShaderMetaInfo info;
             try {
+                cereal::JSONInputArchive archive(file);
                 archive(info);
                 subShaderMetaInfos.push_back(std::move(info));
             } catch (...) {
@@ -270,13 +269,11 @@ public:
             return {};
         }
 
-        ArchiveContext context{*mpRegistry};
-
-        cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, file);
-
         SerializableSceneGraph graph;
 
         try {
+            ArchiveContext context{*mpRegistry};
+            cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, file);
             archive(graph);
         } catch (...) {
             HandleException(Formatter() << "SerializableSceneGraph::" << path);
