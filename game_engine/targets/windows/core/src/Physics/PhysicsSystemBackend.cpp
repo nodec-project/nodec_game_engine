@@ -6,6 +6,7 @@
 #include <nodec_physics/components/collision_stay.hpp>
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
+#include <nodec_physics/components/central_force.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
 
 #include <nodec/logging.hpp>
@@ -79,15 +80,22 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     // Apply force.
     {
-        std::vector<SceneEntity> to_deletes;
-        world.scene().registry().view<RigidBodyActivity, ImpulseForce>().each([&](auto entt, RigidBodyActivity &activity, ImpulseForce &force) {
+        auto view = world.scene().registry().view<RigidBodyActivity, ImpulseForce>();
+
+        view.each([&](auto entt, RigidBodyActivity &activity, ImpulseForce &force) {
             activity.rigid_body_backend->native().applyCentralImpulse(to_bt_vector3(force.force));
-            to_deletes.emplace_back(entt);
         });
 
-        for (auto &entt : to_deletes) {
-            world.scene().registry().remove_component<ImpulseForce>(entt);
-        }
+        world.scene().registry().remove_components<ImpulseForce>(view.begin(), view.end());
+    }
+    {
+        auto view = world.scene().registry().view<RigidBodyActivity, CentralForce>();
+
+        view.each([&](auto entt, RigidBodyActivity &activity, CentralForce &force) {
+            activity.rigid_body_backend->native().applyCentralForce(to_bt_vector3(force.force));
+        });
+
+        world.scene().registry().remove_components<CentralForce>(view.begin(), view.end());
     }
 
     {
@@ -126,7 +134,6 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     // https://github.com/bulletphysics/bullet3/issues/1745
     {
-
         const int num_of_manifolds = dynamics_world_->getDispatcher()->getNumManifolds();
 
         for (int i = 0; i < num_of_manifolds; ++i) {
@@ -140,19 +147,26 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             const auto *body0 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody0()->getUserPointer());
             const auto *body1 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody1()->getUserPointer());
 
-            world.scene().registry().emplace_component<CollisionStay>(body0->entity());
-            world.scene().registry().emplace_component<CollisionStay>(body1->entity());
+            {
+                auto &stay = world.scene().registry().emplace_component<CollisionStay>(body0->entity()).first;
+                stay.other = body1->entity();
+            }
 
-            //collision_info.entity0 = body0->entity();
-            //collision_info.entity1 = body1->entity();
+            {
+                auto &stay = world.scene().registry().emplace_component<CollisionStay>(body1->entity()).first;
+                stay.other = body0->entity();
+            }
 
-            //collision_info.num_of_contacts = num_of_contacts;
+            // collision_info.entity0 = body0->entity();
+            // collision_info.entity1 = body1->entity();
 
-            //for (int j = 0; j < num_of_contacts; ++j) {
-            //    const auto &point = contact_manifold->getContactPoint(j);
-            //}
+            // collision_info.num_of_contacts = num_of_contacts;
 
-            //collision_stay_signal_(collision_info);
+            // for (int j = 0; j < num_of_contacts; ++j) {
+            //     const auto &point = contact_manifold->getContactPoint(j);
+            // }
+
+            // collision_stay_signal_(collision_info);
         }
     }
 }
