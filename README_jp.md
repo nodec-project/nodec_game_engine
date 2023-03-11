@@ -8,8 +8,19 @@
 
 * Windows
 
-> ℹ️ **NOTE: ほかのプラットフォームに対応する?**
+> ℹ️ **NOTE: ほかのプラットフォームには対応する?**
 >
-> はい。その予定です。
+> 以下のプラットフォームに対応することを目指しています。
 >
-> macOS, Androidに対応することを検討中です。
+> * macOS
+> * Android
+
+## アーキテクチャ
+
+![](./docs/architecture.drawio.png)
+
+## テンプレートプロジェクト
+
+本エンジンを使ってアプリを作りたい場合は、以下のテンプレートプロジェクトを使用してください。
+
+<https://github.com/ContentsViewer/hello-nodec-game>
