@@ -253,10 +253,5 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             shape.radius = serializable.radius;
         });
 
-    register_component<Prefab, Prefab>(
-        [](const Prefab &prefab) { return std::make_unique<Prefab>(prefab); },
-        [](const Prefab &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &prefab = registry.emplace_component<Prefab>(entity).first;
-            prefab = serializable;
-        });
+    register_component<Prefab>();
 }
