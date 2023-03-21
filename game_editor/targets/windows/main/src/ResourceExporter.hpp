@@ -7,7 +7,7 @@
 #include <nodec_scene/scene_registry.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
-//#include <nodec_scene_serialization/serializable_scene_graph.hpp>
+// #include <nodec_scene_serialization/serializable_scene_graph.hpp>
 #include <nodec_serialization/nodec_rendering/components/mesh_renderer.hpp>
 #include <nodec_serialization/nodec_rendering/resources/material.hpp>
 #include <nodec_serialization/nodec_rendering/resources/mesh.hpp>
@@ -178,12 +178,11 @@ inline void ExportScene(const aiScene *pScene, nodec_scene::Scene &destScene, co
     internal::ProcessNode(pScene->mRootNode, pScene, resource_name_prefix, nameMap, null_entity, destScene, resourceRegistry);
 }
 
-
-bool ExportSceneGraph(
-    const std::vector<nodec_scene::SceneEntity> &roots,
-    const nodec_scene::SceneRegistry &sceneRegistry,
-    const nodec_scene_serialization::SceneSerialization &sceneSerialization,
-    nodec::resource_management::ResourceRegistry &resourceRegistry,
-    const std::string &destPath);
+// bool ExportSceneGraph(
+//     const std::vector<nodec_scene::SceneEntity> &roots,
+//     const nodec_scene::SceneRegistry &sceneRegistry,
+//     const nodec_scene_serialization::SceneSerialization &sceneSerialization,
+//     nodec::resource_management::ResourceRegistry &resourceRegistry,
+//     const std::string &destPath);
 
 } // namespace ResourceExporter

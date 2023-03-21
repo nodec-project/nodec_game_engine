@@ -1,10 +1,21 @@
 #include "InspectorGUI.hpp"
 
-//#include <ImGuizmo.h>
+// #include <ImGuizmo.h>
 
 using namespace nodec_scene::components;
 using namespace nodec_rendering::components;
 using namespace nodec;
+
+void InspectorGUI::on_gui_name(nodec_scene::components::Name &name) {
+    auto &buffer = imessentials::get_text_buffer(1024, name.name);
+
+    ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue;
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+    if (ImGui::InputText("##name", buffer.data(), buffer.size(), input_text_flags)) {
+        // on type enter
+    }
+    name.name = buffer.data();
+}
 
 void InspectorGUI::on_gui_transform(Transform &trfm) {
     // static ImGuizmo::OPERATION currentGizmoOperation = ImGuizmo::TRANSLATE;
@@ -61,6 +72,36 @@ void InspectorGUI::on_gui_transform(Transform &trfm) {
     ////ImGuizmo::Manipulate()
 }
 
+void InspectorGUI::on_gui_mesh_renderer(nodec_rendering::components::MeshRenderer &renderer) {
+    using namespace nodec;
+    using namespace nodec_rendering::resources;
+    using namespace nodec_rendering;
+    {
+        imessentials::list_edit(
+            "Meshes", renderer.meshes,
+            [&](int index, auto &mesh) {
+                mesh = resource_name_edit("", mesh);
+            },
+            [&]() {
+                auto empty = resource_registry_->get_resource_direct<Mesh>("");
+                renderer.meshes.emplace_back(empty);
+            },
+            [&](int index, auto &mesh) {});
+    }
+    {
+        imessentials::list_edit(
+            "Materials", renderer.materials,
+            [&](int index, auto &material) {
+                material = resource_name_edit("", material);
+            },
+            [&]() {
+                auto empty = resource_registry_->get_resource_direct<Material>("");
+                renderer.materials.emplace_back(empty);
+            },
+            [&](int index, auto &material) {});
+    }
+}
+
 void InspectorGUI::on_gui_camera(Camera &camera) {
     ImGui::DragFloat("Near Clip Plane", &camera.near_clip_plane);
     ImGui::DragFloat("Far Clip Plane", &camera.far_clip_plane);
@@ -108,4 +149,11 @@ void InspectorGUI::on_gui_physics_shape(nodec_physics::components::PhysicsShape 
 void InspectorGUI::on_gui_scene_lighting(nodec_rendering::components::SceneLighting &lighting) {
     lighting.skybox = resource_name_edit("Skybox", lighting.skybox);
     ImGui::ColorEdit4("Ambient Color", lighting.ambient_color.v, ImGuiColorEditFlags_Float);
+}
+
+void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab) {
+    auto &buffer = imessentials::get_text_buffer(1024, prefab.source);
+    if (ImGui::InputText("Source", buffer.data(), buffer.size())) {}
+    prefab.source = buffer.data();
+    ImGui::Checkbox("Active", &prefab.active);
 }

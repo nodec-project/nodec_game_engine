@@ -6,7 +6,6 @@
 
 #include "EditorWindows/AssetImportWindow.hpp"
 #include "EditorWindows/ControlWindow.hpp"
-//#include "EditorWindows/SceneSerializationWindow.hpp"
 #include "EditorWindows/SceneViewWindow.hpp"
 
 #include <imwindows/entity_inspector_window.hpp>
@@ -62,14 +61,14 @@ Editor::Editor(Engine *engine)
                                                    &engine->resources_module().registry());
     });
 
-    //window_manager().register_window<SceneSerializationWindow>([=]() {
-    //    return std::make_unique<SceneSerializationWindow>(&engine->world_module().scene(),
-    //                                                      &engine->scene_serialization(),
-    //                                                      engine->resources_module().resource_path(),
-    //                                                      &engine->resources_module().registry(),
-    //                                                      selection().active_scene_entity(),
-    //                                                      selection().active_scene_entity_changed());
-    //});
+    // window_manager().register_window<SceneSerializationWindow>([=]() {
+    //     return std::make_unique<SceneSerializationWindow>(&engine->world_module().scene(),
+    //                                                       &engine->scene_serialization(),
+    //                                                       engine->resources_module().resource_path(),
+    //                                                       &engine->resources_module().registry(),
+    //                                                       selection().active_scene_entity(),
+    //                                                       selection().active_scene_entity_changed());
+    // });
 
     register_menu_item("Window/Control", [=]() {
         auto &window = window_manager().get_window<ControlWindow>();
@@ -106,10 +105,10 @@ Editor::Editor(Engine *engine)
         window.focus();
     });
 
-    //register_menu_item("Window/Scene Serialization", [&]() {
-    //    auto &window = window_manager().get_window<SceneSerializationWindow>();
-    //    window.focus();
-    //});
+    // register_menu_item("Window/Scene Serialization", [&]() {
+    //     auto &window = window_manager().get_window<SceneSerializationWindow>();
+    //     window.focus();
+    // });
 
     inspector_gui_.reset(new InspectorGUI(&engine->resources_module().registry()));
 
@@ -199,6 +198,12 @@ Editor::Editor(Engine *engine)
             inspector_gui_->on_gui_non_visible(non_visible);
         });
 
+    inspector_component_registry_impl().register_component<Prefab>(
+        "Prefab",
+        [=](auto &prefab) {
+            inspector_gui_->on_gui_prefab(prefab);
+        });
+
     [=]() {
         std::ifstream file("editor-config.json", std::ios::binary);
         if (!file) return;
@@ -239,7 +244,7 @@ void Editor::setup() {
     window_manager().get_window<LogWindow>();
     window_manager().get_window<MaterialEditorWindow>();
     window_manager().get_window<AssetImportWindow>();
-    //window_manager().get_window<SceneSerializationWindow>();
+    // window_manager().get_window<SceneSerializationWindow>();
     window_manager().get_window<EntityInspectorWindow>();
 }
 

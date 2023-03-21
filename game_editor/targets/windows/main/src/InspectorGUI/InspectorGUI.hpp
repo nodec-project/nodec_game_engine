@@ -14,6 +14,7 @@
 #include <nodec_scene/components/name.hpp>
 #include <nodec_scene/components/transform.hpp>
 #include <nodec_scene_audio/components/audio_source.hpp>
+#include <nodec_scene_serialization/components/prefab.hpp>
 
 #include <imessentials/list.hpp>
 #include <imessentials/text_buffer.hpp>
@@ -32,48 +33,11 @@ public:
         : resource_registry_{resource_registry} {
     }
 
-    void on_gui_name(nodec_scene::components::Name &name) {
-        auto &buffer = imessentials::get_text_buffer(1024, name.name);
-
-        ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue;
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        if (ImGui::InputText("##name", buffer.data(), buffer.size(), input_text_flags)) {
-            // on type enter
-        }
-        name.name = buffer.data();
-    }
+    void on_gui_name(nodec_scene::components::Name &name);
 
     void on_gui_transform(nodec_scene::components::Transform &trfm);
 
-    void on_gui_mesh_renderer(nodec_rendering::components::MeshRenderer &renderer) {
-        using namespace nodec;
-        using namespace nodec_rendering::resources;
-        using namespace nodec_rendering;
-        {
-            imessentials::list_edit(
-                "Meshes", renderer.meshes,
-                [&](int index, auto &mesh) {
-                    mesh = resource_name_edit("", mesh);
-                },
-                [&]() {
-                    auto empty = resource_registry_->get_resource_direct<Mesh>("");
-                    renderer.meshes.emplace_back(empty);
-                },
-                [&](int index, auto &mesh) {});
-        }
-        {
-            imessentials::list_edit(
-                "Materials", renderer.materials,
-                [&](int index, auto &material) {
-                    material = resource_name_edit("", material);
-                },
-                [&]() {
-                    auto empty = resource_registry_->get_resource_direct<Material>("");
-                    renderer.materials.emplace_back(empty);
-                },
-                [&](int index, auto &material) {});
-        }
-    }
+    void on_gui_mesh_renderer(nodec_rendering::components::MeshRenderer &renderer);
 
     void on_gui_camera(nodec_rendering::components::Camera &camera);
 
@@ -174,6 +138,8 @@ public:
     void on_gui_non_visible(nodec_rendering::components::NonVisible &nonVisible) {
         ImGui::Checkbox("Self", &nonVisible.self);
     }
+
+    void on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab);
 
 private:
     template<typename T>
