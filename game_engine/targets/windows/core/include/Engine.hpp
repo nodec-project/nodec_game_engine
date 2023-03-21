@@ -23,7 +23,7 @@
 #include <nodec_resources/impl/resources_module.hpp>
 #include <nodec_scene/scene.hpp>
 #include <nodec_scene/systems/transform_system.hpp>
-#include <nodec_scene_serialization/scene_loader.hpp>
+#include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_screen/impl/screen_module.hpp>
 #include <nodec_world/impl/world_module.hpp>
@@ -45,9 +45,7 @@ public:
 
     void setup();
 
-    void frame_begin() {
-        window_->graphics().BeginFrame();
-    }
+    void frame_begin();
 
     void frame_end();
 
@@ -94,7 +92,7 @@ private:
     KeyboardDeviceSystem *keyboard_device_system_;
     MouseDeviceSystem *mouse_device_system_;
 
-    std::shared_ptr<nodec_scene_serialization::SceneLoader> scene_loader_;
+    std::shared_ptr<nodec_scene_serialization::impl::EntityLoaderImpl> entity_loader_;
 
     std::shared_ptr<ResourcesModuleBackend> resources_module_;
 

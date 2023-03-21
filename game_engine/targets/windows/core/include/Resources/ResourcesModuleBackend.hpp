@@ -55,12 +55,12 @@ public:
                 return resource_loader_->LoadAsync<Material, MaterialBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
-        registry().register_resource_loader<SerializableSceneGraph>(
+        registry().register_resource_loader<SerializableEntity>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<SerializableSceneGraph, SerializableSceneGraph>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->LoadDirect<SerializableEntity, SerializableEntity>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<SerializableSceneGraph, SerializableSceneGraph>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->LoadAsync<SerializableEntity, SerializableEntity>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<AudioClip>(

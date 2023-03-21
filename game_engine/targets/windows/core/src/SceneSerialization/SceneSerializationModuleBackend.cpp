@@ -2,6 +2,7 @@
 
 #include <nodec_scene/scene_registry.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
+#include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_serialization/nodec_physics/components/physics_shape.hpp>
 #include <nodec_serialization/nodec_physics/components/rigid_body.hpp>
 #include <nodec_serialization/nodec_rendering/components/camera.hpp>
@@ -24,6 +25,7 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
     using namespace nodec_scene_audio::components;
     using namespace nodec_physics::components;
     using namespace nodec_scene;
+    using namespace nodec_scene_serialization::components;
 
     register_component<MeshRenderer, SerializableMeshRenderer>(
         [=](const MeshRenderer &component) {
@@ -249,5 +251,12 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             shape.shape_type = serializable.shape_type;
             shape.size = serializable.size;
             shape.radius = serializable.radius;
+        });
+
+    register_component<Prefab, Prefab>(
+        [](const Prefab &prefab) { return std::make_unique<Prefab>(prefab); },
+        [](const Prefab &serializable, SceneEntity entity, SceneRegistry &registry) {
+            auto &prefab = registry.emplace_component<Prefab>(entity).first;
+            prefab = serializable;
         });
 }

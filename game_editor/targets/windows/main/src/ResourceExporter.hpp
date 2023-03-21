@@ -7,7 +7,7 @@
 #include <nodec_scene/scene_registry.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
-#include <nodec_scene_serialization/serializable_scene_graph.hpp>
+//#include <nodec_scene_serialization/serializable_scene_graph.hpp>
 #include <nodec_serialization/nodec_rendering/components/mesh_renderer.hpp>
 #include <nodec_serialization/nodec_rendering/resources/material.hpp>
 #include <nodec_serialization/nodec_rendering/resources/mesh.hpp>
