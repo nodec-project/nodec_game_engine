@@ -37,8 +37,9 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     resources_module_->setup_on_boot();
 
     // --- scene serialization ---
-    scene_serialization_module_.reset(new SceneSerializationModuleBackend(&resources_module_->registry()));
-    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_module_, world_module_->scene(), resources_module_->registry()));
+    scene_serialization_.reset(new SceneSerialization());
+    scene_serialization_backend_.reset(new SceneSerializationBackend(&resources_module_->registry(), *scene_serialization_));
+    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_, world_module_->scene(), resources_module_->registry()));
 
     // --- others ---
     physics_system_.reset(new PhysicsSystemBackend(*world_module_));
@@ -50,7 +51,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     app.add_service<World>(world_module_);
     app.add_service<InputDevices>(input_devices_);
     app.add_service<Resources>(resources_module_);
-    app.add_service<SceneSerialization>(scene_serialization_module_);
+    app.add_service<SceneSerialization>(scene_serialization_);
     app.add_service<EntityLoader>(entity_loader_);
     app.add_service<PhysicsSystem>(physics_system_);
 }

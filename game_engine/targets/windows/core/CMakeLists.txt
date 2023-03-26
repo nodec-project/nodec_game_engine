@@ -13,7 +13,7 @@ add_library(${PROJECT_NAME} STATIC
     src/Physics/PhysicsSystemBackend.cpp
     src/Rendering/SceneRenderer.cpp
     src/SceneAudio/SceneAudioSystem.cpp
-    src/SceneSerialization/SceneSerializationModuleBackend.cpp
+    src/SceneSerialization/SceneSerializationBackend.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

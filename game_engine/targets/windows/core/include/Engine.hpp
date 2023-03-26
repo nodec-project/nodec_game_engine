@@ -10,7 +10,7 @@
 #include "Resources/ResourceLoader.hpp"
 #include "Resources/ResourcesModuleBackend.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
-#include "SceneSerialization/SceneSerializationModuleBackend.hpp"
+#include "SceneSerialization/SceneSerializationBackend.hpp"
 #include "ScreenHandler.hpp"
 #include "Window.hpp"
 
@@ -62,7 +62,7 @@ public:
     }
 
     nodec_scene_serialization::SceneSerialization &scene_serialization() {
-        return *scene_serialization_module_;
+        return *scene_serialization_;
     }
     AudioPlatform &audio_platform() {
         return *audio_platform_;
@@ -96,7 +96,8 @@ private:
 
     std::shared_ptr<ResourcesModuleBackend> resources_module_;
 
-    std::shared_ptr<SceneSerializationModuleBackend> scene_serialization_module_;
+    std::shared_ptr<nodec_scene_serialization::SceneSerialization> scene_serialization_;
+    std::unique_ptr<SceneSerializationBackend> scene_serialization_backend_;
 
     std::shared_ptr<nodec_world::impl::WorldModule> world_module_;
 

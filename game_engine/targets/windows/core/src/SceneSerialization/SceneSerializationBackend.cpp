@@ -1,4 +1,4 @@
-#include <SceneSerialization/SceneSerializationModuleBackend.hpp>
+#include <SceneSerialization/SceneSerializationBackend.hpp>
 
 #include <nodec_scene/scene_registry.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
@@ -18,7 +18,8 @@
 #include <nodec_serialization/nodec_scene/components/transform.hpp>
 #include <nodec_serialization/nodec_scene_audio/components/audio_source.hpp>
 
-SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource_management::ResourceRegistry *resource_registry) {
+SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management::ResourceRegistry *resource_registry,
+                                                     nodec_scene_serialization::SceneSerialization &serialization) {
     using namespace nodec_rendering::components;
     using namespace nodec_rendering::resources;
     using namespace nodec_scene::components;
@@ -27,7 +28,7 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
     using namespace nodec_scene;
     using namespace nodec_scene_serialization::components;
 
-    register_component<MeshRenderer, SerializableMeshRenderer>(
+    serialization.register_component<MeshRenderer, SerializableMeshRenderer>(
         [=](const MeshRenderer &component) {
             auto serializable = std::make_unique<SerializableMeshRenderer>();
 
@@ -43,8 +44,8 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
 
             return serializable;
         },
-        [=](const SerializableMeshRenderer serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &component = registry.emplace_component<MeshRenderer>(entity).first;
+        [=](const SerializableMeshRenderer serializable) {
+            MeshRenderer component;
 
             for (auto &name : serializable.meshes) {
                 auto mesh = resource_registry->get_resource<Mesh>(name).get();
@@ -55,9 +56,10 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
                 auto material = resource_registry->get_resource<Material>(name).get();
                 component.materials.push_back(material);
             }
+            return component;
         });
 
-    register_component<ImageRenderer, SerializableImageRenderer>(
+    serialization.register_component<ImageRenderer, SerializableImageRenderer>(
         [=](const ImageRenderer &renderer) {
             auto serializable = std::make_unique<SerializableImageRenderer>();
             serializable->image = renderer.image;
@@ -65,14 +67,15 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             serializable->pixels_per_unit = renderer.pixels_per_unit;
             return serializable;
         },
-        [=](const SerializableImageRenderer &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &renderer = registry.emplace_component<ImageRenderer>(entity).first;
+        [=](const SerializableImageRenderer &serializable) {
+            ImageRenderer renderer;
             renderer.image = serializable.image;
             renderer.material = serializable.material;
             renderer.pixels_per_unit = serializable.pixels_per_unit;
+            return renderer;
         });
 
-    register_component<TextRenderer, SerializableTextRenderer>(
+    serialization.register_component<TextRenderer, SerializableTextRenderer>(
         [=](const TextRenderer &renderer) {
             auto serializable = std::make_unique<SerializableTextRenderer>();
             serializable->font = renderer.font;
@@ -83,17 +86,18 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             serializable->color = renderer.color;
             return serializable;
         },
-        [=](const SerializableTextRenderer &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &renderer = registry.emplace_component<TextRenderer>(entity).first;
+        [=](const SerializableTextRenderer &serializable) {
+            TextRenderer renderer;
             renderer.font = serializable.font;
             renderer.material = serializable.material;
             renderer.text = serializable.text;
             renderer.pixel_size = serializable.pixel_size;
             renderer.pixels_per_unit = serializable.pixels_per_unit;
             renderer.color = serializable.color;
+            return renderer;
         });
 
-    register_component<PostProcessing, SerializablePostProcessing>(
+    serialization.register_component<PostProcessing, SerializablePostProcessing>(
         [=](const PostProcessing &processing) {
             auto serializable = std::make_unique<SerializablePostProcessing>();
 
@@ -103,41 +107,18 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             }
             return serializable;
         },
-        [=](const SerializablePostProcessing &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &processing = registry.emplace_component<PostProcessing>(entity).first;
+        [=](const SerializablePostProcessing &serializable) {
+            PostProcessing processing;
             for (const auto &effect : serializable.effects) {
                 processing.effects.push_back({effect.enabled, resource_registry->get_resource<Material>(effect.material).get()});
             }
+            return processing;
         });
 
-    register_component<Name, SerializableName>(
-        [](const Name &name) {
-            auto serializable_name = std::make_unique<SerializableName>();
-            serializable_name->name = name.name;
-            return serializable_name;
-        },
-        [](const SerializableName &serializable_name, SceneEntity entity, SceneRegistry &registry) {
-            auto &name = registry.emplace_component<Name>(entity).first;
-            name.name = serializable_name.name;
-        });
+    serialization.register_component<Name, SerializableName>();
+    serialization.register_component<Transform, SerializableTransform>();
 
-    register_component<Transform, SerializableTransform>(
-        [](const Transform &trfm) {
-            auto serializable_trfm = std::make_unique<SerializableTransform>();
-            serializable_trfm->local_position = trfm.local_position;
-            serializable_trfm->local_scale = trfm.local_scale;
-            serializable_trfm->local_rotation = trfm.local_rotation;
-            return serializable_trfm;
-        },
-        [](const SerializableTransform &serializable_trfm, SceneEntity entity, SceneRegistry &registry) {
-            auto &trfm = registry.emplace_component<Transform>(entity).first;
-            trfm.local_position = serializable_trfm.local_position;
-            trfm.local_rotation = serializable_trfm.local_rotation;
-            trfm.local_scale = serializable_trfm.local_scale;
-            trfm.dirty = true;
-        });
-
-    register_component<Camera, SerializableCamera>(
+    serialization.register_component<Camera, SerializableCamera>(
         [](const Camera &camera) {
             auto serializable_camera = std::make_unique<SerializableCamera>();
             serializable_camera->far_clip_plane = camera.far_clip_plane;
@@ -147,29 +128,31 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             serializable_camera->ortho_width = camera.ortho_width;
             return serializable_camera;
         },
-        [](const SerializableCamera &serializable_camera, SceneEntity entity, SceneRegistry &registry) {
-            auto &camera = registry.emplace_component<Camera>(entity).first;
+        [](const SerializableCamera &serializable_camera) {
+            Camera camera;
             camera.far_clip_plane = serializable_camera.far_clip_plane;
             camera.near_clip_plane = serializable_camera.near_clip_plane;
             camera.fov_angle = serializable_camera.fov_angle;
             camera.projection = serializable_camera.projection;
             camera.ortho_width = serializable_camera.ortho_width;
+            return camera;
         });
 
-    register_component<DirectionalLight, SerializableDirectionalLight>(
+    serialization.register_component<DirectionalLight, SerializableDirectionalLight>(
         [](const DirectionalLight &light) {
             auto serializable_light = std::make_unique<SerializableDirectionalLight>();
             serializable_light->color = light.color;
             serializable_light->intensity = light.intensity;
             return serializable_light;
         },
-        [](const SerializableDirectionalLight &serializable_light, SceneEntity entity, SceneRegistry &registry) {
-            auto &light = registry.emplace_component<DirectionalLight>(entity).first;
+        [](const SerializableDirectionalLight &serializable_light) {
+            DirectionalLight light;
             light.color = serializable_light.color;
             light.intensity = serializable_light.intensity;
+            return light;
         });
 
-    register_component<PointLight, SerializablePointLight>(
+    serialization.register_component<PointLight, SerializablePointLight>(
         [](const PointLight &light) {
             auto serializable = std::make_unique<SerializablePointLight>();
             serializable->color = light.color;
@@ -177,27 +160,29 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             serializable->range = light.range;
             return serializable;
         },
-        [](const SerializablePointLight &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &light = registry.emplace_component<PointLight>(entity).first;
+        [](const SerializablePointLight &serializable) {
+            PointLight light;
             light.color = serializable.color;
             light.intensity = serializable.intensity;
             light.range = serializable.range;
+            return light;
         });
 
-    register_component<SceneLighting, SerializableSceneLighting>(
+    serialization.register_component<SceneLighting, SerializableSceneLighting>(
         [](const SceneLighting &lighting) {
             auto serializable = std::make_unique<SerializableSceneLighting>();
             serializable->ambient_color = lighting.ambient_color;
             serializable->skybox = lighting.skybox;
             return serializable;
         },
-        [](const SerializableSceneLighting &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &lighting = registry.emplace_component<SceneLighting>(entity).first;
+        [](const SerializableSceneLighting &serializable) {
+            SceneLighting lighting;
             lighting.ambient_color = serializable.ambient_color;
             lighting.skybox = serializable.skybox;
+            return lighting;
         });
 
-    register_component<AudioSource, SerializableAudioSource>(
+    serialization.register_component<AudioSource, SerializableAudioSource>(
         [](const AudioSource &source) {
             auto serializable = std::make_unique<SerializableAudioSource>();
             serializable->clip = source.clip;
@@ -207,38 +192,41 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             serializable->volume = source.volume;
             return serializable;
         },
-        [](const SerializableAudioSource &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &source = registry.emplace_component<AudioSource>(entity).first;
+        [](const SerializableAudioSource &serializable) {
+            AudioSource source;
             source.clip = serializable.clip;
             source.is_playing = serializable.is_playing;
             source.loop = serializable.loop;
             source.position = serializable.position;
             source.volume = serializable.volume;
+            return source;
         });
 
-    register_component<NonVisible, SerializableNonVisible>(
+    serialization.register_component<NonVisible, SerializableNonVisible>(
         [](const NonVisible &non_visible) {
             auto serializable = std::make_unique<SerializableNonVisible>();
             serializable->self = non_visible.self;
             return serializable;
         },
-        [](const SerializableNonVisible &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &non_visible = registry.emplace_component<NonVisible>(entity).first;
+        [](const SerializableNonVisible &serializable) {
+            NonVisible non_visible;
             non_visible.self = serializable.self;
+            return non_visible;
         });
 
-    register_component<RigidBody, SerializableRigidBody>(
+    serialization.register_component<RigidBody, SerializableRigidBody>(
         [](const RigidBody &body) {
             auto serializable = std::make_unique<SerializableRigidBody>();
             serializable->mass = body.mass;
             return serializable;
         },
-        [](const SerializableRigidBody &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &body = registry.emplace_component<RigidBody>(entity).first;
+        [](const SerializableRigidBody &serializable) {
+            RigidBody body;
             body.mass = serializable.mass;
+            return body;
         });
 
-    register_component<PhysicsShape, SerializablePhysicsShape>(
+    serialization.register_component<PhysicsShape, SerializablePhysicsShape>(
         [](const PhysicsShape &shape) {
             auto serializable = std::make_unique<SerializablePhysicsShape>();
             serializable->shape_type = shape.shape_type;
@@ -246,12 +234,13 @@ SceneSerializationModuleBackend::SceneSerializationModuleBackend(nodec::resource
             serializable->radius = shape.radius;
             return serializable;
         },
-        [](const SerializablePhysicsShape &serializable, SceneEntity entity, SceneRegistry &registry) {
-            auto &shape = registry.emplace_component<PhysicsShape>(entity).first;
+        [](const SerializablePhysicsShape &serializable) {
+            PhysicsShape shape;
             shape.shape_type = serializable.shape_type;
             shape.size = serializable.size;
             shape.radius = serializable.radius;
+            return shape;
         });
 
-    register_component<Prefab>();
+    serialization.register_component<Prefab>();
 }

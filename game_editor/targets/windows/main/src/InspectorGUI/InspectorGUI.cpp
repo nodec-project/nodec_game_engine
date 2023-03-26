@@ -1,6 +1,7 @@
 #include "InspectorGUI.hpp"
 
 // #include <ImGuizmo.h>
+#include <nodec/logging.hpp>
 
 using namespace nodec_scene::components;
 using namespace nodec_rendering::components;
@@ -152,6 +153,17 @@ void InspectorGUI::on_gui_scene_lighting(nodec_rendering::components::SceneLight
 }
 
 void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab) {
+    using namespace nodec;
+    
+    if (ImGui::Button("Save")) {
+        logging::InfoStream(__FILE__, __LINE__) << "save";
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load")) {
+        logging::InfoStream(__FILE__, __LINE__) << "load";
+    }
+
+
     auto &buffer = imessentials::get_text_buffer(1024, prefab.source);
     if (ImGui::InputText("Source", buffer.data(), buffer.size())) {}
     prefab.source = buffer.data();
