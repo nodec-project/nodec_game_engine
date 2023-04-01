@@ -110,7 +110,7 @@ Editor::Editor(Engine *engine)
     //     window.focus();
     // });
 
-    inspector_gui_.reset(new InspectorGUI(&engine->resources_module().registry()));
+    inspector_gui_.reset(new InspectorGUI(engine->resources_module(), engine->scene_serialization(), engine->world_module().scene()));
 
     inspector_component_registry_impl().register_component<Name>(
         "Name",
@@ -130,7 +130,7 @@ Editor::Editor(Engine *engine)
 
     inspector_component_registry_impl().register_component<Transform>(
         "Transform",
-        [=](auto &trfm) {
+        [=](Transform &trfm) {
             inspector_gui_->on_gui_transform(trfm);
         });
 
@@ -200,8 +200,8 @@ Editor::Editor(Engine *engine)
 
     inspector_component_registry_impl().register_component<Prefab>(
         "Prefab",
-        [=](auto &prefab) {
-            inspector_gui_->on_gui_prefab(prefab);
+        [=](auto &prefab, auto &entity, auto &registry) {
+            inspector_gui_->on_gui_prefab(prefab, entity, registry);
         });
 
     [=]() {

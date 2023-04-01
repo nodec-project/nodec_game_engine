@@ -2,13 +2,13 @@
 
 #include "ResourceLoader.hpp"
 
-#include <nodec_resources/impl/resources_module.hpp>
+#include <nodec_resources/impl/resources_impl.hpp>
 
-class ResourcesModuleBackend : public nodec_resources::impl::ResourcesModule {
+class ResourcesModuleBackend : public nodec_resources::impl::ResourcesImpl {
 public:
     void setup_on_boot() {
         resource_path_changed_connection_ = resource_path_changed().connect(
-            [](ResourcesModule &resources, const std::string &path) {
+            [](ResourcesImpl &resources, const std::string &path) {
                 resources.internal_resource_path = path;
             });
     }

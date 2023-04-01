@@ -1,7 +1,14 @@
 #include "InspectorGUI.hpp"
 
-// #include <ImGuizmo.h>
+#include <nodec/formatter.hpp>
 #include <nodec/logging.hpp>
+#include <nodec_scene_serialization/archive_context.hpp>
+#include <nodec_scene_serialization/entity_loader.hpp>
+#include <nodec_scene_serialization/entity_serializer.hpp>
+
+#include <cereal/archives/json.hpp>
+
+#include <fstream>
 
 using namespace nodec_scene::components;
 using namespace nodec_rendering::components;
@@ -84,7 +91,7 @@ void InspectorGUI::on_gui_mesh_renderer(nodec_rendering::components::MeshRendere
                 mesh = resource_name_edit("", mesh);
             },
             [&]() {
-                auto empty = resource_registry_->get_resource_direct<Mesh>("");
+                auto empty = resources_.registry().get_resource_direct<Mesh>("");
                 renderer.meshes.emplace_back(empty);
             },
             [&](int index, auto &mesh) {});
@@ -96,7 +103,7 @@ void InspectorGUI::on_gui_mesh_renderer(nodec_rendering::components::MeshRendere
                 material = resource_name_edit("", material);
             },
             [&]() {
-                auto empty = resource_registry_->get_resource_direct<Material>("");
+                auto empty = resources_.registry().get_resource_direct<Material>("");
                 renderer.materials.emplace_back(empty);
             },
             [&](int index, auto &material) {});
@@ -152,20 +159,98 @@ void InspectorGUI::on_gui_scene_lighting(nodec_rendering::components::SceneLight
     ImGui::ColorEdit4("Ambient Color", lighting.ambient_color.v, ImGuiColorEditFlags_Float);
 }
 
-void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab) {
+void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab, const nodec_scene::SceneEntity &entity, nodec_scene::SceneRegistry &registry) {
     using namespace nodec;
-    
+    using namespace nodec_scene_serialization;
+
     if (ImGui::Button("Save")) {
-        logging::InfoStream(__FILE__, __LINE__) << "save";
+        [&]() {
+            auto serializable = EntitySerializer(serialization_).serialize(entity, scene_);
+
+            if (!serializable) {
+                logging::WarnStream(__FILE__, __LINE__)
+                    << "Failed to save.\n"
+                       "details:\n"
+                       "Target entity is invalid.";
+                return;
+            }
+            std::ofstream out(Formatter() << resources_.resource_path() << "/" << prefab.source, std::ios::binary);
+            if (!out) {
+                logging::WarnStream(__FILE__, __LINE__) 
+                    << "Failed to save.\n"
+                    "details:\n"
+                    "Cannot open the file path. Make sure the directory exists.";
+                return;
+            }
+
+            ArchiveContext context(resources_.registry());
+            using Options = cereal::JSONOutputArchive::Options;
+            cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(context, out, Options(324, Options::IndentChar::space, 2u));
+
+            try {
+                archive(cereal::make_nvp("entity", *serializable));
+            } catch (std::exception &e) {
+                logging::WarnStream(__FILE__, __LINE__)
+                    << "Failed to save.\n"
+                       "details:/n"
+                    << e.what();
+                return;
+            }
+
+            logging::InfoStream(__FILE__, __LINE__) << "Saved!";
+        }();
     }
     ImGui::SameLine();
     if (ImGui::Button("Load")) {
         logging::InfoStream(__FILE__, __LINE__) << "load";
-    }
 
+        // ここで同期的にロードするのは、あまりしたくない.
+        // あるエンティティのコンポーネントを訪れている途中に,
+        // 新規でコンポーネントが追加される.
+        // このループで, on_guiをスキップされるコンポーネントがあるかもしれなくなる。
+        // 遅延実行するとよい.
+
+        // EntityLoader loader;
+        // loader.load_async();
+    }
 
     auto &buffer = imessentials::get_text_buffer(1024, prefab.source);
     if (ImGui::InputText("Source", buffer.data(), buffer.size())) {}
     prefab.source = buffer.data();
     ImGui::Checkbox("Active", &prefab.active);
+}
+
+void InspectorGUI::on_gui_post_processing(nodec_rendering::components::PostProcessing &processing) {
+    using namespace nodec_rendering::components;
+    using namespace nodec_rendering::resources;
+
+    {
+        ImGui::PushID("effects");
+        ImGui::Text("Effects");
+        for (auto iter = processing.effects.begin(); iter != processing.effects.end();) {
+            ImGui::PushID(&*iter);
+
+            ImGui::Checkbox("##enabled", &(iter->enabled));
+            ImGui::SameLine();
+
+            auto &material = iter->material;
+            material = resource_name_edit("##material", material);
+
+            ImGui::SameLine();
+            if (ImGui::Button("-")) {
+                iter = processing.effects.erase(iter);
+                ImGui::PopID();
+                continue;
+            }
+            ++iter;
+            ImGui::PopID();
+        }
+
+        if (ImGui::Button("+")) {
+            auto material = resources_.registry().get_resource<Material>("").get();
+            processing.effects.push_back({false, material});
+        }
+
+        ImGui::PopID();
+    }
 }

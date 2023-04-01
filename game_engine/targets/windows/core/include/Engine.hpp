@@ -20,7 +20,7 @@
 #include <nodec_input/mouse/impl/mouse_device.hpp>
 #include <nodec_physics/systems/physics_system.hpp>
 #include <nodec_rendering/systems/visibility_system.hpp>
-#include <nodec_resources/impl/resources_module.hpp>
+#include <nodec_resources/impl/resources_impl.hpp>
 #include <nodec_scene/scene.hpp>
 #include <nodec_scene/systems/transform_system.hpp>
 #include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
@@ -57,7 +57,7 @@ public:
         return *world_module_;
     }
 
-    nodec_resources::impl::ResourcesModule &resources_module() {
+    nodec_resources::impl::ResourcesImpl &resources_module() {
         return *resources_module_;
     }
 
