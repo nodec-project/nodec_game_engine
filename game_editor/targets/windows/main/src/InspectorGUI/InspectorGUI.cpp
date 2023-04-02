@@ -163,6 +163,7 @@ void InspectorGUI::on_gui_scene_lighting(nodec_rendering::components::SceneLight
 
 void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab, const nodec_scene::SceneEntity &entity, nodec_scene::SceneRegistry &registry) {
     using namespace nodec;
+    using namespace nodec_scene;
     using namespace nodec_scene_serialization;
     using namespace nodec_scene_serialization::components;
     using namespace nodec_scene_serialization::systems;
@@ -170,7 +171,12 @@ void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &
     if (ImGui::Button("Save")) {
         [&]() {
             // TODO: add filter.
-            auto serializable = EntitySerializer(serialization_).serialize(entity, scene_);
+            auto serializable = EntitySerializer(serialization_).serialize(entity, scene_, [&](const SceneEntity &entt) {
+                if (entt == entity) return true;
+                auto *prefab = registry.try_get_component<Prefab>(entt);
+                if (prefab != nullptr) return false;
+                return true;
+            });
 
             if (!serializable) {
                 logging::WarnStream(__FILE__, __LINE__)
@@ -207,19 +213,11 @@ void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &
     }
     ImGui::SameLine();
     if (ImGui::Button("Load")) {
-        logging::InfoStream(__FILE__, __LINE__) << "load";
-
+        // Be careful. The following codes will change component structure while iterating.
+        scene_.hierarchy_system().remove_all_children(entity);
         registry.remove_component<EntityLoaded>(entity);
         registry.emplace_component<PrefabLoadSystem::PrefabLoadActivity>(entity);
-
-        // ここで同期的にロードするのは、あまりしたくない.
-        // あるエンティティのコンポーネントを訪れている途中に,
-        // 新規でコンポーネントが追加される.
-        // このループで, on_guiをスキップされるコンポーネントがあるかもしれなくなる。
-        // 遅延実行するとよい.
-
-        // EntityLoader loader;
-        // loader.load_async();
+        //logging::InfoStream(__FILE__, __LINE__) << "Loaded!";
     }
 
     auto &buffer = imessentials::get_text_buffer(1024, prefab.source);
