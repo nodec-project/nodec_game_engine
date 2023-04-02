@@ -3,7 +3,7 @@
 #include <nodec/formatter.hpp>
 #include <nodec/logging.hpp>
 #include <nodec_scene_serialization/archive_context.hpp>
-#include <nodec_scene_serialization/components/entity_loaded.hpp>
+#include <nodec_scene_serialization/components/entity_built.hpp>
 #include <nodec_scene_serialization/entity_loader.hpp>
 #include <nodec_scene_serialization/entity_serializer.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
@@ -215,7 +215,7 @@ void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &
     if (ImGui::Button("Load")) {
         // Be careful. The following codes will change component structure while iterating.
         scene_.hierarchy_system().remove_all_children(entity);
-        registry.remove_component<EntityLoaded>(entity);
+        registry.remove_component<EntityBuilt>(entity);
         registry.emplace_component<PrefabLoadSystem::PrefabLoadActivity>(entity);
         //logging::InfoStream(__FILE__, __LINE__) << "Loaded!";
     }
