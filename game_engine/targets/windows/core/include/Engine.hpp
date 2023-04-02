@@ -25,6 +25,7 @@
 #include <nodec_scene/systems/transform_system.hpp>
 #include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
+#include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 #include <nodec_screen/impl/screen_module.hpp>
 #include <nodec_world/impl/world_module.hpp>
 
@@ -110,6 +111,7 @@ private:
     std::shared_ptr<PhysicsSystemBackend> physics_system_;
 
     std::unique_ptr<SceneRenderingContext> scene_rendering_context_;
+    std::unique_ptr<nodec_scene_serialization::systems::PrefabLoadSystem> prefab_load_system_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

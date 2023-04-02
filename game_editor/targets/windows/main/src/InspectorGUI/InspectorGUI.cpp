@@ -3,8 +3,10 @@
 #include <nodec/formatter.hpp>
 #include <nodec/logging.hpp>
 #include <nodec_scene_serialization/archive_context.hpp>
+#include <nodec_scene_serialization/components/entity_loaded.hpp>
 #include <nodec_scene_serialization/entity_loader.hpp>
 #include <nodec_scene_serialization/entity_serializer.hpp>
+#include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 
 #include <cereal/archives/json.hpp>
 
@@ -162,9 +164,12 @@ void InspectorGUI::on_gui_scene_lighting(nodec_rendering::components::SceneLight
 void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &prefab, const nodec_scene::SceneEntity &entity, nodec_scene::SceneRegistry &registry) {
     using namespace nodec;
     using namespace nodec_scene_serialization;
+    using namespace nodec_scene_serialization::components;
+    using namespace nodec_scene_serialization::systems;
 
     if (ImGui::Button("Save")) {
         [&]() {
+            // TODO: add filter.
             auto serializable = EntitySerializer(serialization_).serialize(entity, scene_);
 
             if (!serializable) {
@@ -176,10 +181,10 @@ void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &
             }
             std::ofstream out(Formatter() << resources_.resource_path() << "/" << prefab.source, std::ios::binary);
             if (!out) {
-                logging::WarnStream(__FILE__, __LINE__) 
+                logging::WarnStream(__FILE__, __LINE__)
                     << "Failed to save.\n"
-                    "details:\n"
-                    "Cannot open the file path. Make sure the directory exists.";
+                       "details:\n"
+                       "Cannot open the file path. Make sure the directory exists.";
                 return;
             }
 
@@ -203,6 +208,9 @@ void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &
     ImGui::SameLine();
     if (ImGui::Button("Load")) {
         logging::InfoStream(__FILE__, __LINE__) << "load";
+
+        registry.remove_component<EntityLoaded>(entity);
+        registry.emplace_component<PrefabLoadSystem::PrefabLoadActivity>(entity);
 
         // ここで同期的にロードするのは、あまりしたくない.
         // あるエンティティのコンポーネントを訪れている途中に,

@@ -45,6 +45,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     physics_system_.reset(new PhysicsSystemBackend(*world_module_));
 
     visibility_system_.reset(new nodec_rendering::systems::VisibilitySystem(world_module_->scene()));
+    prefab_load_system_.reset(new nodec_scene_serialization::systems::PrefabLoadSystem(world_module_->scene(), *entity_loader_));
 
     // --- Export the services to application.
     app.add_service<Screen>(screen_module_);
@@ -104,5 +105,6 @@ void Engine::frame_end() {
 
     window_->graphics().EndFrame();
 
+    prefab_load_system_->update();
     entity_loader_->update();
 }
