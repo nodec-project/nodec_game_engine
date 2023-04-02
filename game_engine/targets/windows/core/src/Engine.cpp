@@ -37,23 +37,24 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     resources_module_->setup_on_boot();
 
     // --- scene serialization ---
-    scene_serialization_module_.reset(new SceneSerializationModuleBackend(&resources_module_->registry()));
-    scene_loader_.reset(new nodec_scene_serialization::SceneLoader(*scene_serialization_module_, world_module_->scene(), resources_module_->registry()));
+    scene_serialization_.reset(new SceneSerialization());
+    scene_serialization_backend_.reset(new SceneSerializationBackend(&resources_module_->registry(), *scene_serialization_));
+    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_, world_module_->scene(), resources_module_->registry()));
 
     // --- others ---
     physics_system_.reset(new PhysicsSystemBackend(*world_module_));
 
     visibility_system_.reset(new nodec_rendering::systems::VisibilitySystem(world_module_->scene()));
+    prefab_load_system_.reset(new nodec_scene_serialization::systems::PrefabLoadSystem(world_module_->scene(), *entity_loader_));
 
     // --- Export the services to application.
     app.add_service<Screen>(screen_module_);
     app.add_service<World>(world_module_);
     app.add_service<InputDevices>(input_devices_);
     app.add_service<Resources>(resources_module_);
-    app.add_service<SceneSerialization>(scene_serialization_module_);
-    app.add_service<SceneLoader>(scene_loader_);
+    app.add_service<SceneSerialization>(scene_serialization_);
+    app.add_service<EntityLoader>(entity_loader_);
     app.add_service<PhysicsSystem>(physics_system_);
-
 }
 
 void Engine::setup() {
@@ -82,6 +83,10 @@ void Engine::setup() {
     });
 }
 
+void Engine::frame_begin() {
+    window_->graphics().BeginFrame();
+}
+
 void Engine::frame_end() {
     using namespace nodec::entities;
     using namespace nodec_scene::components;
@@ -99,4 +104,7 @@ void Engine::frame_end() {
                             *scene_rendering_context_);
 
     window_->graphics().EndFrame();
+
+    prefab_load_system_->update();
+    entity_loader_->update();
 }

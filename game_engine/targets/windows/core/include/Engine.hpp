@@ -10,7 +10,7 @@
 #include "Resources/ResourceLoader.hpp"
 #include "Resources/ResourcesModuleBackend.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
-#include "SceneSerialization/SceneSerializationModuleBackend.hpp"
+#include "SceneSerialization/SceneSerializationBackend.hpp"
 #include "ScreenHandler.hpp"
 #include "Window.hpp"
 
@@ -20,11 +20,12 @@
 #include <nodec_input/mouse/impl/mouse_device.hpp>
 #include <nodec_physics/systems/physics_system.hpp>
 #include <nodec_rendering/systems/visibility_system.hpp>
-#include <nodec_resources/impl/resources_module.hpp>
+#include <nodec_resources/impl/resources_impl.hpp>
 #include <nodec_scene/scene.hpp>
 #include <nodec_scene/systems/transform_system.hpp>
-#include <nodec_scene_serialization/scene_loader.hpp>
+#include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
+#include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 #include <nodec_screen/impl/screen_module.hpp>
 #include <nodec_world/impl/world_module.hpp>
 
@@ -45,9 +46,7 @@ public:
 
     void setup();
 
-    void frame_begin() {
-        window_->graphics().BeginFrame();
-    }
+    void frame_begin();
 
     void frame_end();
 
@@ -59,12 +58,12 @@ public:
         return *world_module_;
     }
 
-    nodec_resources::impl::ResourcesModule &resources_module() {
+    nodec_resources::impl::ResourcesImpl &resources_module() {
         return *resources_module_;
     }
 
     nodec_scene_serialization::SceneSerialization &scene_serialization() {
-        return *scene_serialization_module_;
+        return *scene_serialization_;
     }
     AudioPlatform &audio_platform() {
         return *audio_platform_;
@@ -94,11 +93,12 @@ private:
     KeyboardDeviceSystem *keyboard_device_system_;
     MouseDeviceSystem *mouse_device_system_;
 
-    std::shared_ptr<nodec_scene_serialization::SceneLoader> scene_loader_;
+    std::shared_ptr<nodec_scene_serialization::impl::EntityLoaderImpl> entity_loader_;
 
     std::shared_ptr<ResourcesModuleBackend> resources_module_;
 
-    std::shared_ptr<SceneSerializationModuleBackend> scene_serialization_module_;
+    std::shared_ptr<nodec_scene_serialization::SceneSerialization> scene_serialization_;
+    std::unique_ptr<SceneSerializationBackend> scene_serialization_backend_;
 
     std::shared_ptr<nodec_world::impl::WorldModule> world_module_;
 
@@ -111,6 +111,7 @@ private:
     std::shared_ptr<PhysicsSystemBackend> physics_system_;
 
     std::unique_ptr<SceneRenderingContext> scene_rendering_context_;
+    std::unique_ptr<nodec_scene_serialization::systems::PrefabLoadSystem> prefab_load_system_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

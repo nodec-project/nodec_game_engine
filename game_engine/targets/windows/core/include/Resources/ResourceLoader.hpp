@@ -1,11 +1,11 @@
 #pragma once
 
 #include <Graphics/Graphics.hpp>
+#include <Rendering/ImageTexture.hpp>
 #include <Rendering/MaterialBackend.hpp>
 #include <Rendering/MeshBackend.hpp>
 #include <Rendering/ShaderBackend.hpp>
 #include <Rendering/TextureBackend.hpp>
-#include <Rendering/ImageTexture.hpp>
 
 #include <SceneAudio/AudioClipBackend.hpp>
 
@@ -13,7 +13,8 @@
 #include <Font/FontLibrary.hpp>
 
 #include <nodec_scene_serialization/archive_context.hpp>
-#include <nodec_scene_serialization/serializable_scene_graph.hpp>
+//#include <nodec_scene_serialization/serializable_scene_graph.hpp>
+#include <nodec_scene_serialization/serializable_entity.hpp>
 #include <nodec_serialization/nodec_rendering/resources/material.hpp>
 #include <nodec_serialization/nodec_rendering/resources/mesh.hpp>
 #include <nodec_serialization/nodec_rendering/resources/shader.hpp>
@@ -36,8 +37,6 @@ class ResourceLoader {
 
     template<typename T>
     using ResourcePtr = std::shared_ptr<T>;
-
-    using SerializableSceneGraph = nodec_scene_serialization::SerializableSceneGraph;
 
     static void HandleException(const std::string &identifier) {
         using namespace nodec;
@@ -257,7 +256,7 @@ public:
     }
 
     template<>
-    std::shared_ptr<SerializableSceneGraph> LoadBackend<SerializableSceneGraph>(const std::string &path) const noexcept {
+    std::shared_ptr<nodec_scene_serialization::SerializableEntity> LoadBackend<nodec_scene_serialization::SerializableEntity>(const std::string &path) const noexcept {
         using namespace nodec;
         using namespace nodec_scene_serialization;
 
@@ -269,20 +268,18 @@ public:
             return {};
         }
 
-        SerializableSceneGraph graph;
+        SerializableEntity ser_entity;
 
         try {
             ArchiveContext context{*mpRegistry};
             cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, file);
-            archive(graph);
+            archive(ser_entity);
         } catch (...) {
-            HandleException(Formatter() << "SerializableSceneGraph::" << path);
+            HandleException(Formatter() << "SerializableEntity::" << path);
             return {};
         }
 
-        auto out = std::make_shared<SerializableSceneGraph>();
-        *out = std::move(graph);
-        return out;
+        return std::make_shared<SerializableEntity>(std::move(ser_entity));
     }
 
     template<>

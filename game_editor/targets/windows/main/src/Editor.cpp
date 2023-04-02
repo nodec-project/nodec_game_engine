@@ -6,7 +6,6 @@
 
 #include "EditorWindows/AssetImportWindow.hpp"
 #include "EditorWindows/ControlWindow.hpp"
-#include "EditorWindows/SceneSerializationWindow.hpp"
 #include "EditorWindows/SceneViewWindow.hpp"
 
 #include <imwindows/entity_inspector_window.hpp>
@@ -62,14 +61,14 @@ Editor::Editor(Engine *engine)
                                                    &engine->resources_module().registry());
     });
 
-    window_manager().register_window<SceneSerializationWindow>([=]() {
-        return std::make_unique<SceneSerializationWindow>(&engine->world_module().scene(),
-                                                          &engine->scene_serialization(),
-                                                          engine->resources_module().resource_path(),
-                                                          &engine->resources_module().registry(),
-                                                          selection().active_scene_entity(),
-                                                          selection().active_scene_entity_changed());
-    });
+    // window_manager().register_window<SceneSerializationWindow>([=]() {
+    //     return std::make_unique<SceneSerializationWindow>(&engine->world_module().scene(),
+    //                                                       &engine->scene_serialization(),
+    //                                                       engine->resources_module().resource_path(),
+    //                                                       &engine->resources_module().registry(),
+    //                                                       selection().active_scene_entity(),
+    //                                                       selection().active_scene_entity_changed());
+    // });
 
     register_menu_item("Window/Control", [=]() {
         auto &window = window_manager().get_window<ControlWindow>();
@@ -106,12 +105,12 @@ Editor::Editor(Engine *engine)
         window.focus();
     });
 
-    register_menu_item("Window/Scene Serialization", [&]() {
-        auto &window = window_manager().get_window<SceneSerializationWindow>();
-        window.focus();
-    });
+    // register_menu_item("Window/Scene Serialization", [&]() {
+    //     auto &window = window_manager().get_window<SceneSerializationWindow>();
+    //     window.focus();
+    // });
 
-    inspector_gui_.reset(new InspectorGUI(&engine->resources_module().registry()));
+    inspector_gui_.reset(new InspectorGUI(engine->resources_module(), engine->scene_serialization(), engine->world_module().scene()));
 
     inspector_component_registry_impl().register_component<Name>(
         "Name",
@@ -131,7 +130,7 @@ Editor::Editor(Engine *engine)
 
     inspector_component_registry_impl().register_component<Transform>(
         "Transform",
-        [=](auto &trfm) {
+        [=](Transform &trfm) {
             inspector_gui_->on_gui_transform(trfm);
         });
 
@@ -199,6 +198,12 @@ Editor::Editor(Engine *engine)
             inspector_gui_->on_gui_non_visible(non_visible);
         });
 
+    inspector_component_registry_impl().register_component<Prefab>(
+        "Prefab",
+        [=](auto &prefab, auto &entity, auto &registry) {
+            inspector_gui_->on_gui_prefab(prefab, entity, registry);
+        });
+
     [=]() {
         std::ifstream file("editor-config.json", std::ios::binary);
         if (!file) return;
@@ -230,18 +235,17 @@ Editor::Editor(Engine *engine)
 void Editor::setup() {
     using namespace imwindows;
 
+    // TODO: Restore the previous workspace.
+    //  * Last opened windows.
+
     window_manager().get_window<ControlWindow>();
-
-    // TODO: At first we should fix SceneRenderer.
-    //  SceneRenderer is so buggy for using multi-target rendering.
     window_manager().get_window<SceneViewWindow>();
-
     window_manager().get_window<SceneHierarchyWindow>();
-    window_manager().get_window<EntityInspectorWindow>();
     window_manager().get_window<LogWindow>();
     window_manager().get_window<MaterialEditorWindow>();
     window_manager().get_window<AssetImportWindow>();
-    window_manager().get_window<SceneSerializationWindow>();
+    // window_manager().get_window<SceneSerializationWindow>();
+    window_manager().get_window<EntityInspectorWindow>();
 }
 
 void Editor::update() {
