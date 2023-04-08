@@ -118,7 +118,7 @@ void SceneViewWindow::on_gui() {
         const auto up = math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), rotation);
 
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-            constexpr float SCALE_FACTOR = 0.01f;
+            constexpr float SCALE_FACTOR = 0.02f;
             const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
 
             // The mouse moving right, the camera moving left.
@@ -129,13 +129,13 @@ void SceneViewWindow::on_gui() {
         }
 
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
-            constexpr float SCALE_FACTOR = 0.1f;
+            constexpr float SCALE_FACTOR = 0.2f;
             const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
 
             // Apply rotation around the local right vector after current rotation.
             rotation = math::gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * rotation;
 
-            // And apply rotation arround the world up vector.
+            // And apply rotation around the world up vector.
             rotation = math::gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * rotation;
 
             ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
