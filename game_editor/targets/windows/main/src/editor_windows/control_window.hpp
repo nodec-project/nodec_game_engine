@@ -1,23 +1,21 @@
-#pragma once
+#ifndef CONTROL_WINDOW_HPP_
+#define CONTROL_WINDOW_HPP_
 
 #include "../Editor.hpp"
 
 #include <imessentials/window.hpp>
 #include <imgui.h>
 
-
 class ControlWindow : public imessentials::BaseWindow {
-
 public:
-    //static void init(imessentials::WindowManager& manager, ) {
-    //    ImGui::SetWindowFocus(window.name());
-    //}
+    // static void init(imessentials::WindowManager& manager, ) {
+    //     ImGui::SetWindowFocus(window.name());
+    // }
 
 public:
     ControlWindow(Editor *editor)
         : BaseWindow("Control##EditorWindows", nodec::Vector2f(500, 50)),
           editor_(editor) {
-
     }
 
     void on_gui() override {
@@ -50,7 +48,7 @@ public:
     }
 
 private:
-    Editor* editor_{ nullptr };
+    Editor *editor_{nullptr};
 };
 
-
+#endif

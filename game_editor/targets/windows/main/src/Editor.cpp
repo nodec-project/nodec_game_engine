@@ -4,14 +4,14 @@
 #include "Editor.hpp"
 #include "EditorConfig.hpp"
 
-#include "EditorWindows/AssetImportWindow.hpp"
-#include "EditorWindows/ControlWindow.hpp"
-#include "EditorWindows/SceneViewWindow.hpp"
+#include "editor_windows/asset_import_window.hpp"
+#include "editor_windows/control_window.hpp"
+#include "editor_windows/scene_view_window.hpp"
+#include "editor_windows/scene_hierarchy_window.hpp"
 
 #include <imwindows/entity_inspector_window.hpp>
 #include <imwindows/log_window.hpp>
 #include <imwindows/material_editor_window.hpp>
-#include <imwindows/scene_hierarchy_window.hpp>
 
 Editor::Editor(Engine *engine)
     : engine_{engine} {
@@ -35,7 +35,7 @@ Editor::Editor(Engine *engine)
     });
 
     window_manager().register_window<SceneHierarchyWindow>([=]() {
-        auto window = std::make_unique<SceneHierarchyWindow>(&engine->world_module().scene());
+        auto window = std::make_unique<SceneHierarchyWindow>(&engine->world_module().scene(), engine->scene_serialization());
         window->selected_entity_changed().connect([=](auto entity) { selection().select(entity); });
         return window;
     });

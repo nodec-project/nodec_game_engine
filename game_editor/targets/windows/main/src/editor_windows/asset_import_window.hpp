@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ASSET_IMPORT_WINDOW_HPP_
+#define ASSET_IMPORT_WINDOW_HPP_
 
 #include "../ResourceExporter.hpp"
 
@@ -257,3 +258,5 @@ private:
 
     char temp_str_buffer[128]{0};
 };
+
+#endif

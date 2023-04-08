@@ -1,4 +1,4 @@
-#include "SceneViewWindow.hpp"
+#include "scene_view_window.hpp"
 
 #include <nodec/math/gfx.hpp>
 

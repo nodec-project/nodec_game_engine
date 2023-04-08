@@ -6,7 +6,7 @@ add_library(${PROJECT_NAME} STATIC
     src/Editor.cpp
     src/ResourceExporter.cpp
     src/WinMain.cpp
-    src/EditorWindows/SceneViewWindow.cpp
+    src/editor_windows/scene_view_window.cpp
     src/InspectorGUI/InspectorGUI.cpp
 )
 

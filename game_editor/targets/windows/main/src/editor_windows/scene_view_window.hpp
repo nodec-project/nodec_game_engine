@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SCENE_VIEW_WINDOW_HPP_
+#define SCENE_VIEW_WINDOW_HPP_
 
 #include <Graphics/Graphics.hpp>
 #include <Rendering/SceneRenderer.hpp>
@@ -11,8 +12,8 @@
 #include <nodec/math/gfx.hpp>
 #include <nodec/matrix4x4.hpp>
 
-#include <imgui.h>
 #include <ImGuizmo.h>
+#include <imgui.h>
 
 class SceneViewWindow final : public imessentials::BaseWindow {
     // TODO: Support resizing window.
@@ -43,3 +44,5 @@ private:
     ImGuizmo::OPERATION gizmo_operation_{ImGuizmo::TRANSLATE};
     ImGuizmo::MODE gizmo_mode_{ImGuizmo::WORLD};
 };
+
+#endif
