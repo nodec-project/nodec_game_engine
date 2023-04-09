@@ -1,5 +1,7 @@
 #include "scene_hierarchy_window.hpp"
 
+#include <nodec_scene_serialization/components/prefab.hpp>
+
 #include <nodec/logging.hpp>
 
 void SceneHierarchyWindow::on_gui() {
@@ -44,19 +46,43 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     using namespace nodec_scene::components;
     using namespace nodec_scene;
     using namespace nodec_scene_serialization;
+    using namespace nodec_scene_serialization::components;
 
     bool node_open = false;
+
+    Prefab *prefab{nullptr};
+
     {
         auto &hierarchy = scene_->registry().get_component<Hierarchy>(entity);
         auto name = scene_->registry().try_get_component<Name>(entity);
+        prefab = scene_->registry().try_get_component<Prefab>(entity);
 
         std::string label = nodec::Formatter() << "\"" << (name ? name->name : "") << "\" {entity: 0x" << std::hex << entity << "}";
 
-        ImGuiTreeNodeFlags flags = (hierarchy.child_count > 0 ? 0x00 : ImGuiTreeNodeFlags_Leaf)
-                                   | (entity == selected_entity_ ? ImGuiTreeNodeFlags_Selected : 0x00)
-                                   | ImGuiTreeNodeFlags_OpenOnArrow; // | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
+
+        flags |= hierarchy.child_count > 0 ? 0x00 : ImGuiTreeNodeFlags_Leaf;
+        flags |= entity == selected_entity_ ? ImGuiTreeNodeFlags_Selected : 0x00;
+
+        auto &style = ImGui::GetStyle();
+
+        // if (prefab) {
+        //     ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_HeaderActive]);
+        // }
 
         node_open = ImGui::TreeNodeEx(label.c_str(), flags);
+
+        // if (prefab) {
+        //     ImGui::PopStyleColor();
+        // }
+
+        if (prefab) {
+            ImDrawList *draw_list = ImGui::GetWindowDrawList();
+
+            ImVec2 marker_min(ImGui::GetItemRectMin());
+            ImVec2 marker_max(ImGui::GetItemRectMin().x + 3, ImGui::GetItemRectMin().y + ImGui::GetItemRectSize().y);
+            draw_list->AddRectFilled(marker_min, marker_max, ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_HeaderActive]));
+        }
 
         if (ImGui::IsItemClicked()) {
             select(entity);
@@ -66,7 +92,7 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
         if (ImGui::BeginDragDropSource()) {
             ImGui::SetDragDropPayload("DND_SCENE_ENTITY", &entity, sizeof(SceneEntity));
 
-            ImGui::Text("Move entity");
+            ImGui::Text("Move Entity");
 
             ImGui::EndDragDropSource();
         }
@@ -117,6 +143,20 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
             auto child = scene_->create_entity("New Entity");
             scene_->hierarchy_system().append_child(entity, child);
         }
+
+        //[&]() {
+        //    if (!prefab) return;
+
+        //    ImGui::Separator();
+
+        //    if (ImGui::MenuItem("Save Prefab")) {
+
+        //    }
+
+        //    if (ImGui::MenuItem("Load Prefab")) {
+        //    }
+
+        //}();
 
         ImGui::EndPopup();
     }
