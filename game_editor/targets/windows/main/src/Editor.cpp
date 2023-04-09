@@ -6,8 +6,8 @@
 
 #include "editor_windows/asset_import_window.hpp"
 #include "editor_windows/control_window.hpp"
-#include "editor_windows/scene_view_window.hpp"
 #include "editor_windows/scene_hierarchy_window.hpp"
+#include "editor_windows/scene_view_window.hpp"
 
 #include <imwindows/entity_inspector_window.hpp>
 #include <imwindows/log_window.hpp>
@@ -264,12 +264,25 @@ void Editor::update() {
         break;
     }
 
-    imessentials::impl::show_main_menu();
+    {
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+        bool open = true;
+        ImGui::Begin("Editor DockSpace", &open, window_flags);
+
+        ImGuiDockNodeFlags dock_space_flags = ImGuiDockNodeFlags_None;
+        ImGui::DockSpace(ImGui::GetID("editor-dock-space"), ImVec2(0.0f, 0.0f), dock_space_flags);
+
+        imessentials::impl::show_menu_bar();
+
+        ImGui::End();
+    }
 
     ImGuizmo::BeginFrame();
 
     window_manager_impl().update_windows();
 
-    bool showDemoWindow = true;
-    ImGui::ShowDemoWindow(&showDemoWindow);
+    {
+        bool open = true;
+        ImGui::ShowDemoWindow(&open);
+    }
 }
