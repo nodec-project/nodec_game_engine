@@ -35,16 +35,18 @@
     float depth = input.depth.z / input.depth.w;
     output.depth = float4(depth.xxxx);
 
+    const float2 texcoord = input.texcoord * materialProperties.tiling;
+
     // t0: albedo
     float3 outAlbedo = (textureConfig.texHasFlag & 0x01) 
-                        ? texAlbedo.Sample(sampler_texAlbedo, input.texcoord).xyz 
+                        ? texAlbedo.Sample(sampler_texAlbedo, texcoord).xyz 
                         : materialProperties.albedo.xyz;
     
     float3 outNormal = worldNormal;
 
     // t1: normal
     if (textureConfig.texHasFlag & 0x02) {
-        float3 normal = texNormal.Sample(sampler_texNormal, input.texcoord).rgb;
+        float3 normal = texNormal.Sample(sampler_texNormal, texcoord).rgb;
 
         // obtain normal from normal map in range [0,1].
         normal = normalize(normal * 2.0 - 1.0);
@@ -53,12 +55,12 @@
 
     // t3: metallic
     float outMetallic = (textureConfig.texHasFlag & 0x08)
-                        ? texMetallic.Sample(sampler_texMetallic, input.texcoord).x
+                        ? texMetallic.Sample(sampler_texMetallic, texcoord).x
                         : materialProperties.metallic;
 
     // t4: roughness
     float outRoughness = (textureConfig.texHasFlag & 0x10)
-                        ? texRoughtness.Sample(sampler_texRoughtness, input.texcoord).x
+                        ? texRoughness.Sample(sampler_texRoughness, texcoord).x
                         : materialProperties.roughness;
 
     output.albedo = float4(outAlbedo, 1);
