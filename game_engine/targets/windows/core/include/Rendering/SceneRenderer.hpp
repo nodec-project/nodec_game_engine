@@ -222,13 +222,17 @@ private:
      */
     UINT bind_texture_entries(const std::vector<TextureEntry> &textureEntries, uint32_t &texHasFlag);
 
-    void unbind_all_shader_resources(UINT count) {
+    void unbind_all_shader_resources(UINT start, UINT count) {
         assert(count <= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
 
         static ID3D11ShaderResourceView *const nulls[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{nullptr};
 
-        gfx_->context().VSSetShaderResources(0, count, nulls);
-        gfx_->context().PSSetShaderResources(0, count, nulls);
+        gfx_->context().VSSetShaderResources(start, count, nulls);
+        gfx_->context().PSSetShaderResources(start, count, nulls);
+    }
+
+    void unbind_all_shader_resources(UINT count) {
+        unbind_all_shader_resources(0, count);
     }
 
     SamplerState &GetSamplerState(const nodec_rendering::Sampler &sampler) {

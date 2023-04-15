@@ -28,7 +28,7 @@ private:
     void update_device_memory() {
         if (!dirty_ || !constant_buffer_) return;
 
-        constant_buffer_->Update(gfx_, property_memory_.data());
+        constant_buffer_->update(gfx_, property_memory_.data());
         dirty_ = false;
     }
 
@@ -79,8 +79,8 @@ public:
         update_device_memory();
 
         if (constant_buffer_) {
-            constant_buffer_->BindVS(gfx, slot);
-            constant_buffer_->BindPS(gfx, slot);
+            constant_buffer_->bind_vs(gfx, slot);
+            constant_buffer_->bind_ps(gfx, slot);
         }
     }
 

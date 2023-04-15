@@ -1,8 +1,10 @@
 #include "occlusion_interface.hlsl"
 
 float4 PSMain(V2P input) : SV_TARGET {
-    // TODO: Calc from texture and screen metadata.
-    const float2 noiseScale = float2(1280/4, 720/4);
+    float screenWidth, screenHeight;
+    texScreen.GetDimensions(screenWidth, screenHeight);
+
+    const float2 noiseScale = float2(screenWidth/4, screenHeight/4);
 
     const float nonLinearDepth = texDepth.Sample(sampler_tex, input.texcoord).r;
 
