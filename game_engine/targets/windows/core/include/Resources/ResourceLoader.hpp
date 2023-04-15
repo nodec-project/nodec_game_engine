@@ -13,7 +13,6 @@
 #include <Font/FontLibrary.hpp>
 
 #include <nodec_scene_serialization/archive_context.hpp>
-//#include <nodec_scene_serialization/serializable_scene_graph.hpp>
 #include <nodec_scene_serialization/serializable_entity.hpp>
 #include <nodec_serialization/nodec_rendering/resources/material.hpp>
 #include <nodec_serialization/nodec_rendering/resources/mesh.hpp>

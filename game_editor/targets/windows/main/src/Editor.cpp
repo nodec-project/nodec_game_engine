@@ -8,10 +8,10 @@
 #include "editor_windows/control_window.hpp"
 #include "editor_windows/scene_hierarchy_window.hpp"
 #include "editor_windows/scene_view_window.hpp"
+#include "editor_windows/material_editor_window.hpp"
 
 #include <imwindows/entity_inspector_window.hpp>
 #include <imwindows/log_window.hpp>
-#include <imwindows/material_editor_window.hpp>
 
 Editor::Editor(Engine *engine)
     : engine_{engine} {
@@ -104,11 +104,6 @@ Editor::Editor(Engine *engine)
         auto &window = window_manager().get_window<AssetImportWindow>();
         window.focus();
     });
-
-    // register_menu_item("Window/Scene Serialization", [&]() {
-    //     auto &window = window_manager().get_window<SceneSerializationWindow>();
-    //     window.focus();
-    // });
 
     inspector_gui_.reset(new InspectorGUI(engine->resources_module(), engine->scene_serialization(), engine->world_module().scene()));
 
@@ -244,7 +239,6 @@ void Editor::setup() {
     window_manager().get_window<LogWindow>();
     window_manager().get_window<MaterialEditorWindow>();
     window_manager().get_window<AssetImportWindow>();
-    // window_manager().get_window<SceneSerializationWindow>();
     window_manager().get_window<EntityInspectorWindow>();
 }
 

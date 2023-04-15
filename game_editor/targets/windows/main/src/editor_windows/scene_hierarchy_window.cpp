@@ -1,6 +1,8 @@
 #include "scene_hierarchy_window.hpp"
 
 #include <nodec_scene_serialization/components/prefab.hpp>
+#include <nodec_scene_serialization/entity_builder.hpp>
+#include <nodec_scene_serialization/entity_serializer.hpp>
 
 #include <nodec/logging.hpp>
 

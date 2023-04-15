@@ -3,8 +3,8 @@
 
 #include <imessentials/window.hpp>
 #include <nodec_scene/scene.hpp>
-#include <nodec_scene_serialization/entity_builder.hpp>
-#include <nodec_scene_serialization/entity_serializer.hpp>
+#include <nodec_scene_serialization/scene_serialization.hpp>
+#include <nodec_scene_serialization/serializable_entity.hpp>
 
 #include <imgui.h>
 
