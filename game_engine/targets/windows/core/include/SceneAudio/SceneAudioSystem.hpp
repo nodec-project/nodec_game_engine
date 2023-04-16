@@ -9,7 +9,7 @@
 
 class SceneAudioSystem {
 public:
-    SceneAudioSystem(AudioPlatform *audioPlatform, nodec_scene::SceneRegistry *pSceneRegistry)
+    SceneAudioSystem(AudioPlatform *audioPlatform, nodec_scene::SceneRegistry *pSceneRegistry) // scene_registry
         : mpAudioPlatform(audioPlatform) {
         using namespace nodec_scene_audio::components;
         pSceneRegistry->component_constructed<AudioSource>().connect(
@@ -19,8 +19,9 @@ public:
     }
 
 public:
+    // update_audio();
     void UpdateAudio(nodec_scene::SceneRegistry &registry);
 
 private:
-    AudioPlatform *mpAudioPlatform;
+    AudioPlatform *mpAudioPlatform; // audio_platform_;
 };

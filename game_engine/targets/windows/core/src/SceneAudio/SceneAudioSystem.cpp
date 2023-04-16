@@ -6,6 +6,7 @@ void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
     using namespace nodec_scene::components;
     using namespace Exceptions;
 
+    // update entities with AudioSource.
     registry.view<AudioSource, Transform, AudioSourceActivity>().each([&](auto entt, AudioSource &source, Transform &trfm, AudioSourceActivity &activity) {
         try {
             switch (activity.state) {
@@ -94,4 +95,6 @@ void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
             }();
         }
     });
+
+    // TODO: Update entities with AudioListener.
 }
