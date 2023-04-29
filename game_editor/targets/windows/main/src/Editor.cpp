@@ -52,7 +52,7 @@ Editor::Editor(Engine *engine)
     });
 
     window_manager().register_window<MaterialEditorWindow>([=]() {
-        return std::make_unique<MaterialEditorWindow>(&engine->resources_module().registry());
+        return std::make_unique<MaterialEditorWindow>(engine->resources_module());
     });
 
     window_manager().register_window<AssetImportWindow>([=]() {
@@ -60,15 +60,6 @@ Editor::Editor(Engine *engine)
                                                    &engine->world_module().scene(),
                                                    &engine->resources_module().registry());
     });
-
-    // window_manager().register_window<SceneSerializationWindow>([=]() {
-    //     return std::make_unique<SceneSerializationWindow>(&engine->world_module().scene(),
-    //                                                       &engine->scene_serialization(),
-    //                                                       engine->resources_module().resource_path(),
-    //                                                       &engine->resources_module().registry(),
-    //                                                       selection().active_scene_entity(),
-    //                                                       selection().active_scene_entity_changed());
-    // });
 
     register_menu_item("Window/Control", [=]() {
         auto &window = window_manager().get_window<ControlWindow>();

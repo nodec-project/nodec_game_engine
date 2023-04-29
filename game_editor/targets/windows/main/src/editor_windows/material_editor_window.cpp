@@ -1,18 +1,97 @@
 #include "material_editor_window.hpp"
 
+#include <cassert>
+#include <fstream>
+
+#include <cereal/archives/json.hpp>
 #include <imessentials/text_buffer.hpp>
+#include <nodec/logging.hpp>
+#include <nodec_serialization/nodec_rendering/resources/material.hpp>
+
+namespace {
+
+void export_material(std::shared_ptr<nodec_rendering::resources::Material> &material, nodec_resources::Resources &resources) {
+    using namespace nodec_rendering::resources;
+
+    assert(material);
+
+    const std::string path = nodec::Formatter() << resources.resource_path() << "/"
+                                                << resources.registry().lookup_name<Material>(material).first;
+    std::ofstream out(path, std::ios::binary);
+
+    if (!out) {
+        nodec::logging::WarnStream(__FILE__, __LINE__)
+            << "Failed to open the file.\n"
+               "Make sure that the directory exists.\n"
+               "  path: "
+            << path;
+        return;
+    }
+
+    using Options = cereal::JSONOutputArchive::Options;
+    cereal::JSONOutputArchive archive(out, Options(324, Options::IndentChar::space, 2u));
+
+    try {
+        SerializableMaterial ser_material(*material, resources.registry());
+        archive(cereal::make_nvp("material", ser_material));
+        nodec::logging::InfoStream(__FILE__, __LINE__) << "Saved!";
+    } catch (std::exception &e) {
+        nodec::logging::WarnStream(__FILE__, __LINE__)
+            << "Failed to export material.\n"
+               "details:\n"
+            << e.what();
+    }
+}
+
+void import_material(std::shared_ptr<nodec_rendering::resources::Material> &material, nodec_resources::Resources &resources) {
+    using namespace nodec_rendering::resources;
+
+    assert(material);
+
+    
+    const std::string path = nodec::Formatter() << resources.resource_path() << "/"
+                                                << resources.registry().lookup_name<Material>(material).first;
+    std::ifstream file(path, std::ios::binary);
+
+    
+    if (!file) {
+        nodec::logging::WarnStream(__FILE__, __LINE__)
+            << "Failed to open the file.\n"
+               "Make sure that the file exists.\n"
+               "  path: "
+            << path;
+        return;
+    }
+
+    cereal::JSONInputArchive archive(file);
+
+    try {
+        SerializableMaterial ser_material;
+        archive(ser_material);
+
+        ser_material.apply_to(*material, resources.registry());
+        
+        nodec::logging::InfoStream(__FILE__, __LINE__) << "Imported!";
+    }
+    catch (std::exception& e) {
+        nodec::logging::WarnStream(__FILE__, __LINE__)
+            << "Failed to import material.\n"
+               "details:\n"
+            << e.what();
+    }
+}
+
+} // namespace
 
 void MaterialEditorWindow::on_gui() {
     using namespace nodec_rendering;
     using namespace nodec_rendering::resources;
 
-    if (!registry_) return;
+    const auto material_name = resources_.registry().lookup_name<Material>(target_material_).first;
 
-    auto material_name = registry_->lookup_name<Material>(target_material_).first;
-
-    auto& buffer = imessentials::get_text_buffer(1024, material_name);
+    auto &buffer = imessentials::get_text_buffer(1024, material_name);
     if (ImGui::InputText("Target", buffer.data(), buffer.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
-        target_material_ = registry_->get_resource<Material>(buffer.data()).get();
+        target_material_ = resources_.registry().get_resource<Material>(buffer.data()).get();
     }
 
     ImGui::Separator();
@@ -24,7 +103,7 @@ void MaterialEditorWindow::on_gui() {
 
     {
         auto shader = target_material_->shader();
-        auto shader_name = registry_->lookup_name<Shader>(shader).first;
+        auto shader_name = resources_.registry().lookup_name<Shader>(shader).first;
 
         auto &buffer = imessentials::get_text_buffer(1024, shader_name);
         if (ImGui::InputText("Shader", buffer.data(), buffer.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -32,7 +111,7 @@ void MaterialEditorWindow::on_gui() {
             if (new_name.empty()) {
                 target_material_->set_shader(nullptr);
             } else {
-                auto shader_to_set = registry_->get_resource<Shader>(new_name).get();
+                auto shader_to_set = resources_.registry().get_resource<Shader>(new_name).get();
                 if (shader_to_set) target_material_->set_shader(shader_to_set);
             }
         }
@@ -114,7 +193,7 @@ void MaterialEditorWindow::on_gui() {
                 //     ImVec2 size{static_cast<float>(current.texture->width()), static_cast<float>(current.texture->height())};
                 //     ImGui::Image(current.texture.get(), size);
                 // }
-                auto texture_name = registry_->lookup_name<Texture>(current.texture).first;
+                auto texture_name = resources_.registry().lookup_name<Texture>(current.texture).first;
 
                 auto &buffer = imessentials::get_text_buffer(1024, texture_name);
                 if (ImGui::InputText("Texture", buffer.data(), buffer.size(), ImGuiInputTextFlags_EnterReturnsTrue)) {
@@ -122,7 +201,7 @@ void MaterialEditorWindow::on_gui() {
                     if (new_name.empty()) {
                         current.texture.reset();
                     } else {
-                        auto texture_to_set = registry_->get_resource<Texture>(new_name).get();
+                        auto texture_to_set = resources_.registry().get_resource<Texture>(new_name).get();
 
                         if (texture_to_set) current.texture = texture_to_set;
                     }
@@ -139,7 +218,6 @@ void MaterialEditorWindow::on_gui() {
                 current.sampler.wrap_mode = static_cast<Sampler::WrapMode>(wrap_mode);
             }
 
-
             target_material_->set_texture_entry(name, current);
             ImGui::PopID();
         }
@@ -149,10 +227,12 @@ void MaterialEditorWindow::on_gui() {
     ImGui::Separator();
 
     if (ImGui::Button("Save")) {
-
+        // Export to the file.
+        export_material(target_material_, resources_);
     }
     ImGui::SameLine();
     if (ImGui::Button("Revert")) {
-
+        // Import from the file.
+        import_material(target_material_, resources_);
     }
 }

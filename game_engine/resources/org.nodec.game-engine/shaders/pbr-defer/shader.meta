@@ -21,7 +21,7 @@
         }
       },
       {
-        "name": "tiliing",
+        "name": "tiling",
         "default_value": {
           "x": 1.0,
           "y": 1.0,
