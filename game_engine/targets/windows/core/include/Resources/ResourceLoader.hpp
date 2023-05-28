@@ -208,29 +208,7 @@ public:
         auto material = std::make_shared<MaterialBackend>(mpGraphics);
 
         try {
-            auto shader = mpRegistry->get_resource_direct<Shader>(source.shader);
-            material->set_shader(shader);
-
-            for (auto &&property : source.float_properties) {
-                material->set_float_property(property.first, property.second);
-            }
-
-            for (auto &&property : source.vector4_properties) {
-                material->set_vector4_property(property.first, property.second);
-            }
-
-            for (auto &&property : source.texture_properties) {
-                auto &sourceEntry = property.second;
-                Material::TextureEntry entry;
-                entry.sampler = sourceEntry.sampler;
-
-                auto texture = mpRegistry->get_resource_direct<Texture>(sourceEntry.texture);
-                entry.texture = texture;
-
-                material->set_texture_entry(property.first, entry);
-            }
-
-            material->set_cull_mode(source.cull_mode);
+            source.apply_to(*material, *mpRegistry);
         } catch (...) {
             HandleException(Formatter() << "Material::" << path);
             return {};

@@ -109,13 +109,13 @@ public:
         return texture_entries_.size();
     }
 
-    const std::string &get_float_property_name(int index) const override {
+    const std::string &get_float_property_name(std::size_t index) const override {
         return float_properties_[index].name;
     }
-    const std::string &get_vector4_property_name(int index) const override {
+    const std::string &get_vector4_property_name(std::size_t index) const override {
         return vector4_properties_[index].name;
     }
-    const std::string &get_texture_entry_name(int index) const override {
+    const std::string &get_texture_entry_name(std::size_t index) const override {
         return texture_entries_[index].name;
     }
 
@@ -152,20 +152,20 @@ public:
         return true;
     }
 
-    nodec::optional<int> get_texture_slot(const std::string &name) const noexcept {
+    nodec::optional<std::size_t> get_texture_slot(const std::string &name) const noexcept {
         auto iter = texture_entry_slots_.find(name);
         if (iter == texture_entry_slots_.end()) return nodec::nullopt;
         return iter->second;
     }
 
-    int pass_count() const noexcept {
+    std::size_t pass_count() const noexcept {
         return sub_shaders_.size();
     }
 
-    const std::vector<std::string> &render_targets(int pass_num) const {
+    const std::vector<std::string> &render_targets(std::size_t pass_num) const {
         return sub_shaders_.at(pass_num).render_targets;
     }
-    const std::vector<std::string> &texture_resources(int pass_num) const {
+    const std::vector<std::string> &texture_resources(std::size_t pass_num) const {
         return sub_shaders_.at(pass_num).texture_resources;
     }
 
@@ -185,8 +185,8 @@ public:
         return *input_layout_.get();
     }
 
-    void bind(Graphics *gfx, int pass_num = 0) {
-        assert(pass_num >= 0 && pass_num < sub_shaders_.size());
+    void bind(Graphics *gfx, std::size_t pass_num = 0) {
+        assert(pass_num < sub_shaders_.size());
 
         input_layout_->Bind(gfx);
 
@@ -209,7 +209,7 @@ private:
     }
 
     template<typename T>
-    static T *get_property_ptr(std::vector<uint8_t> &memory, const int offset) {
+    static T *get_property_ptr(std::vector<uint8_t> &memory, const std::size_t offset) {
         // <http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0007r0.html>
         return const_cast<T *>(get_property_ptr<T>(
             const_cast<std::add_const_t<std::remove_reference_t<decltype(memory)>> &>(memory),
@@ -217,7 +217,7 @@ private:
     }
 
     template<typename T>
-    static const T *get_property_ptr(const std::vector<uint8_t> &memory, const int offset) {
+    static const T *get_property_ptr(const std::vector<uint8_t> &memory, const std::size_t offset) {
         auto end = offset + sizeof(T);
         if (end > memory.size()) {
             throw std::out_of_range("Exceed property memory boundary.");
@@ -240,13 +240,13 @@ private:
 
 private:
     std::vector<FloatProperty> float_properties_;
-    std::unordered_map<std::string, int> float_property_offsets_;
+    std::unordered_map<std::string, std::size_t> float_property_offsets_;
 
     std::vector<Vector4Property> vector4_properties_;
-    std::unordered_map<std::string, int> vector4_property_offsets_;
+    std::unordered_map<std::string, std::size_t> vector4_property_offsets_;
 
     std::vector<TextureEntry> texture_entries_;
-    std::unordered_map<std::string, int> texture_entry_slots_;
+    std::unordered_map<std::string, std::size_t> texture_entry_slots_;
 
     std::vector<uint8_t> property_memory_prototype;
 
