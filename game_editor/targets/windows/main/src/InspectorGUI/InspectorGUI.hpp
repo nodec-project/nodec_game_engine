@@ -16,6 +16,7 @@
 #include <nodec_scene/components/transform.hpp>
 #include <nodec_scene/scene.hpp>
 #include <nodec_scene_audio/components/audio_source.hpp>
+#include <nodec_scene_audio/components/audio_listener.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 
@@ -86,6 +87,11 @@ public:
         }
 
         ImGui::Checkbox("Loop", &source.loop);
+    }
+
+    void on_gui_audio_listener(nodec_scene_audio::components::AudioListener &listener) {
+        // TODO: GUI
+        ImGui::Text("test");
     }
 
     void on_gui_image_renderer(nodec_rendering::components::ImageRenderer &renderer) {

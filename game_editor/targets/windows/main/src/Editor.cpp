@@ -149,11 +149,18 @@ Editor::Editor(Engine *engine)
         [=](auto &light) {
             inspector_gui_->on_gui_point_light(light);
         });
-
+    
     inspector_component_registry_impl().register_component<AudioSource>(
         "Audio Source",
         [=](auto &source) {
             inspector_gui_->on_gui_audio_source(source);
+        });
+
+    inspector_component_registry_impl().register_component<AudioListener>(
+        "Audio Lister",
+        [=](auto &listener) {
+            // TODO: register inspectorGUI
+            inspector_gui_->on_gui_audio_listener(listener);
         });
 
     inspector_component_registry_impl().register_component<ImageRenderer>(

@@ -17,6 +17,7 @@
 #include <nodec_serialization/nodec_scene/components/name.hpp>
 #include <nodec_serialization/nodec_scene/components/transform.hpp>
 #include <nodec_serialization/nodec_scene_audio/components/audio_source.hpp>
+#include <nodec_serialization/nodec_scene_audio/components/audio_listener.hpp>
 
 SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management::ResourceRegistry *resource_registry,
                                                      nodec_scene_serialization::SceneSerialization &serialization) {
@@ -42,6 +43,7 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
     serialization.register_component<NonVisible, SerializableNonVisible>();
 
     serialization.register_component<AudioSource, SerializableAudioSource>();
+    serialization.register_component<AudioListener, SerializableAudioListener>();
 
     serialization.register_component<RigidBody, SerializableRigidBody>();
     serialization.register_component<PhysicsShape, SerializablePhysicsShape>();
