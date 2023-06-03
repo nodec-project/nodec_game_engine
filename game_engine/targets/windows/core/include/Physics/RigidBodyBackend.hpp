@@ -96,8 +96,6 @@ public:
         const auto rb_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
         const auto rb_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
 
-        if (math::approx_equal(world_position, rb_position) && math::approx_equal_rotation(world_rotation, rb_rotation, math::default_rel_tol<float>, 0.001f)) return;
-
         btTransform rb_trfm_updated;
         rb_trfm_updated.setIdentity();
         rb_trfm_updated.setOrigin(btVector3(world_position.x, world_position.y, world_position.z));
