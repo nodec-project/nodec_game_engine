@@ -3,10 +3,10 @@
 #include <Physics/RigidBodyBackend.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
+#include <nodec_physics/components/central_force.hpp>
 #include <nodec_physics/components/collision_stay.hpp>
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
-#include <nodec_physics/components/central_force.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
 
 #include <nodec/logging.hpp>
@@ -56,26 +56,25 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             }
 
             // Sync entity -> bullet rigid body.
-            activity->rigid_body_backend->update_transform(world_position, world_rotation);
+            if (activity->prev_world_position != world_position
+                || activity->prev_world_rotation != world_rotation) {
+                activity->rigid_body_backend->update_transform(world_position, world_rotation);
 
-            activity->prev_world_position = world_position;
-            activity->prev_world_rotation = world_rotation;
+                activity->prev_world_position = world_position;
+                activity->prev_world_rotation = world_rotation;
+            }
         });
 
     {
         std::vector<SceneEntity> to_deleted;
 
         world.scene().registry().view<RigidBodyActivity>().each([&](auto entt, RigidBodyActivity &activity) {
-            if (world.scene().registry().all_of<RigidBody, PhysicsShape>(entt)) {
-                return;
-            }
+            if (world.scene().registry().all_of<RigidBody, PhysicsShape>(entt)) return;
 
             to_deleted.push_back(entt);
         });
 
-        for (auto &entt : to_deleted) {
-            world.scene().registry().remove_component<RigidBodyActivity>(entt);
-        }
+        world.scene().registry().remove_component<RigidBodyActivity>(to_deleted.begin(), to_deleted.end());
     }
 
     // Apply force.
@@ -112,6 +111,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
     // Sync rigid body -> entity.
     world.scene().registry().view<RigidBody, RigidBodyActivity, Transform>().each(
         [&](auto entt, RigidBody &rigid_body, RigidBodyActivity &activity, Transform &trfm) {
+            // An entity with zero mass is static object.
             if (rigid_body.mass == 0.0f) return;
 
             btTransform rb_trfm;
@@ -120,16 +120,19 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             const auto world_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
             const auto world_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
 
-            // activity.prev_world_position = world_position;
-            // activity.prev_world_rotation = world_rotation;
-
             auto delta_position = world_position - activity.prev_world_position;
             auto delta_rotation = math::inv(activity.prev_world_rotation) * world_rotation;
 
             trfm.local_position += delta_position;
             trfm.local_rotation = delta_rotation * trfm.local_rotation;
 
+            // NOTE: In some case, the norm of rotation may not be 1.
+            trfm.local_rotation = math::normalize(trfm.local_rotation);
+
             trfm.dirty = true;
+
+            activity.prev_world_position = world_position;
+            activity.prev_world_rotation = world_rotation;
         });
 
     // https://github.com/bulletphysics/bullet3/issues/1745
