@@ -22,7 +22,7 @@
 #include <nodec_rendering/components/scene_lighting.hpp>
 #include <nodec_rendering/components/text_renderer.hpp>
 #include <nodec_rendering/sampler.hpp>
-#include <nodec_scene/components/transform.hpp>
+#include <nodec_scene/components/local_transform.hpp>
 #include <nodec_scene/scene.hpp>
 
 #include <nodec/resource_management/resource_registry.hpp>

@@ -27,7 +27,7 @@ void InspectorGUI::on_gui_name(nodec_scene::components::Name &name) {
     name.name = buffer.data();
 }
 
-void InspectorGUI::on_gui_transform(Transform &trfm) {
+void InspectorGUI::on_gui_transform(LocalTransform &trfm) {
     // static ImGuizmo::OPERATION currentGizmoOperation = ImGuizmo::TRANSLATE;
     // static ImGuizmo::MODE currentGizmoMode = ImGuizmo::LOCAL;
 

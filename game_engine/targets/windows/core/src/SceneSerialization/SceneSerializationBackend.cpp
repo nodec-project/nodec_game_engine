@@ -29,7 +29,7 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
     using namespace nodec_scene_serialization::components;
 
     serialization.register_component<Name, SerializableName>();
-    serialization.register_component<Transform, SerializableTransform>();
+    serialization.register_component<LocalTransform, SerializableTransform>();
 
     serialization.register_component<MeshRenderer, SerializableMeshRenderer>();
     serialization.register_component<ImageRenderer, SerializableImageRenderer>();

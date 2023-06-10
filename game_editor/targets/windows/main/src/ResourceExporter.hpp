@@ -56,7 +56,7 @@ inline void ProcessNode(
         aiVector3D scale;
         pNode->mTransformation.Decompose(scale, rotation, position);
 
-        auto &trfm = destScene.registry().get_component<Transform>(myEntity);
+        auto &trfm = destScene.registry().get_component<LocalTransform>(myEntity);
         trfm.position.set(position.x, position.y, position.z);
         trfm.rotation.set(rotation.x, rotation.y, rotation.z, rotation.w);
         trfm.scale.set(scale.x, scale.y, scale.z);
