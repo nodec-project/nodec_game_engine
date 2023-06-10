@@ -57,9 +57,9 @@ inline void ProcessNode(
         pNode->mTransformation.Decompose(scale, rotation, position);
 
         auto &trfm = destScene.registry().get_component<Transform>(myEntity);
-        trfm.local_position.set(position.x, position.y, position.z);
-        trfm.local_rotation.set(rotation.x, rotation.y, rotation.z, rotation.w);
-        trfm.local_scale.set(scale.x, scale.y, scale.z);
+        trfm.position.set(position.x, position.y, position.z);
+        trfm.rotation.set(rotation.x, rotation.y, rotation.z, rotation.w);
+        trfm.scale.set(scale.x, scale.y, scale.z);
         trfm.dirty = true;
     }
 

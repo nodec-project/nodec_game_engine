@@ -164,26 +164,28 @@ void SceneViewWindow::on_gui() {
     [&]() {
         if (!scene_->registry().is_valid(selected_entity_)) return;
 
-        auto *trfm = scene_->registry().try_get_component<Transform>(selected_entity_);
-        if (!trfm) return;
+        auto *local_to_world = scene_->registry().try_get_component<LocalToWorld>(selected_entity_);
+        if (!local_to_world) return;
 
-        auto model_matrix = trfm->local2world;
+        //auto model_matrix = local_to_world->value;
         Matrix4x4f delta_matrix;
 
-        if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, model_matrix.m, delta_matrix.m)) {
-            Vector3f delta_translation;
-            Vector3f delta_scale;
-            Quaternionf delta_rotation;
-            math::gfx::decompose_trs(delta_matrix, delta_translation, delta_rotation, delta_scale);
+        if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, local_to_world->value.m, delta_matrix.m)) {
+            local_to_world->dirty = true;
 
-            // I dont know why translation is not zero even if in rotate mode.
-            if (gizmo_operation_ == ImGuizmo::ROTATE) delta_translation =  Vector3f::zero;
+            //Vector3f delta_translation;
+            //Vector3f delta_scale;
+            //Quaternionf delta_rotation;
+            //math::gfx::decompose_trs(delta_matrix, delta_translation, delta_rotation, delta_scale);
 
-            trfm->local_position += delta_translation;
-            trfm->local_rotation = delta_rotation * trfm->local_rotation;
-            trfm->local_scale *= delta_scale;
+            //// I dont know why translation is not zero even if in rotate mode.
+            //if (gizmo_operation_ == ImGuizmo::ROTATE) delta_translation =  Vector3f::zero;
 
-            trfm->dirty = true;
+            //trfm->position += delta_translation;
+            //trfm->rotation = delta_rotation * trfm->rotation;
+            //trfm->scale *= delta_scale;
+
+            //trfm->dirty = true;
         }
     }();
 

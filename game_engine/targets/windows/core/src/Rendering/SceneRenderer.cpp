@@ -1,9 +1,35 @@
-#include <Font/FontBackend.hpp>
+
 #include <Rendering/SceneRenderer.hpp>
 
-#include <nodec/unicode.hpp>
-
 #include <DirectXMath.h>
+
+#include <nodec/unicode.hpp>
+#include <nodec_scene/components/local_to_world.hpp>
+
+#include <Font/FontBackend.hpp>
+
+void SceneRenderer::SetupSceneLighting(nodec_scene::Scene &scene) {
+    using namespace nodec_rendering::components;
+    using namespace nodec_scene;
+    using namespace nodec_scene::components;
+    using namespace nodec;
+
+    mSceneProperties.lights.directional.enabled = 0x00;
+    scene.registry().view<const nodec_rendering::components::DirectionalLight, const LocalToWorld>().each(
+        [&](SceneEntity entt, const nodec_rendering::components::DirectionalLight &light, const LocalToWorld &local_to_world) {
+            auto &directional = mSceneProperties.lights.directional;
+            directional.enabled = 0x01;
+            directional.color = light.color;
+            directional.intensity = light.intensity;
+
+            auto direction = local_to_world.value * Vector4f{0.0f, 0.0f, 1.0f, 0.0f};
+            directional.direction.set(direction.x, direction.y, direction.z);
+        });
+
+    scene.registry().view<const nodec_rendering::components::SceneLighting>().each([&](auto entt, const nodec_rendering::components::SceneLighting &lighting) {
+        mSceneProperties.lights.ambientColor = lighting.ambient_color;
+    });
+}
 
 SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resource_registry)
     : gfx_(gfx),
@@ -84,13 +110,13 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
     SetupSceneLighting(scene);
 
     // Render the scene per each camera.
-    scene.registry().view<const Camera, const Transform>().each([&](SceneEntity cameraEntt, const Camera &camera, const Transform &cameraTrfm) {
+    scene.registry().view<const Camera, const LocalToWorld>().each([&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &camera_local_to_world) {
         ID3D11RenderTargetView *pCameraRenderTargetView = &render_target;
 
         // --- Get active post process effects. ---
         std::vector<const PostProcessing::Effect *> activePostProcessEffects;
         {
-            const auto *postProcessing = scene.registry().try_get_component<const PostProcessing>(cameraEntt);
+            const auto *postProcessing = scene.registry().try_get_component<const PostProcessing>(camera_entity);
 
             if (postProcessing) {
                 for (const auto &effect : postProcessing->effects) {
@@ -129,7 +155,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
         }
         const auto matrixPInverse = XMMatrixInverse(nullptr, matrixP);
 
-        XMMATRIX matrixVInverse{cameraTrfm.local2world.m};
+        XMMATRIX matrixVInverse{camera_local_to_world.value.m};
 
         auto matrixV = XMMatrixInverse(nullptr, matrixVInverse);
 
@@ -253,7 +279,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
     std::vector<ShaderBackend *> activeShaders;
     {
         std::unordered_set<ShaderBackend *> shaders;
-        scene.registry().view<const MeshRenderer, const Transform>(type_list<NonVisible>{}).each([&](auto entt, const MeshRenderer &renderer, const Transform &trfm) {
+        scene.registry().view<const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](auto entt, const MeshRenderer &renderer, const LocalToWorld) {
             for (auto &material : renderer.materials) {
                 if (!material) continue;
                 auto *backend = static_cast<const MaterialBackend *>(material.get());
@@ -263,7 +289,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
             }
         });
 
-        scene.registry().view<const ImageRenderer, const Transform>(type_list<NonVisible>{}).each([&](auto entt, const ImageRenderer &renderer, const Transform &trfm) {
+        scene.registry().view<const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](auto entt, const ImageRenderer &renderer, const LocalToWorld) {
             auto *material = static_cast<const MaterialBackend *>(renderer.material.get());
             if (!material) return;
             auto *shader = static_cast<ShaderBackend *>(material->shader().get());
@@ -271,7 +297,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
             shaders.emplace(shader);
         });
 
-        scene.registry().view<const TextRenderer, const Transform>(type_list<NonVisible>{}).each([&](auto entt, const TextRenderer &renderer, const Transform &transform) {
+        scene.registry().view<const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](auto entt, const TextRenderer &renderer, const LocalToWorld) {
             if (!renderer.material) return;
             auto *shader = renderer.material->shader().get();
             if (shader == nullptr) return;
@@ -311,15 +337,15 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
     // Update active point lights.
     {
         mSceneProperties.lights.numOfPointLights = 0;
-        auto view = scene.registry().view<const Transform, const nodec_rendering::components::PointLight>();
+        auto view = scene.registry().view<const LocalToWorld, const nodec_rendering::components::PointLight>();
         for (const auto &entt : view) {
             // TODO: Light culling.
             const auto index = mSceneProperties.lights.numOfPointLights;
             if (index >= MAX_NUM_OF_POINT_LIGHTS) break;
 
-            const auto &trfm = view.get<const Transform>(entt);
+            const auto &local_to_world = view.get<const LocalToWorld>(entt);
             const auto &light = view.get<const nodec_rendering::components::PointLight>(entt);
-            const auto worldPosition = trfm.local2world * Vector4f(0, 0, 0, 1.0f);
+            const auto worldPosition = local_to_world.value * Vector4f(0, 0, 0, 1.0f);
 
             mSceneProperties.lights.pointLights[index].position.set(worldPosition.x, worldPosition.y, worldPosition.z);
             mSceneProperties.lights.pointLights[index].color.set(light.color.x, light.color.y, light.color.z);
@@ -463,9 +489,9 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
     UINT used_slot_max = 0;
 
     // TODO: Extract sub rebderer class.
-    scene.registry().view<const Transform, const MeshRenderer>(type_list<NonVisible>{}).each([&](auto entt, const Transform &trfm, const MeshRenderer &meshRenderer) {
-        if (meshRenderer.meshes.size() == 0) return;
-        if (meshRenderer.meshes.size() != meshRenderer.materials.size()) return;
+    scene.registry().view<const LocalToWorld, const MeshRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const MeshRenderer &renderer) {
+        if (renderer.meshes.size() == 0) return;
+        if (renderer.meshes.size() != renderer.materials.size()) return;
 
         // DirectX Math using row-major representation, row-major memory order.
         // nodec using column-major representation, column-major memory order.
@@ -476,7 +502,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
         //  it needs to be transposed.
         //  However, memory ordering of nodec and DirectX Math is different.
         //  Therefore, the matrix is automatically transposed when it is assigned to each other.
-        XMMATRIX matrixM{trfm.local2world.m};
+        XMMATRIX matrixM{local_to_world.value.m};
         auto matrixMInverse = XMMatrixInverse(nullptr, matrixM);
 
         auto matrixMVP = matrixM * matrixV * matrixP;
@@ -487,9 +513,9 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
         mModelPropertiesCB.update(gfx_, &mModelProperties);
 
-        for (int i = 0; i < meshRenderer.meshes.size(); ++i) {
-            auto &mesh = meshRenderer.meshes[i];
-            auto &material = meshRenderer.materials[i];
+        for (int i = 0; i < renderer.meshes.size(); ++i) {
+            auto &mesh = renderer.meshes[i];
+            auto &material = renderer.materials[i];
             if (!mesh || !material) continue;
 
             auto *meshBackend = static_cast<MeshBackend *>(mesh.get());
@@ -515,7 +541,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
         mBSAlphaBlend.Bind(gfx_);
 
-        scene.registry().view<const Transform, const ImageRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const Transform &trfm, const ImageRenderer &renderer) {
+        scene.registry().view<const LocalToWorld, const ImageRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const ImageRenderer &renderer) {
             using namespace DirectX;
             using namespace nodec_rendering;
 
@@ -539,7 +565,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
             mTextureConfigCB.update(gfx_, &mTextureConfig);
 
-            XMMATRIX matrixM{trfm.local2world.m};
+            XMMATRIX matrixM{local_to_world.value.m};
             const auto width = imageBackend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
             const auto height = imageBackend->height() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
             matrixM = XMMatrixScaling(width, height, 1.0f) * matrixM;
@@ -570,7 +596,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
     [&]() {
         mBSAlphaBlend.Bind(gfx_);
-        scene.registry().view<const Transform, const TextRenderer>(type_list<NonVisible>{}).each([&](auto entt, const Transform &trfm, const TextRenderer &renderer) {
+        scene.registry().view<const LocalToWorld, const TextRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const TextRenderer &renderer) {
             using namespace DirectX;
             using namespace nodec_rendering;
 
@@ -621,7 +647,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 used_slot_max = std::max(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
                 mTextureConfigCB.update(gfx_, &mTextureConfig);
 
-                XMMATRIX matrixM{trfm.local2world.m};
+                XMMATRIX matrixM{local_to_world.value.m};
                 matrixM = XMMatrixScaling(w / 2, h / 2, 1.0f) * XMMatrixTranslation(posX + w / 2, posY + h / 2, 0.0f) * matrixM;
 
                 // matrixM

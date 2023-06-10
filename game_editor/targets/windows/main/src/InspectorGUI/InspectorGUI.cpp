@@ -34,7 +34,7 @@ void InspectorGUI::on_gui_transform(Transform &trfm) {
     {
         ImGui::Text("Position");
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        if (ImGui::DragFloat3("##Position", trfm.local_position.v, 0.005f, -FLT_MAX, +FLT_MAX, "%.3f")) {
+        if (ImGui::DragFloat3("##Position", trfm.position.v, 0.005f, -FLT_MAX, +FLT_MAX, "%.3f")) {
             trfm.dirty = true;
         }
     }
@@ -44,7 +44,7 @@ void InspectorGUI::on_gui_transform(Transform &trfm) {
         static bool isActive = false;
 
         if (!isActive) {
-            eulerAngles = math::gfx::euler_angles_xyz(trfm.local_rotation);
+            eulerAngles = math::gfx::euler_angles_xyz(trfm.rotation);
         }
 
         ImGui::Text("Rotation (XYZ Euler)");
@@ -52,7 +52,7 @@ void InspectorGUI::on_gui_transform(Transform &trfm) {
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
         if (ImGui::DragFloat3("##Rotation", eulerAngles.v, 0.1f, -FLT_MAX, +FLT_MAX, "%.3f")) {
-            trfm.local_rotation = math::gfx::euler_angles_xyz(eulerAngles);
+            trfm.rotation = math::gfx::euler_angles_xyz(eulerAngles);
             trfm.dirty = true;
         }
 
@@ -62,24 +62,10 @@ void InspectorGUI::on_gui_transform(Transform &trfm) {
     {
         ImGui::Text("Scale");
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-        if (ImGui::DragFloat3("##Scale", trfm.local_scale.v, 0.005f, -FLT_MAX, +FLT_MAX, "%.3f")) {
+        if (ImGui::DragFloat3("##Scale", trfm.scale.v, 0.005f, -FLT_MAX, +FLT_MAX, "%.3f")) {
             trfm.dirty = true;
         }
     }
-
-    // if (currentGizmoOperation != ImGuizmo::SCALE) {
-    //     if (ImGui::RadioButton("Local", currentGizmoMode == ImGuizmo::LOCAL)) {
-    //         currentGizmoMode = ImGuizmo::LOCAL;
-    //     }
-    //     ImGui::SameLine();
-    //     if (ImGui::RadioButton("World", currentGizmoMode == ImGuizmo::WORLD)) {
-    //         currentGizmoMode = ImGuizmo::WORLD;
-    //     }
-    // }
-
-    // ImGuiIO &io = ImGui::GetIO();
-    // ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
-    ////ImGuizmo::Manipulate()
 }
 
 void InspectorGUI::on_gui_mesh_renderer(nodec_rendering::components::MeshRenderer &renderer) {

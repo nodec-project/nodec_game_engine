@@ -42,7 +42,7 @@ private:
     nodec_scene::SceneEntity selected_entity_;
 
     ImGuizmo::OPERATION gizmo_operation_{ImGuizmo::TRANSLATE};
-    ImGuizmo::MODE gizmo_mode_{ImGuizmo::WORLD};
+    ImGuizmo::MODE gizmo_mode_{ImGuizmo::LOCAL};
 };
 
 #endif
