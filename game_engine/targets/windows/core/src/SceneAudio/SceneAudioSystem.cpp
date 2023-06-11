@@ -7,7 +7,7 @@ void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
     using namespace Exceptions;
 
     // update entities with AudioSource.
-    registry.view<AudioSource, Transform, AudioSourceActivity>().each([&](auto entt, AudioSource &source, Transform &trfm, AudioSourceActivity &activity) {
+    registry.view<AudioSource, LocalTransform, AudioSourceActivity>().each([&](auto entt, AudioSource &source, LocalTransform &trfm, AudioSourceActivity &activity) {
         try {
             switch (activity.state) {
             case AudioSourceActivity::State::Stopped: {

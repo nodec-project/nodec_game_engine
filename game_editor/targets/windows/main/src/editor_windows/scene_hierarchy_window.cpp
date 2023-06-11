@@ -59,7 +59,7 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
         auto name = scene_->registry().try_get_component<Name>(entity);
         prefab = scene_->registry().try_get_component<Prefab>(entity);
 
-        std::string label = nodec::Formatter() << "\"" << (name ? name->name : "") << "\" {entity: 0x" << std::hex << entity << "}";
+        std::string label = nodec::Formatter() << "\"" << (name ? name->value : "") << "\" {entity: 0x" << std::hex << entity << "}";
 
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
 
