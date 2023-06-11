@@ -17,14 +17,14 @@ using namespace nodec_rendering::components;
 using namespace nodec;
 
 void InspectorGUI::on_gui_name(nodec_scene::components::Name &name) {
-    auto &buffer = imessentials::get_text_buffer(1024, name.name);
+    auto &buffer = imessentials::get_text_buffer(1024, name.value);
 
     ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue;
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
     if (ImGui::InputText("##name", buffer.data(), buffer.size(), input_text_flags)) {
         // on type enter
     }
-    name.name = buffer.data();
+    name.value = buffer.data();
 }
 
 void InspectorGUI::on_gui_transform(LocalTransform &trfm) {
