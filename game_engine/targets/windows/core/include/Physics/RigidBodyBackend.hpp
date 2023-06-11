@@ -18,6 +18,8 @@ class RigidBodyBackend final {
 public:
     RigidBodyBackend(nodec_scene::SceneEntity entity, float mass,
                      const nodec_physics::components::PhysicsShape &shape,
+                     const nodec::Vector3f &start_position,
+                     const nodec::Quaternionf &start_rotation,
                      const nodec::Vector3f &world_shape_scale)
         : entity_(entity), world_shape_scale_(world_shape_scale) {
         using namespace nodec_physics::components;
@@ -47,7 +49,13 @@ public:
             collision_shape_->calculateLocalInertia(mass, local_inertia);
         }
 
+        btTransform start_trfm;
+        start_trfm.setIdentity();
+        start_trfm.setOrigin(btVector3(start_position.x, start_position.y, start_position.z));
+        start_trfm.setRotation(btQuaternion(start_rotation.x, start_rotation.y, start_rotation.z, start_rotation.w));
+
         motion_state_.reset(new RigidBodyMotionState());
+        motion_state_->setWorldTransform(start_trfm);
         native_.reset(new btRigidBody(btRigidBody::btRigidBodyConstructionInfo(mass, motion_state_.get(), collision_shape_.get(), local_inertia)));
 
         native_->setUserPointer(this);
@@ -93,10 +101,8 @@ public:
         motion_state_->getWorldTransform(rb_trfm);
         // const auto &rb_trfm = native_->getWorldTransform();
 
-        const auto rb_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
-        const auto rb_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
-
-        if (math::approx_equal(world_position, rb_position) && math::approx_equal_rotation(world_rotation, rb_rotation, math::default_rel_tol<float>, 0.001f)) return;
+        //const auto rb_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
+        //const auto rb_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
 
         btTransform rb_trfm_updated;
         rb_trfm_updated.setIdentity();

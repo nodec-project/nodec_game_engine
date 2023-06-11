@@ -114,9 +114,9 @@ Editor::Editor(Engine *engine)
             inspector_gui_->on_gui_physics_shape(shape);
         });
 
-    inspector_component_registry_impl().register_component<Transform>(
-        "Transform",
-        [=](Transform &trfm) {
+    inspector_component_registry_impl().register_component<LocalTransform>(
+        "Local Transform",
+        [=](LocalTransform &trfm) {
             inspector_gui_->on_gui_transform(trfm);
         });
 

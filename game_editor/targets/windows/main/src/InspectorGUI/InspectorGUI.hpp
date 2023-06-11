@@ -13,7 +13,7 @@
 #include <nodec_rendering/components/text_renderer.hpp>
 #include <nodec_resources/resources.hpp>
 #include <nodec_scene/components/name.hpp>
-#include <nodec_scene/components/transform.hpp>
+#include <nodec_scene/components/local_transform.hpp>
 #include <nodec_scene/scene.hpp>
 #include <nodec_scene_audio/components/audio_source.hpp>
 #include <nodec_scene_audio/components/audio_listener.hpp>
@@ -41,7 +41,7 @@ public:
 
     void on_gui_name(nodec_scene::components::Name &name);
 
-    void on_gui_transform(nodec_scene::components::Transform &trfm);
+    void on_gui_transform(nodec_scene::components::LocalTransform &trfm);
 
     void on_gui_mesh_renderer(nodec_rendering::components::MeshRenderer &renderer);
 

@@ -17,7 +17,10 @@ public:
     /// Bullet only calls the update of worldtransform for active objects
     void setWorldTransform(const btTransform &trfm) override {
         current_trfm_ = trfm;
+        dirty = true;
     }
+
+    bool dirty{false};
 
 private:
     btTransform current_trfm_;

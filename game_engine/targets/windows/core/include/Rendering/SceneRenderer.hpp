@@ -22,7 +22,7 @@
 #include <nodec_rendering/components/scene_lighting.hpp>
 #include <nodec_rendering/components/text_renderer.hpp>
 #include <nodec_rendering/sampler.hpp>
-#include <nodec_scene/components/transform.hpp>
+#include <nodec_scene/components/local_transform.hpp>
 #include <nodec_scene/scene.hpp>
 
 #include <nodec/resource_management/resource_registry.hpp>
@@ -167,27 +167,7 @@ public:
                 ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
 
 private:
-    void SetupSceneLighting(nodec_scene::Scene &scene) {
-        using namespace nodec_rendering::components;
-        using namespace nodec_scene::components;
-        using namespace nodec;
-
-        mSceneProperties.lights.directional.enabled = 0x00;
-        scene.registry().view<const nodec_rendering::components::DirectionalLight, const Transform>().each(
-            [&](auto entt, const nodec_rendering::components::DirectionalLight &light, const Transform &trfm) {
-                auto &directional = mSceneProperties.lights.directional;
-                directional.enabled = 0x01;
-                directional.color = light.color;
-                directional.intensity = light.intensity;
-
-                auto direction = trfm.local2world * Vector4f{0.0f, 0.0f, 1.0f, 0.0f};
-                directional.direction.set(direction.x, direction.y, direction.z);
-            });
-
-        scene.registry().view<const nodec_rendering::components::SceneLighting>().each([&](auto entt, const nodec_rendering::components::SceneLighting &lighting) {
-            mSceneProperties.lights.ambientColor = lighting.ambient_color;
-        });
-    }
+    void SetupSceneLighting(nodec_scene::Scene &scene);
 
     void Render(nodec_scene::Scene &scene,
                 const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixVInverse,
