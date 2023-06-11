@@ -15,7 +15,7 @@
 #include <nodec_serialization/nodec_rendering/components/scene_lighting.hpp>
 #include <nodec_serialization/nodec_rendering/components/text_renderer.hpp>
 #include <nodec_serialization/nodec_scene/components/name.hpp>
-#include <nodec_serialization/nodec_scene/components/transform.hpp>
+#include <nodec_serialization/nodec_scene/components/local_transform.hpp>
 #include <nodec_serialization/nodec_scene_audio/components/audio_source.hpp>
 
 SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management::ResourceRegistry *resource_registry,
@@ -29,7 +29,7 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
     using namespace nodec_scene_serialization::components;
 
     serialization.register_component<Name, SerializableName>();
-    serialization.register_component<LocalTransform, SerializableTransform>();
+    serialization.register_component<LocalTransform, SerializableLocalTransform>();
 
     serialization.register_component<MeshRenderer, SerializableMeshRenderer>();
     serialization.register_component<ImageRenderer, SerializableImageRenderer>();
