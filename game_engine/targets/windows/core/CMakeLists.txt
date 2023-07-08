@@ -39,7 +39,7 @@ target_link_libraries(${PROJECT_NAME}
     nodec_scene_serialization
     nodec_screen
     nodec_world
-    nodec_animations
+    nodec_animation
     nodec_physics
     imgui
     freetype
