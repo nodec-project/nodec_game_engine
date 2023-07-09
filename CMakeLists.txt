@@ -27,7 +27,7 @@ add_subdirectory(nodec/modules/nodec_scene_serialization)
 add_subdirectory(nodec/modules/nodec_screen)
 add_subdirectory(nodec/modules/nodec_serialization)
 add_subdirectory(nodec/modules/nodec_world)
-add_subdirectory(nodec/modules/nodec_animations)
+add_subdirectory(nodec/modules/nodec_animation)
 add_subdirectory(nodec/modules/nodec_physics)
 
 if(NODEC_GAME_EDITOR_ENABLED)
@@ -47,7 +47,7 @@ target_link_libraries(${PROJECT_NAME}
     INTERFACE
     nodec
     nodec_application
-    nodec_animations
+    nodec_animation
     nodec_input
     nodec_rendering
     nodec_resources
