@@ -7,14 +7,15 @@ void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
     using namespace nodec_scene::components;
     using namespace Exceptions;
     X3DAUDIO_LISTENER listener = {};
-    auto calcVec = [](nodec::Matrix4x4f maxrix, nodec::Vector4f vec) {
-        nodec::Vector4f temp = maxrix * vec;
+    auto calcVec = [](const nodec::Matrix4x4f& maxrix, const Vector4f& vec) {
+        Vector4f temp = maxrix * vec;
         return X3DAUDIO_VECTOR{temp.x, temp.y, temp.z};
     };
 
     // TODO: ここの座標コンポーネントはローカル座標なので、グローバルに変換するためのLocalToWorldコンポーネントがいる
-    registry.view<AudioListener, LocalToWorld>().each([&](auto entt, AudioListener &source, LocalToWorld &trfm) {
-        nodec::Matrix4x4f localTramsform = trfm.value;
+    registry.view<AudioListener, LocalToWorld>().each([&](auto entt, AudioListener &, LocalToWorld &trfm) {
+        Matrix4x4f &localTramsform = trfm.value;
+        listener.OrientFront = calcVec(localTramsform, {0, 0, 1, 1});
         listener.OrientFront = calcVec(localTramsform, {0, 0, 1, 1});
         listener.OrientTop = calcVec(localTramsform, {0, 1, 0, 1});
         listener.Position = calcVec(localTramsform, {0, 0, 0, 1});
@@ -62,8 +63,9 @@ void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
                 // setting X3DAudio option
 
                 X3DAUDIO_EMITTER emitter = {};
+
                 // TODO: set Listener, Emitter pos
-                nodec::Matrix4x4f localTramsform = trfm.value;
+                Matrix4x4f localTramsform = trfm.value;
                 emitter.OrientFront = calcVec(localTramsform, {0, 0, 1, 0});
                 emitter.OrientTop = calcVec(localTramsform, {0, 1, 0, 0});
                 emitter.Position = calcVec(localTramsform, {0, 0, 0, 1});
