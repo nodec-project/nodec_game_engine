@@ -34,3 +34,6 @@
 [submodule "modules/nodec_application"]
 	path = modules/nodec_application
 	url = https://github.com/nodec-project/nodec_application.git
+[submodule "modules/nodec_animation"]
+	path = modules/nodec_animation
+	url = https://github.com/nodec-project/nodec_animation.git
