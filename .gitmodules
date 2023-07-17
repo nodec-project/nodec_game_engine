@@ -7,3 +7,6 @@
 [submodule "modules/nodec_screen"]
 	path = modules/nodec_screen
 	url = https://github.com/nodec-project/nodec_screen.git
+[submodule "modules/nodec_scene_editor"]
+	path = modules/nodec_scene_editor
+	url = https://github.com/nodec-project/nodec_scene_editor.git
