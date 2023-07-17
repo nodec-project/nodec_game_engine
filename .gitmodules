@@ -46,3 +46,6 @@
 [submodule "modules/imguizmo"]
 	path = modules/imguizmo
 	url = https://github.com/nodec-project/imguizmo.git
+[submodule "modules/imessentials"]
+	path = modules/imessentials
+	url = https://github.com/nodec-project/imessentials.git
