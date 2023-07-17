@@ -37,3 +37,6 @@
 [submodule "modules/nodec_animation"]
 	path = modules/nodec_animation
 	url = https://github.com/nodec-project/nodec_animation.git
+[submodule "modules/assimp"]
+	path = modules/assimp
+	url = https://github.com/assimp/assimp.git
