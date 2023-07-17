@@ -43,3 +43,6 @@
 [submodule "modules/imgui"]
 	path = modules/imgui
 	url = https://github.com/nodec-project/imgui.git
+[submodule "modules/imguizmo"]
+	path = modules/imguizmo
+	url = https://github.com/nodec-project/imguizmo.git
