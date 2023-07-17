@@ -25,3 +25,6 @@
 [submodule "modules/nodec_rendering"]
 	path = modules/nodec_rendering
 	url = https://github.com/nodec-project/nodec_rendering.git
+[submodule "modules/nodec_physics"]
+	path = modules/nodec_physics
+	url = https://github.com/nodec-project/nodec_physics.git
