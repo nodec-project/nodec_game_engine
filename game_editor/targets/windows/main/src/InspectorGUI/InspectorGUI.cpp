@@ -118,6 +118,70 @@ void InspectorGUI::on_gui_camera(Camera &camera) {
     }
 }
 
+void InspectorGUI::on_gui_rigid_body(nodec_physics::components::RigidBody &rigid_body) {
+    using namespace nodec_physics::components;
+
+    ImGui::DragFloat("Mass", &rigid_body.mass);
+
+    if (ImGui::TreeNode("Constrains")) {
+
+        ImGui::PushID("Freeze Position");
+        {
+            ImGui::Text("Freeze Position");
+
+            bool flag;
+            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezePositionX);
+            ImGui::Checkbox("X", &flag);
+            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezePositionX
+                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezePositionX;
+
+            ImGui::SameLine();
+
+            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezePositionY);
+            ImGui::Checkbox("Y", &flag);
+            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezePositionY
+                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezePositionY;
+
+            ImGui::SameLine();
+
+            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezePositionZ);
+            ImGui::Checkbox("Z", &flag);
+            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezePositionZ
+                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezePositionZ;
+
+            ImGui::PopID();
+        }
+
+        ImGui::PushID("Freeze Rotation");
+        {
+            ImGui::Text("Freeze Rotation");
+            bool flag;
+            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezeRotationX);
+            ImGui::Checkbox("X", &flag);
+            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezeRotationX
+                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezeRotationX;
+
+            ImGui::SameLine();
+
+            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezeRotationY);
+            ImGui::Checkbox("Y", &flag);
+            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezeRotationY
+                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezeRotationY;
+
+            ImGui::SameLine();
+
+            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezeRotationZ);
+            ImGui::Checkbox("Z", &flag);
+            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezeRotationZ
+                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezeRotationZ;
+
+            ImGui::PopID();
+        }
+
+        ImGui::TreePop();
+    }
+}
+
 void InspectorGUI::on_gui_physics_shape(nodec_physics::components::PhysicsShape &shape) {
     using namespace nodec_physics::components;
 
@@ -203,7 +267,7 @@ void InspectorGUI::on_gui_prefab(nodec_scene_serialization::components::Prefab &
         scene_.hierarchy_system().remove_all_children(entity);
         registry.remove_component<EntityBuilt>(entity);
         registry.emplace_component<PrefabLoadSystem::PrefabLoadActivity>(entity);
-        //logging::InfoStream(__FILE__, __LINE__) << "Loaded!";
+        // logging::InfoStream(__FILE__, __LINE__) << "Loaded!";
     }
 
     auto &buffer = imessentials::get_text_buffer(1024, prefab.source);

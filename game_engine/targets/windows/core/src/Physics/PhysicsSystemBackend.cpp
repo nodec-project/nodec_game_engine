@@ -52,6 +52,20 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
                                                                                  world_position, world_rotation, world_scale);
 
                     rigid_body_backend->bind_world(*dynamics_world_);
+
+                    btVector3 linear_factor(
+                        (rigid_body.constrains & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
+                        (rigid_body.constrains & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
+                        (rigid_body.constrains & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
+
+                    rigid_body_backend->native().setLinearFactor(linear_factor);
+
+                    btVector3 angular_factor(
+                        (rigid_body.constrains & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
+                        (rigid_body.constrains & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
+                        (rigid_body.constrains & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
+                    rigid_body_backend->native().setAngularFactor(angular_factor);
+
                     activity->rigid_body_backend = std::move(rigid_body_backend);
                 }
             }
@@ -125,26 +139,6 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
             rb_trfm.getOpenGLMatrix(local_to_world.value.m);
             local_to_world.dirty = true;
-
-            // auto world_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
-            // auto world_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
-            ////world_position.z *= -1.f;
-            ////world_rotation.x *= -1.f;
-            ////world_rotation.y *= -1.f;
-
-            // auto delta_position = world_position - activity.prev_world_position;
-            // auto delta_rotation = math::inv(activity.prev_world_rotation) * world_rotation;
-
-            // trfm.local_position += delta_position;
-            // trfm.local_rotation = delta_rotation * trfm.local_rotation;
-
-            //// NOTE: In some case, the norm of rotation may not be 1.
-            // trfm.local_rotation = math::normalize(trfm.local_rotation);
-
-            // trfm.dirty = true;
-
-            // activity.prev_world_position = world_position;
-            // activity.prev_world_rotation = world_rotation;
         });
 
     // https://github.com/bulletphysics/bullet3/issues/1745
