@@ -16,3 +16,6 @@
 [submodule "modules/nodec_scene_audio"]
 	path = modules/nodec_scene_audio
 	url = https://github.com/nodec-project/nodec_scene_audio.git
+[submodule "modules/nodec_scene"]
+	path = modules/nodec_scene
+	url = https://github.com/nodec-project/nodec_scene.git
