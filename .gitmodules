@@ -13,3 +13,6 @@
 [submodule "modules/nodec_scene_serialization"]
 	path = modules/nodec_scene_serialization
 	url = https://github.com/nodec-project/nodec_scene_serialization.git
+[submodule "modules/nodec_scene_audio"]
+	path = modules/nodec_scene_audio
+	url = https://github.com/nodec-project/nodec_scene_audio.git
