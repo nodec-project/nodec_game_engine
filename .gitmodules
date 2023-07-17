@@ -22,3 +22,6 @@
 [submodule "modules/nodec_resources"]
 	path = modules/nodec_resources
 	url = https://github.com/nodec-project/nodec_resources.git
+[submodule "modules/nodec_rendering"]
+	path = modules/nodec_rendering
+	url = https://github.com/nodec-project/nodec_rendering.git
