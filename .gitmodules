@@ -52,3 +52,9 @@
 [submodule "modules/nodec_serialization"]
 	path = modules/nodec_serialization
 	url = https://github.com/nodec-project/nodec_serialization.git
+[submodule "sdks/DirectXTex"]
+	path = sdks/DirectXTex
+	url = https://github.com/microsoft/DirectXTex.git
+[submodule "sdks/bullet3"]
+	path = sdks/bullet3
+	url = https://github.com/bulletphysics/bullet3.git
