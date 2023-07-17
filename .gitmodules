@@ -49,3 +49,6 @@
 [submodule "modules/imessentials"]
 	path = modules/imessentials
 	url = https://github.com/nodec-project/imessentials.git
+[submodule "modules/nodec_serialization"]
+	path = modules/nodec_serialization
+	url = https://github.com/nodec-project/nodec_serialization.git
