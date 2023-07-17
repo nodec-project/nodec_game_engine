@@ -19,3 +19,6 @@
 [submodule "modules/nodec_scene"]
 	path = modules/nodec_scene
 	url = https://github.com/nodec-project/nodec_scene.git
+[submodule "modules/nodec_resources"]
+	path = modules/nodec_resources
+	url = https://github.com/nodec-project/nodec_resources.git
