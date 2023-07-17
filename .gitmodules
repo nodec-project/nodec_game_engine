@@ -10,3 +10,6 @@
 [submodule "modules/nodec_scene_editor"]
 	path = modules/nodec_scene_editor
 	url = https://github.com/nodec-project/nodec_scene_editor.git
+[submodule "modules/nodec_scene_serialization"]
+	path = modules/nodec_scene_serialization
+	url = https://github.com/nodec-project/nodec_scene_serialization.git
