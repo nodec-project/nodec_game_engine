@@ -28,3 +28,6 @@
 [submodule "modules/nodec_physics"]
 	path = modules/nodec_physics
 	url = https://github.com/nodec-project/nodec_physics.git
+[submodule "modules/nodec_input"]
+	path = modules/nodec_input
+	url = https://github.com/nodec-project/nodec_input.git
