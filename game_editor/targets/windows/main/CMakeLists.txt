@@ -14,7 +14,6 @@ add_library(${PROJECT_NAME} STATIC
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
     imgui
-    imwindows
     imessentials
     nodec_scene_editor
     imguizmo

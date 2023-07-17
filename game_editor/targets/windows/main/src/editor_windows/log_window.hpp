@@ -1,5 +1,5 @@
-#ifndef IMWINDOWS__IMPL__LOG_WINDOW_HPP_
-#define IMWINDOWS__IMPL__LOG_WINDOW_HPP_
+#ifndef LOG_WINDOW_HPP_
+#define LOG_WINDOW_HPP_
 
 #include <imessentials/window.hpp>
 
@@ -14,8 +14,6 @@
 #include <mutex>
 #include <queue>
 #include <vector>
-
-namespace imwindows {
 
 class LogWindow final : public imessentials::BaseWindow {
     const int MAX_RECORDS = 100;
@@ -151,7 +149,5 @@ private:
     bool auto_scroll_;
     ImGuiTextFilter filter_;
 };
-
-} // namespace imwindows
 
 #endif

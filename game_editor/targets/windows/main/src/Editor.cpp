@@ -6,23 +6,23 @@
 
 #include "editor_windows/asset_import_window.hpp"
 #include "editor_windows/control_window.hpp"
+#include "editor_windows/log_window.hpp"
+#include "editor_windows/material_editor_window.hpp"
 #include "editor_windows/scene_hierarchy_window.hpp"
 #include "editor_windows/scene_view_window.hpp"
-#include "editor_windows/material_editor_window.hpp"
 
-#include <imwindows/entity_inspector_window.hpp>
-#include <imwindows/log_window.hpp>
+#include <nodec_scene_editor/entity_inspector_window.hpp>
 
 Editor::Editor(Engine *engine)
     : engine_{engine} {
     using namespace nodec;
-    using namespace imwindows;
     using namespace imessentials;
     using namespace nodec_scene::components;
     using namespace nodec_rendering::components;
     using namespace nodec_scene_audio::components;
     using namespace nodec_scene_serialization::components;
     using namespace nodec_physics::components;
+    using namespace nodec_scene_editor;
 
     window_manager().register_window<ControlWindow>([=]() {
         return std::make_unique<ControlWindow>(this);
@@ -219,10 +219,9 @@ Editor::Editor(Engine *engine)
 }
 
 void Editor::setup() {
-    using namespace imwindows;
-
     // TODO: Restore the previous workspace.
     //  * Last opened windows.
+    using namespace nodec_scene_editor;
 
     window_manager().get_window<ControlWindow>();
     window_manager().get_window<SceneViewWindow>();
