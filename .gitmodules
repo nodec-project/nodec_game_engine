@@ -1,3 +1,6 @@
 [submodule "nodec"]
 	path = nodec
 	url = https://github.com/nodec-project/nodec.git
+[submodule "modules/nodec_world"]
+	path = modules/nodec_world
+	url = https://github.com/nodec-project/nodec_world.git
