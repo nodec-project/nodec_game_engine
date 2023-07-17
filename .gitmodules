@@ -40,3 +40,6 @@
 [submodule "modules/assimp"]
 	path = modules/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "modules/imgui"]
+	path = modules/imgui
+	url = https://github.com/nodec-project/imgui.git
