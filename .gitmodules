@@ -58,3 +58,6 @@
 [submodule "sdks/bullet3"]
 	path = sdks/bullet3
 	url = https://github.com/bulletphysics/bullet3.git
+[submodule "sdks/freetype/freetype-windows-binaries"]
+	path = sdks/freetype/freetype-windows-binaries
+	url = https://github.com/ubawurinna/freetype-windows-binaries.git
