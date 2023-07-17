@@ -31,3 +31,6 @@
 [submodule "modules/nodec_input"]
 	path = modules/nodec_input
 	url = https://github.com/nodec-project/nodec_input.git
+[submodule "modules/nodec_application"]
+	path = modules/nodec_application
+	url = https://github.com/nodec-project/nodec_application.git
