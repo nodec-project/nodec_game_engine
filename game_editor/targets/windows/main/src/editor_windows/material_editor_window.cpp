@@ -6,7 +6,7 @@
 #include <cereal/archives/json.hpp>
 #include <imessentials/text_buffer.hpp>
 #include <nodec/logging.hpp>
-#include <nodec_serialization/nodec_rendering/resources/material.hpp>
+#include <nodec_rendering/serialization/resources/material.hpp>
 
 namespace {
 

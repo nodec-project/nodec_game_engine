@@ -1,22 +1,22 @@
 #include <SceneSerialization/SceneSerializationBackend.hpp>
 
+#include <nodec_physics/serialization/components/physics_shape.hpp>
+#include <nodec_physics/serialization/components/rigid_body.hpp>
+#include <nodec_rendering/serialization/components/camera.hpp>
+#include <nodec_rendering/serialization/components/directional_light.hpp>
+#include <nodec_rendering/serialization/components/image_renderer.hpp>
+#include <nodec_rendering/serialization/components/mesh_renderer.hpp>
+#include <nodec_rendering/serialization/components/non_visible.hpp>
+#include <nodec_rendering/serialization/components/point_light.hpp>
+#include <nodec_rendering/serialization/components/post_processing.hpp>
+#include <nodec_rendering/serialization/components/scene_lighting.hpp>
+#include <nodec_rendering/serialization/components/text_renderer.hpp>
 #include <nodec_scene/scene_registry.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
-#include <nodec_serialization/nodec_physics/components/physics_shape.hpp>
-#include <nodec_serialization/nodec_physics/components/rigid_body.hpp>
-#include <nodec_serialization/nodec_rendering/components/camera.hpp>
-#include <nodec_serialization/nodec_rendering/components/directional_light.hpp>
-#include <nodec_serialization/nodec_rendering/components/image_renderer.hpp>
-#include <nodec_serialization/nodec_rendering/components/mesh_renderer.hpp>
-#include <nodec_serialization/nodec_rendering/components/non_visible.hpp>
-#include <nodec_serialization/nodec_rendering/components/point_light.hpp>
-#include <nodec_serialization/nodec_rendering/components/post_processing.hpp>
-#include <nodec_serialization/nodec_rendering/components/scene_lighting.hpp>
-#include <nodec_serialization/nodec_rendering/components/text_renderer.hpp>
-#include <nodec_serialization/nodec_scene/components/name.hpp>
-#include <nodec_serialization/nodec_scene/components/local_transform.hpp>
-#include <nodec_serialization/nodec_scene_audio/components/audio_source.hpp>
+#include <nodec_scene/serialization/components/local_transform.hpp>
+#include <nodec_scene/serialization/components/name.hpp>
+#include <nodec_scene_audio/serialization/components/audio_source.hpp>
 
 SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management::ResourceRegistry *resource_registry,
                                                      nodec_scene_serialization::SceneSerialization &serialization) {
