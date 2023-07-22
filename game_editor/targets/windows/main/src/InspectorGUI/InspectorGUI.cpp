@@ -130,24 +130,24 @@ void InspectorGUI::on_gui_rigid_body(nodec_physics::components::RigidBody &rigid
             ImGui::Text("Freeze Position");
 
             bool flag;
-            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezePositionX);
+            flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezePositionX);
             ImGui::Checkbox("X", &flag);
-            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezePositionX
-                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezePositionX;
+            flag ? rigid_body.constraints |= RigidBodyConstraints::FreezePositionX
+                 : rigid_body.constraints &= ~RigidBodyConstraints::FreezePositionX;
 
             ImGui::SameLine();
 
-            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezePositionY);
+            flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezePositionY);
             ImGui::Checkbox("Y", &flag);
-            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezePositionY
-                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezePositionY;
+            flag ? rigid_body.constraints |= RigidBodyConstraints::FreezePositionY
+                 : rigid_body.constraints &= ~RigidBodyConstraints::FreezePositionY;
 
             ImGui::SameLine();
 
-            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezePositionZ);
+            flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezePositionZ);
             ImGui::Checkbox("Z", &flag);
-            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezePositionZ
-                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezePositionZ;
+            flag ? rigid_body.constraints |= RigidBodyConstraints::FreezePositionZ
+                 : rigid_body.constraints &= ~RigidBodyConstraints::FreezePositionZ;
 
             ImGui::PopID();
         }
@@ -156,24 +156,24 @@ void InspectorGUI::on_gui_rigid_body(nodec_physics::components::RigidBody &rigid
         {
             ImGui::Text("Freeze Rotation");
             bool flag;
-            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezeRotationX);
+            flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezeRotationX);
             ImGui::Checkbox("X", &flag);
-            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezeRotationX
-                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezeRotationX;
+            flag ? rigid_body.constraints |= RigidBodyConstraints::FreezeRotationX
+                 : rigid_body.constraints &= ~RigidBodyConstraints::FreezeRotationX;
 
             ImGui::SameLine();
 
-            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezeRotationY);
+            flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezeRotationY);
             ImGui::Checkbox("Y", &flag);
-            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezeRotationY
-                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezeRotationY;
+            flag ? rigid_body.constraints |= RigidBodyConstraints::FreezeRotationY
+                 : rigid_body.constraints &= ~RigidBodyConstraints::FreezeRotationY;
 
             ImGui::SameLine();
 
-            flag = static_cast<bool>(rigid_body.constrains & RigidBodyConstraints::FreezeRotationZ);
+            flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ);
             ImGui::Checkbox("Z", &flag);
-            flag ? rigid_body.constrains |= RigidBodyConstraints::FreezeRotationZ
-                 : rigid_body.constrains &= ~RigidBodyConstraints::FreezeRotationZ;
+            flag ? rigid_body.constraints |= RigidBodyConstraints::FreezeRotationZ
+                 : rigid_body.constraints &= ~RigidBodyConstraints::FreezeRotationZ;
 
             ImGui::PopID();
         }

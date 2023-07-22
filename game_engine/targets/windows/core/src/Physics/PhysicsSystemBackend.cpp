@@ -54,16 +54,16 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
                     rigid_body_backend->bind_world(*dynamics_world_);
 
                     btVector3 linear_factor(
-                        (rigid_body.constrains & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
-                        (rigid_body.constrains & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
-                        (rigid_body.constrains & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
+                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
 
                     rigid_body_backend->native().setLinearFactor(linear_factor);
 
                     btVector3 angular_factor(
-                        (rigid_body.constrains & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
-                        (rigid_body.constrains & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
-                        (rigid_body.constrains & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
+                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
                     rigid_body_backend->native().setAngularFactor(angular_factor);
 
                     activity->rigid_body_backend = std::move(rigid_body_backend);
