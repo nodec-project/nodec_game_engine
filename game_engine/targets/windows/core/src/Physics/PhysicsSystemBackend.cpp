@@ -8,6 +8,7 @@
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
+#include <nodec_physics/components/velocity_force.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
 #include <nodec/logging.hpp>
@@ -52,6 +53,20 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
                                                                                  world_position, world_rotation, world_scale);
 
                     rigid_body_backend->bind_world(*dynamics_world_);
+
+                    btVector3 linear_factor(
+                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
+
+                    rigid_body_backend->native().setLinearFactor(linear_factor);
+
+                    btVector3 angular_factor(
+                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
+                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
+                    rigid_body_backend->native().setAngularFactor(angular_factor);
+
                     activity->rigid_body_backend = std::move(rigid_body_backend);
                 }
             }
@@ -83,7 +98,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         scene_registry.remove_component<RigidBodyActivity>(to_deleted.begin(), to_deleted.end());
     }
 
-    // Apply force.
+    // --- Apply forces ---
+    // ImpulseForce
     {
         auto view = scene_registry.view<RigidBodyActivity, ImpulseForce>();
 
@@ -93,6 +109,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
         scene_registry.remove_components<ImpulseForce>(view.begin(), view.end());
     }
+    // CentralForce
     {
         auto view = scene_registry.view<RigidBodyActivity, CentralForce>();
 
@@ -102,7 +119,19 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
         scene_registry.remove_components<CentralForce>(view.begin(), view.end());
     }
-
+    // VelocityForce
+    {
+        auto view = scene_registry.view<RigidBodyActivity, VelocityForce>();
+        view.each([&](SceneEntity, RigidBodyActivity &activity, VelocityForce &force) {
+            auto &native = activity.rigid_body_backend->native();
+            const auto impulse = native.getMass() * force.value;
+            native.applyCentralImpulse(to_bt_vector3(impulse));
+        });
+        scene_registry.remove_components<VelocityForce>(view.begin(), view.end());
+    }
+    // END Apply forces ---
+    
+    // Remove previous collistion stay components.
     {
         scene_registry.clear_component<CollisionStay>();
     }
@@ -116,9 +145,11 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     // Sync rigid body -> entity.
     scene_registry.view<RigidBody, RigidBodyActivity, LocalToWorld>().each(
-        [&](SceneEntity entt, RigidBody &rigid_body, RigidBodyActivity &activity, LocalToWorld &local_to_world) {
+        [&](SceneEntity, RigidBody &rigid_body, RigidBodyActivity &activity, LocalToWorld &local_to_world) {
             // An entity with zero mass is static object.
             if (rigid_body.mass == 0.0f) return;
+
+            auto &native = activity.rigid_body_backend->native();
 
             btTransform rb_trfm;
             activity.rigid_body_backend->native().getMotionState()->getWorldTransform(rb_trfm);
@@ -126,25 +157,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             rb_trfm.getOpenGLMatrix(local_to_world.value.m);
             local_to_world.dirty = true;
 
-            // auto world_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
-            // auto world_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
-            ////world_position.z *= -1.f;
-            ////world_rotation.x *= -1.f;
-            ////world_rotation.y *= -1.f;
-
-            // auto delta_position = world_position - activity.prev_world_position;
-            // auto delta_rotation = math::inv(activity.prev_world_rotation) * world_rotation;
-
-            // trfm.local_position += delta_position;
-            // trfm.local_rotation = delta_rotation * trfm.local_rotation;
-
-            //// NOTE: In some case, the norm of rotation may not be 1.
-            // trfm.local_rotation = math::normalize(trfm.local_rotation);
-
-            // trfm.dirty = true;
-
-            // activity.prev_world_position = world_position;
-            // activity.prev_world_rotation = world_rotation;
+            rigid_body.linear_velocity = to_vector3(native.getLinearVelocity());
+            rigid_body.angular_velocity = to_vector3(native.getAngularVelocity());
         });
 
     // https://github.com/bulletphysics/bullet3/issues/1745

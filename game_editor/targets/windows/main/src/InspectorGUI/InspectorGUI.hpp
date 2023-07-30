@@ -46,9 +46,7 @@ public:
 
     void on_gui_camera(nodec_rendering::components::Camera &camera);
 
-    void on_gui_rigid_body(nodec_physics::components::RigidBody &rigid_body) {
-        ImGui::DragFloat("Mass", &rigid_body.mass);
-    }
+    void on_gui_rigid_body(nodec_physics::components::RigidBody &rigid_body);
 
     void on_gui_physics_shape(nodec_physics::components::PhysicsShape &shape);
 

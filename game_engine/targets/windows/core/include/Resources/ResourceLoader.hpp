@@ -14,9 +14,9 @@
 
 #include <nodec_scene_serialization/archive_context.hpp>
 #include <nodec_scene_serialization/serializable_entity.hpp>
-#include <nodec_serialization/nodec_rendering/resources/material.hpp>
-#include <nodec_serialization/nodec_rendering/resources/mesh.hpp>
-#include <nodec_serialization/nodec_rendering/resources/shader.hpp>
+#include <nodec_rendering/serialization/resources/material.hpp>
+#include <nodec_rendering/serialization/resources/mesh.hpp>
+#include <nodec_rendering/serialization/resources/shader.hpp>
 
 #include <nodec/concurrent/thread_pool_executor.hpp>
 #include <nodec/resource_management/resource_registry.hpp>
