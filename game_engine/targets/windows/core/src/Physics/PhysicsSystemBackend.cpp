@@ -8,6 +8,7 @@
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
+#include <nodec_physics/components/velocity_force.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
 #include <nodec/logging.hpp>
@@ -97,7 +98,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         scene_registry.remove_component<RigidBodyActivity>(to_deleted.begin(), to_deleted.end());
     }
 
-    // Apply force.
+    // --- Apply forces ---
+    // ImpulseForce
     {
         auto view = scene_registry.view<RigidBodyActivity, ImpulseForce>();
 
@@ -107,6 +109,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
         scene_registry.remove_components<ImpulseForce>(view.begin(), view.end());
     }
+    // CentralForce
     {
         auto view = scene_registry.view<RigidBodyActivity, CentralForce>();
 
@@ -116,7 +119,19 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
         scene_registry.remove_components<CentralForce>(view.begin(), view.end());
     }
-
+    // VelocityForce
+    {
+        auto view = scene_registry.view<RigidBodyActivity, VelocityForce>();
+        view.each([&](SceneEntity, RigidBodyActivity &activity, VelocityForce &force) {
+            auto &native = activity.rigid_body_backend->native();
+            const auto impulse = native.getMass() * force.value;
+            native.applyCentralImpulse(to_bt_vector3(impulse));
+        });
+        scene_registry.remove_components<VelocityForce>(view.begin(), view.end());
+    }
+    // END Apply forces ---
+    
+    // Remove previous collistion stay components.
     {
         scene_registry.clear_component<CollisionStay>();
     }
@@ -130,15 +145,20 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     // Sync rigid body -> entity.
     scene_registry.view<RigidBody, RigidBodyActivity, LocalToWorld>().each(
-        [&](SceneEntity entt, RigidBody &rigid_body, RigidBodyActivity &activity, LocalToWorld &local_to_world) {
+        [&](SceneEntity, RigidBody &rigid_body, RigidBodyActivity &activity, LocalToWorld &local_to_world) {
             // An entity with zero mass is static object.
             if (rigid_body.mass == 0.0f) return;
+
+            auto &native = activity.rigid_body_backend->native();
 
             btTransform rb_trfm;
             activity.rigid_body_backend->native().getMotionState()->getWorldTransform(rb_trfm);
 
             rb_trfm.getOpenGLMatrix(local_to_world.value.m);
             local_to_world.dirty = true;
+
+            rigid_body.linear_velocity = to_vector3(native.getLinearVelocity());
+            rigid_body.angular_velocity = to_vector3(native.getAngularVelocity());
         });
 
     // https://github.com/bulletphysics/bullet3/issues/1745

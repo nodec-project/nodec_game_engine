@@ -99,10 +99,6 @@ public:
 
         btTransform rb_trfm;
         motion_state_->getWorldTransform(rb_trfm);
-        // const auto &rb_trfm = native_->getWorldTransform();
-
-        //const auto rb_position = static_cast<Vector3f>(to_vector3(rb_trfm.getOrigin()));
-        //const auto rb_rotation = static_cast<Quaternionf>(to_quaternion(rb_trfm.getRotation()));
 
         btTransform rb_trfm_updated;
         rb_trfm_updated.setIdentity();

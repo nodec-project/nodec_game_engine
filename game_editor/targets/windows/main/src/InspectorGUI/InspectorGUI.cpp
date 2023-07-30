@@ -180,6 +180,14 @@ void InspectorGUI::on_gui_rigid_body(nodec_physics::components::RigidBody &rigid
 
         ImGui::TreePop();
     }
+    
+    
+    if (ImGui::TreeNode("Info")) {
+        ImGui::DragFloat3("Linear Velocity", rigid_body.linear_velocity.v);
+        ImGui::DragFloat3("Angular Velocity", rigid_body.angular_velocity.v);
+
+        ImGui::TreePop();
+    }
 }
 
 void InspectorGUI::on_gui_physics_shape(nodec_physics::components::PhysicsShape &shape) {
