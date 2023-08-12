@@ -4,7 +4,6 @@
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 #include <nodec_physics/components/central_force.hpp>
-#include <nodec_physics/components/collision_stay.hpp>
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
@@ -130,11 +129,6 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         scene_registry.remove_components<VelocityForce>(view.begin(), view.end());
     }
     // END Apply forces ---
-    
-    // Remove previous collistion stay components.
-    {
-        scene_registry.clear_component<CollisionStay>();
-    }
 
     // Step simulation.
     {
@@ -171,31 +165,15 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             const int num_of_contacts = contact_manifold->getNumContacts();
             if (num_of_contacts == 0) continue;
 
-            CollisionInfo collision_info;
-
             const auto *body0 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody0()->getUserPointer());
             const auto *body1 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody1()->getUserPointer());
 
-            {
-                auto &stay = scene_registry.emplace_component<CollisionStay>(body0->entity()).first;
-                stay.other = body1->entity();
-            }
+            CollisionInfo collision_info{};
 
-            {
-                auto &stay = scene_registry.emplace_component<CollisionStay>(body1->entity()).first;
-                stay.other = body0->entity();
-            }
+            collision_info.entity0 = body0->entity();
+            collision_info.entity1 = body1->entity();
 
-            // collision_info.entity0 = body0->entity();
-            // collision_info.entity1 = body1->entity();
-
-            // collision_info.num_of_contacts = num_of_contacts;
-
-            // for (int j = 0; j < num_of_contacts; ++j) {
-            //     const auto &point = contact_manifold->getContactPoint(j);
-            // }
-
-            // collision_stay_signal_(collision_info);
+            collision_stay_signal_(collision_info);
         }
     }
 }
