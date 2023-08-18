@@ -6,8 +6,6 @@
 #include <WinDesktopApplication.hpp>
 #include <Window.hpp>
 
-#include <nodec_scene_editor/impl/scene_editor_module.hpp>
-
 class Application final : public WinDesktopApplication {
 public:
     Application() {}

@@ -4,12 +4,11 @@ project(nodec_game_editor)
 
 add_library(${PROJECT_NAME} STATIC
     src/Editor.cpp
-    src/InspectorGUI/InspectorGUI.cpp
     src/WinMain.cpp
     src/editor_windows/scene_hierarchy_window.cpp
     src/editor_windows/scene_view_window.cpp
     src/editor_windows/material_editor_window.cpp
-)
+    src/component_editors/prefab_editor.cpp)
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
