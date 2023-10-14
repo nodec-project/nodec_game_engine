@@ -20,15 +20,15 @@ add_subdirectory(nodec)
 add_subdirectory(modules/nodec_application)
 add_subdirectory(modules/nodec_input)
 
-set(NODEC_RENDERING_ENABLE_SERIALIZATION ON)
+set(NODEC_RENDERING_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_rendering)
 
 add_subdirectory(modules/nodec_resources)
 
-set(NODEC_SCENE_ENABLE_SERIALIZATION ON)
+set(NODEC_SCENE_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_scene)
 
-set(NODEC_SCENE_AUDIO_ENABLE_SERIALIZATION ON)
+set(NODEC_SCENE_AUDIO_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_scene_audio)
 
 add_subdirectory(modules/nodec_scene_serialization)
@@ -37,7 +37,7 @@ add_subdirectory(modules/nodec_serialization)
 add_subdirectory(modules/nodec_world)
 add_subdirectory(modules/nodec_animation)
 
-set(NODEC_PHYSICS_ENABLE_SERIALIZATION ON)
+set(NODEC_PHYSICS_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_physics)
 
 if(NODEC_GAME_EDITOR_ENABLED)
