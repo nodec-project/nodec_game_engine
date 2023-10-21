@@ -7,6 +7,7 @@
 #include <nodec_scene_editor/impl/scene_editor_impl.hpp>
 
 #include "editor_gui.hpp"
+#include "scene_gizmo_impl.hpp"
 
 class Editor final : public nodec_scene_editor::impl::SceneEditorImpl {
 public:
@@ -62,4 +63,5 @@ private:
     State state_{State::Paused};
     bool do_one_step_{false};
     std::unique_ptr<EditorGui> editor_gui_;
+    std::unique_ptr<SceneGizmoImpl> scene_gizmo_;
 };

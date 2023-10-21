@@ -43,11 +43,13 @@ Editor::Editor(Engine *engine)
     window_manager().register_window<SceneViewWindow>([=]() {
         return std::make_unique<SceneViewWindow>(engine->window().graphics(),
                                                  engine->world_module().scene(), engine->scene_renderer(),
+                                                 engine->resources_module(),
+                                                 *scene_gizmo_, component_registry_impl(),
                                                  selection().active_scene_entity(), selection().active_scene_entity_changed());
     });
 
     window_manager().register_window<SceneHierarchyWindow>([=]() {
-        auto window = std::make_unique<SceneHierarchyWindow>(&engine->world_module().scene(), engine->scene_serialization());
+        auto window = std::make_unique<SceneHierarchyWindow>(engine->world_module().scene(), engine->scene_serialization());
         window->selected_entity_changed().connect([=](auto entity) { selection().select(entity); });
         return window;
     });
@@ -135,6 +137,7 @@ Editor::Editor(Engine *engine)
         component_registry().register_component<NonSerialized>("Non Serialized");
     }
 
+
     [=]() {
         std::ifstream file("editor-config.json", std::ios::binary);
         if (!file) return;
@@ -164,6 +167,8 @@ Editor::Editor(Engine *engine)
 }
 
 void Editor::setup() {
+    scene_gizmo_.reset(new SceneGizmoImpl(engine_->world_module().scene(), engine_->resources_module()));
+
     // TODO: Restore the previous workspace.
     //  * Last opened windows.
     using namespace nodec_scene_editor;

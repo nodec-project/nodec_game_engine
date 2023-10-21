@@ -1,7 +1,7 @@
 // --- HLSL Shader Common Interface ---
 // All shaders must be included this interface.
 //
-// This interface provides the follwing features...
+// This interface provides the following features...
 //  * Common input layout
 //  * Accessing scene properties (camera position, lighting information...)
 //  * Accessing model properties (model matrix, mvp-matrix, ...)

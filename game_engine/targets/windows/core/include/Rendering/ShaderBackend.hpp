@@ -41,8 +41,8 @@ public:
         if (sub_shader_meta_infos.size() == 0) {
             // no sub shader, only one shader set (vertex, pixel).
             sub_shaders_.resize(1);
-            sub_shaders_[0].vertex_shader.reset(new VertexShader(gfx, Formatter() << path << "/vertex.cso"));
-            sub_shaders_[0].pixel_shader.reset(new PixelShader(gfx, Formatter() << path << "/pixel.cso"));
+            sub_shaders_[0].vertex_shader.reset(new VertexShader(*gfx, Formatter() << path << "/vertex.cso"));
+            sub_shaders_[0].pixel_shader.reset(new PixelShader(*gfx, Formatter() << path << "/pixel.cso"));
         } else {
             if (meta_info.pass.size() != sub_shader_meta_infos.size()) {
                 throw std::runtime_error(ErrorFormatter<std::runtime_error>(__FILE__, __LINE__)
@@ -55,8 +55,8 @@ public:
                 sub_shaders_[i].name = name;
                 sub_shaders_[i].render_targets = info.render_targets;
                 sub_shaders_[i].texture_resources = info.texture_resources;
-                sub_shaders_[i].vertex_shader.reset(new VertexShader(gfx, Formatter() << path << "/" << name << "_vs.cso"));
-                sub_shaders_[i].pixel_shader.reset(new PixelShader(gfx, Formatter() << path << "/" << name << "_ps.cso"));
+                sub_shaders_[i].vertex_shader.reset(new VertexShader(*gfx, Formatter() << path << "/" << name << "_vs.cso"));
+                sub_shaders_[i].pixel_shader.reset(new PixelShader(*gfx, Formatter() << path << "/" << name << "_ps.cso"));
             }
         }
         assert(sub_shaders_.size() != 0 && "Sub shaders must include at least one shader");
@@ -70,9 +70,9 @@ public:
                 {"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0}};
 
             input_layout_.reset(new InputLayout(
-                gfx, ied, std::size(ied),
-                sub_shaders_[0].vertex_shader->GetBytecode().GetBufferPointer(),
-                sub_shaders_[0].vertex_shader->GetBytecode().GetBufferSize()));
+                *gfx, ied, std::size(ied),
+                sub_shaders_[0].vertex_shader->bytecode().GetBufferPointer(),
+                sub_shaders_[0].vertex_shader->bytecode().GetBufferSize()));
         }
 
         // Make the prototype for material constants.
@@ -185,13 +185,13 @@ public:
         return *input_layout_.get();
     }
 
-    void bind(Graphics *gfx, std::size_t pass_num = 0) {
+    void bind(std::size_t pass_num = 0) {
         assert(pass_num < sub_shaders_.size());
 
-        input_layout_->Bind(gfx);
+        input_layout_->bind();
 
-        sub_shaders_[pass_num].vertex_shader->Bind(gfx);
-        sub_shaders_[pass_num].pixel_shader->Bind(gfx);
+        sub_shaders_[pass_num].vertex_shader->bind();
+        sub_shaders_[pass_num].pixel_shader->bind();
     }
 
     int rendering_priority() const noexcept {

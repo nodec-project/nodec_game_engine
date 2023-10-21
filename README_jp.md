@@ -17,7 +17,7 @@
 
 ## アーキテクチャ
 
-![](./docs/architecture.drawio.png)
+![](./docs/fig-architecture.png)
 
 ## テンプレートプロジェクト
 
