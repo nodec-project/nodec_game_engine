@@ -39,6 +39,11 @@ void PhysicsShapeEditor::on_scene_gui(nodec_scene_editor::SceneGizmo &gizmo,
             case PhysicsShape::ShapeType::Box:
                 gizmo.draw_wire_cube(entity, shape.size);
                 break;
+
+            case PhysicsShape::ShapeType::Sphere:
+                gizmo.draw_wire_sphere(entity, shape.radius);
+                break;
+
             default:
                 break;
             }
