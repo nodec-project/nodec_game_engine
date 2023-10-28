@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RENDERING__MESH_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__MESH_BACKEND_HPP_
 
 #include <Graphics/IndexBuffer.hpp>
 #include <Graphics/VertexBuffer.hpp>
@@ -62,3 +63,5 @@ private:
     std::unique_ptr<VertexBuffer> vertex_buffer_;
     std::unique_ptr<IndexBuffer> index_buffer_;
 };
+
+#endif

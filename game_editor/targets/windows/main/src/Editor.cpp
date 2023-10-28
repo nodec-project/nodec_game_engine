@@ -1,28 +1,40 @@
-// Thank you, Microsoft, for file WinDef.h with min/max redefinition.
-#define NOMINMAX
-
 #include "Editor.hpp"
+
+#include <ImGuizmo.h>
+#include <nodec_scene_serialization/components/non_serialized.hpp>
+
 #include "EditorConfig.hpp"
 
+#include "component_editors/audio_source_editor.hpp"
+#include "component_editors/camera_editor.hpp"
+#include "component_editors/directional_light_editor.hpp"
+#include "component_editors/image_renderer_editor.hpp"
+#include "component_editors/mesh_renderer_editor.hpp"
+#include "component_editors/name_editor.hpp"
+#include "component_editors/non_visible_editor.hpp"
+#include "component_editors/physics_shape_editor.hpp"
+#include "component_editors/point_light_editor.hpp"
+#include "component_editors/post_processing_editor.hpp"
+#include "component_editors/prefab_editor.hpp"
+#include "component_editors/rigid_body_editor.hpp"
+#include "component_editors/scene_lighting_editor.hpp"
+#include "component_editors/text_renderer_editor.hpp"
+#include "component_editors/local_transform_editor.hpp"
 #include "editor_windows/asset_import_window.hpp"
 #include "editor_windows/control_window.hpp"
+#include "editor_windows/entity_inspector_window.hpp"
 #include "editor_windows/log_window.hpp"
 #include "editor_windows/material_editor_window.hpp"
 #include "editor_windows/scene_hierarchy_window.hpp"
 #include "editor_windows/scene_view_window.hpp"
 
-#include <nodec_scene_editor/entity_inspector_window.hpp>
-
 Editor::Editor(Engine *engine)
     : engine_{engine} {
     using namespace nodec;
     using namespace imessentials;
-    using namespace nodec_scene::components;
-    using namespace nodec_rendering::components;
-    using namespace nodec_scene_audio::components;
-    using namespace nodec_scene_serialization::components;
-    using namespace nodec_physics::components;
     using namespace nodec_scene_editor;
+
+    editor_gui_.reset(new EditorGui(engine->resources_module()));
 
     window_manager().register_window<ControlWindow>([=]() {
         return std::make_unique<ControlWindow>(this);
@@ -31,20 +43,17 @@ Editor::Editor(Engine *engine)
     window_manager().register_window<SceneViewWindow>([=]() {
         return std::make_unique<SceneViewWindow>(engine->window().graphics(),
                                                  engine->world_module().scene(), engine->scene_renderer(),
-                                                 selection().active_scene_entity(), selection().active_scene_entity_changed());
+                                                 engine->resources_module(),
+                                                 *scene_gizmo_, component_registry_impl());
     });
 
     window_manager().register_window<SceneHierarchyWindow>([=]() {
-        auto window = std::make_unique<SceneHierarchyWindow>(&engine->world_module().scene(), engine->scene_serialization());
-        window->selected_entity_changed().connect([=](auto entity) { selection().select(entity); });
-        return window;
+        return std::make_unique<SceneHierarchyWindow>(engine->world_module().scene(), engine->scene_serialization());
     });
 
     window_manager().register_window<EntityInspectorWindow>([=]() {
-        return std::make_unique<EntityInspectorWindow>(&engine->world_module().scene().registry(),
-                                                       &inspector_component_registry_impl(),
-                                                       selection().active_scene_entity(),
-                                                       selection().active_scene_entity_changed());
+        return std::make_unique<EntityInspectorWindow>(engine->world_module().scene().registry(),
+                                                       component_registry_impl());
     });
 
     window_manager().register_window<LogWindow>([=]() {
@@ -96,99 +105,33 @@ Editor::Editor(Engine *engine)
         window.focus();
     });
 
-    inspector_gui_.reset(new InspectorGUI(engine->resources_module(), engine->scene_serialization(), engine->world_module().scene()));
+    {
+        using namespace component_editors;
 
-    inspector_component_registry_impl().register_component<Name>(
-        "Name",
-        [=](auto &name) {
-            inspector_gui_->on_gui_name(name);
-        });
+        using namespace nodec_scene::components;
+        using namespace nodec_rendering::components;
+        using namespace nodec_scene_audio::components;
+        using namespace nodec_scene_serialization::components;
+        using namespace nodec_physics::components;
 
-    inspector_component_registry_impl().register_component<RigidBody>(
-        "Rigid Body", [=](auto &rigid_body) {
-            inspector_gui_->on_gui_rigid_body(rigid_body);
-        });
+        component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
+        component_registry().register_component<Camera, CameraEditor>("Camera");
+        component_registry().register_component<DirectionalLight, DirectionalLightEditor>("Directional Light");
+        component_registry().register_component<ImageRenderer, ImageRendererEditor>("Image Renderer", *editor_gui_);
+        component_registry().register_component<MeshRenderer, MeshRendererEditor>("Mesh Renderer", *editor_gui_, engine->resources_module());
+        component_registry().register_component<Name, NameEditor>("Name");
+        component_registry().register_component<NonVisible, NonVisibleEditor>("Non Visible");
+        component_registry().register_component<PhysicsShape, PhysicsShapeEditor>("Physics Shape");
+        component_registry().register_component<PointLight, PointLightEditor>("Point Light");
+        component_registry().register_component<PostProcessing, PostProcessingEditor>("Post Processing", *editor_gui_, engine->resources_module());
+        component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources_module(), engine->world_module().scene(), engine->scene_serialization());
+        component_registry().register_component<RigidBody, RIgidBodyEditor>("Rigid Body");
+        component_registry().register_component<SceneLighting, SceneLightingEditor>("Scene Lighting", *editor_gui_);
+        component_registry().register_component<TextRenderer, TextRendererEditor>("Text Renderer", *editor_gui_);
+        component_registry().register_component<LocalTransform, LocalTransformEditor>("Local Transform");
+        component_registry().register_component<NonSerialized>("Non Serialized");
+    }
 
-    inspector_component_registry_impl().register_component<PhysicsShape>(
-        "Physics Shape", [=](auto &shape) {
-            inspector_gui_->on_gui_physics_shape(shape);
-        });
-
-    inspector_component_registry_impl().register_component<LocalTransform>(
-        "Local Transform",
-        [=](LocalTransform &trfm) {
-            inspector_gui_->on_gui_transform(trfm);
-        });
-
-    inspector_component_registry_impl().register_component<MeshRenderer>(
-        "Mesh Renderer",
-        [=](auto &renderer) {
-            inspector_gui_->on_gui_mesh_renderer(renderer);
-        });
-
-    inspector_component_registry_impl().register_component<Camera>(
-        "Camera",
-        [=](auto &camera) {
-            inspector_gui_->on_gui_camera(camera);
-        });
-
-    inspector_component_registry_impl().register_component<SceneLighting>(
-        "Scene Lighting",
-        [=](auto &lighting) {
-            inspector_gui_->on_gui_scene_lighting(lighting);
-        });
-
-    inspector_component_registry_impl().register_component<DirectionalLight>(
-        "Directional Light",
-        [=](auto &light) {
-            inspector_gui_->on_gui_directional_light(light);
-        });
-
-    inspector_component_registry_impl().register_component<PointLight>(
-        "Point Light",
-        [=](auto &light) {
-            inspector_gui_->on_gui_point_light(light);
-        });
-
-    inspector_component_registry_impl().register_component<AudioSource>(
-        "Audio Source",
-        [=](auto &source) {
-            inspector_gui_->on_gui_audio_source(source);
-        });
-
-    inspector_component_registry_impl().register_component<ImageRenderer>(
-        "Image Renderer",
-        [=](auto &renderer) {
-            inspector_gui_->on_gui_image_renderer(renderer);
-        });
-
-    inspector_component_registry_impl().register_component<PostProcessing>(
-        "Post Processing",
-        [=](auto &process) {
-            inspector_gui_->on_gui_post_processing(process);
-        });
-
-    inspector_component_registry_impl().register_component<TextRenderer>(
-        "Text Renderer",
-        [=](auto &renderer) {
-            inspector_gui_->on_gui_text_renderer(renderer);
-        });
-
-    inspector_component_registry_impl().register_component<NonSerialized>(
-        "Non Serialized",
-        [=](auto &comp) {});
-
-    inspector_component_registry_impl().register_component<NonVisible>(
-        "Non Visible",
-        [=](auto &non_visible) {
-            inspector_gui_->on_gui_non_visible(non_visible);
-        });
-
-    inspector_component_registry_impl().register_component<Prefab>(
-        "Prefab",
-        [=](auto &prefab, auto &entity, auto &registry) {
-            inspector_gui_->on_gui_prefab(prefab, entity, registry);
-        });
 
     [=]() {
         std::ifstream file("editor-config.json", std::ios::binary);
@@ -219,6 +162,8 @@ Editor::Editor(Engine *engine)
 }
 
 void Editor::setup() {
+    scene_gizmo_.reset(new SceneGizmoImpl(engine_->world_module().scene(), engine_->resources_module()));
+
     // TODO: Restore the previous workspace.
     //  * Last opened windows.
     using namespace nodec_scene_editor;

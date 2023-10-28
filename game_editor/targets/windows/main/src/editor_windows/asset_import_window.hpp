@@ -238,7 +238,7 @@ private:
     static void set_str_buffer(char *buffer, const size_t buffer_size, const std::string &source) {
         source.copy(buffer, buffer_size - 1);
 
-        auto null_pos = std::min(source.size(), buffer_size - 1);
+        auto null_pos = (std::min)(source.size(), buffer_size - 1);
         buffer[null_pos] = '\0';
     }
 

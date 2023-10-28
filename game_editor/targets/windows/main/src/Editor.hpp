@@ -1,16 +1,15 @@
 #pragma once
 
-#include "InspectorGUI/InspectorGUI.hpp"
-
 #include <Engine.hpp>
 
 #include <imessentials/impl/menu_impl.hpp>
 #include <imessentials/impl/window_impl.hpp>
-#include <nodec_scene_editor/impl/scene_editor_module.hpp>
+#include <nodec_scene_editor/impl/scene_editor_impl.hpp>
 
-#include <ImGuizmo.h>
+#include "editor_gui.hpp"
+#include "scene_gizmo_impl.hpp"
 
-class Editor final : public nodec_scene_editor::impl::SceneEditorModule {
+class Editor final : public nodec_scene_editor::impl::SceneEditorImpl {
 public:
     enum class Mode {
         Edit,
@@ -63,6 +62,6 @@ private:
     Engine *engine_;
     State state_{State::Paused};
     bool do_one_step_{false};
-
-    std::unique_ptr<InspectorGUI> inspector_gui_;
+    std::unique_ptr<EditorGui> editor_gui_;
+    std::unique_ptr<SceneGizmoImpl> scene_gizmo_;
 };

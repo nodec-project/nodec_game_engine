@@ -1,10 +1,11 @@
 #include "scene_hierarchy_window.hpp"
 
+#include <nodec/logging.hpp>
+
+#include <nodec_scene_editor/components/selected.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_scene_serialization/entity_builder.hpp>
 #include <nodec_scene_serialization/entity_serializer.hpp>
-
-#include <nodec/logging.hpp>
 
 void SceneHierarchyWindow::on_gui() {
     using namespace nodec_scene::components;
@@ -12,16 +13,14 @@ void SceneHierarchyWindow::on_gui() {
     using namespace nodec_scene;
     using namespace nodec_scene_serialization;
 
-    if (!scene_) return;
-
     if (ImGui::BeginPopupContextWindow("window-context-menu")) {
         if (ImGui::MenuItem("New Entity")) {
-            auto entity = scene_->create_entity("New Entity");
+            auto entity = scene_.create_entity("New Entity");
         }
         if (ImGui::MenuItem("Paste", nullptr, false, static_cast<bool>(copied_entity_))) {
-            auto entt = scene_->registry().create_entity();
-            EntityBuilder(serialization_).build(copied_entity_.get(), entt, *scene_);
-            scene_->registry().emplace_component<Hierarchy>(entt); // Append it in root.
+            auto entt = scene_.registry().create_entity();
+            EntityBuilder(serialization_).build(copied_entity_.get(), entt, scene_);
+            scene_.registry().emplace_component<Hierarchy>(entt); // Append it in root.
         }
         ImGui::EndPopup();
     }
@@ -31,10 +30,10 @@ void SceneHierarchyWindow::on_gui() {
 
     std::vector<SceneEntity> roots;
 
-    auto root = scene_->hierarchy_system().root_hierarchy().first;
+    auto root = scene_.hierarchy_system().root_hierarchy().first;
     while (root != null_entity) {
         roots.emplace_back(root);
-        root = scene_->registry().get_component<Hierarchy>(root).next;
+        root = scene_.registry().get_component<Hierarchy>(root).next;
     }
 
     for (auto &root : roots) {
@@ -50,14 +49,16 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     using namespace nodec_scene_serialization;
     using namespace nodec_scene_serialization::components;
 
+    auto &scene_registry = scene_.registry();
+
     bool node_open = false;
 
     Prefab *prefab{nullptr};
 
     {
-        auto &hierarchy = scene_->registry().get_component<Hierarchy>(entity);
-        auto name = scene_->registry().try_get_component<Name>(entity);
-        prefab = scene_->registry().try_get_component<Prefab>(entity);
+        auto &hierarchy = scene_registry.get_component<Hierarchy>(entity);
+        auto name = scene_registry.try_get_component<Name>(entity);
+        prefab = scene_registry.try_get_component<Prefab>(entity);
 
         std::string label = nodec::Formatter() << "\"" << (name ? name->value : "") << "\" {entity: 0x" << std::hex << entity << "}";
 
@@ -105,7 +106,7 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
                 SceneEntity drop_entity = *static_cast<SceneEntity *>(payload->Data);
 
                 try {
-                    scene_->hierarchy_system().append_child(entity, drop_entity);
+                    scene_.hierarchy_system().append_child(entity, drop_entity);
                 } catch (std::runtime_error &error) {
                     // The exception occurs when the parent of entity is set into itself.
                     logging::ErrorStream(__FILE__, __LINE__) << error.what();
@@ -119,31 +120,31 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     // Use last item id as popup id
     if (ImGui::BeginPopupContextItem()) {
         if (ImGui::MenuItem("Copy")) {
-            copied_entity_ = EntitySerializer(serialization_).serialize(entity, *scene_);
+            copied_entity_ = EntitySerializer(serialization_).serialize(entity, scene_);
         }
 
         if (ImGui::MenuItem("Paste", nullptr, false, static_cast<bool>(copied_entity_))) {
-            auto entt = scene_->registry().create_entity();
-            EntityBuilder(serialization_).build(copied_entity_.get(), entt, *scene_);
-            scene_->hierarchy_system().append_child(entity, entt);
+            auto entt = scene_registry.create_entity();
+            EntityBuilder(serialization_).build(copied_entity_.get(), entt, scene_);
+            scene_.hierarchy_system().append_child(entity, entt);
         }
 
         if (ImGui::MenuItem("Delete")) {
-            scene_->registry().destroy_entity(entity);
+            scene_registry.destroy_entity(entity);
         }
 
         if (ImGui::MenuItem("Move to root")) {
-            auto parent = scene_->registry().get_component<Hierarchy>(entity).parent;
+            auto parent = scene_registry.get_component<Hierarchy>(entity).parent;
             if (parent != nodec::entities::null_entity) {
-                scene_->hierarchy_system().remove_child(parent, entity);
+                scene_.hierarchy_system().remove_child(parent, entity);
             }
         }
 
         ImGui::Separator();
 
         if (ImGui::MenuItem("New Entity")) {
-            auto child = scene_->create_entity("New Entity");
-            scene_->hierarchy_system().append_child(entity, child);
+            auto child = scene_.create_entity("New Entity");
+            scene_.hierarchy_system().append_child(entity, child);
         }
 
         //[&]() {
@@ -164,14 +165,14 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     }
 
     if (node_open) {
-        if (scene_->registry().is_valid(entity)) {
-            auto &hierarchy = scene_->registry().get_component<Hierarchy>(entity);
+        if (scene_registry.is_valid(entity)) {
+            auto &hierarchy = scene_registry.get_component<Hierarchy>(entity);
 
             auto child = hierarchy.first;
             while (child != null_entity) {
                 // We first save next entity.
                 // During show_entity_node(), the child entity may be destroyed.
-                auto next = scene_->registry().get_component<Hierarchy>(child).next;
+                auto next = scene_registry.get_component<Hierarchy>(child).next;
 
                 show_entity_node(child);
 
@@ -180,5 +181,23 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
         }
 
         ImGui::TreePop();
+    }
+}
+
+void SceneHierarchyWindow::select(nodec_scene::SceneEntity entity) {
+    if (entity == selected_entity_) return;
+
+    using namespace nodec_scene_editor::components;
+
+    auto& scene_registry = scene_.registry();
+
+    if (scene_registry.is_valid(selected_entity_)) {
+        scene_registry.remove_component<Selected>(selected_entity_);
+    }
+
+    selected_entity_ = entity;
+
+    if (scene_registry.is_valid(selected_entity_)) {
+        scene_registry.emplace_component<Selected>(selected_entity_);
     }
 }

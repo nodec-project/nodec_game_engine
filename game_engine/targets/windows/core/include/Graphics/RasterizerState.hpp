@@ -1,28 +1,27 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__GRAPHICS__RASTERIZER_STATE_HPP_
+#define NODEC_GAME_ENGINE__GRAPHICS__RASTERIZER_STATE_HPP_
+
 #include "Graphics.hpp"
 
 class RasterizerState {
 public:
-    RasterizerState(Graphics *pGfx, D3D11_CULL_MODE cullMode) {
+    RasterizerState(Graphics &gfx, D3D11_CULL_MODE cull_mode, D3D11_FILL_MODE fill_mode = D3D11_FILL_SOLID)
+        : gfx_(gfx) {
         D3D11_RASTERIZER_DESC desc = CD3D11_RASTERIZER_DESC(CD3D11_DEFAULT{});
-        desc.CullMode = cullMode;
-        //desc.FillMode = D3D11_FILL_WIREFRAME;
+        desc.CullMode = cull_mode;
+        desc.FillMode = fill_mode;
 
-        ThrowIfFailedGfx(pGfx->device().CreateRasterizerState(&desc, &mpRasterizerState),
-                         pGfx, __FILE__, __LINE__);
+        ThrowIfFailedGfx(gfx.device().CreateRasterizerState(&desc, &rasterizer_state_),
+                         &gfx, __FILE__, __LINE__);
     }
 
-    void Bind(Graphics *pGfx) {
-        pGfx->context().RSSetState(mpRasterizerState.Get());
-
-        // NOTE: The following code is too heavy to run for each model.
-        // const auto logs = pGfx->info_logger().Dump();
-        // if (!logs.empty()) {
-        //     nodec::logging::WarnStream(__FILE__, __LINE__)
-        //         << "[RasterizerState::Bind] >>> DXGI Logs:" << logs;
-        // }
+    void bind() {
+        gfx_.context().RSSetState(rasterizer_state_.Get());
     }
 
 private:
-    Microsoft::WRL::ComPtr<ID3D11RasterizerState> mpRasterizerState;
+    Graphics &gfx_;
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterizer_state_;
 };
+
+#endif
