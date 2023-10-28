@@ -44,21 +44,16 @@ Editor::Editor(Engine *engine)
         return std::make_unique<SceneViewWindow>(engine->window().graphics(),
                                                  engine->world_module().scene(), engine->scene_renderer(),
                                                  engine->resources_module(),
-                                                 *scene_gizmo_, component_registry_impl(),
-                                                 selection().active_scene_entity(), selection().active_scene_entity_changed());
+                                                 *scene_gizmo_, component_registry_impl());
     });
 
     window_manager().register_window<SceneHierarchyWindow>([=]() {
-        auto window = std::make_unique<SceneHierarchyWindow>(engine->world_module().scene(), engine->scene_serialization());
-        window->selected_entity_changed().connect([=](auto entity) { selection().select(entity); });
-        return window;
+        return std::make_unique<SceneHierarchyWindow>(engine->world_module().scene(), engine->scene_serialization());
     });
 
     window_manager().register_window<EntityInspectorWindow>([=]() {
-        return std::make_unique<EntityInspectorWindow>(&engine->world_module().scene().registry(),
-                                                       &component_registry_impl(),
-                                                       selection().active_scene_entity(),
-                                                       selection().active_scene_entity_changed());
+        return std::make_unique<EntityInspectorWindow>(engine->world_module().scene().registry(),
+                                                       component_registry_impl());
     });
 
     window_manager().register_window<LogWindow>([=]() {

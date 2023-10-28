@@ -1,17 +1,16 @@
 #include "scene_view_window.hpp"
 
 #include <nodec/math/gfx.hpp>
+#include <nodec_scene_editor/components/selected.hpp>
 
 #include <DirectXMath.h>
 
 SceneViewWindow::SceneViewWindow(
     Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer, nodec_resources::Resources &resources,
-    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry,
-    nodec_scene::SceneEntity init_selected_entity,
-    nodec::signals::SignalInterface<void(nodec_scene::SceneEntity)> selected_change_signal)
+    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry)
     : BaseWindow("Scene View##EditorWindows", nodec::Vector2f(VIEW_WIDTH, VIEW_HEIGHT)),
       scene_gizmo_(scene_gizmo), component_registry_(component_registry), resources_(resources),
-      scene_(scene), renderer_(renderer), selected_entity_(init_selected_entity) {
+      scene_(scene), renderer_(renderer) {
     // Generate the render target textures.
     D3D11_TEXTURE2D_DESC texture_desc{};
     texture_desc.Width = VIEW_WIDTH;
@@ -51,8 +50,6 @@ SceneViewWindow::SceneViewWindow(
     }
 
     rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, &gfx));
-
-    selected_entity_changed_conn_ = selected_change_signal.connect([&](auto entity) { selected_entity_ = entity; });
     scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
 }
 
@@ -60,6 +57,7 @@ void SceneViewWindow::on_gui() {
     using namespace nodec;
     using namespace DirectX;
     using namespace nodec_scene::components;
+    using namespace nodec_scene;
 
     if (ImGui::RadioButton("Translate", gizmo_operation_ == ImGuizmo::TRANSLATE)) {
         gizmo_operation_ = ImGuizmo::TRANSLATE;
@@ -172,34 +170,21 @@ void SceneViewWindow::on_gui() {
     // ImGuizmo::DrawGrid(view_.m, projection_.m, Matrix4x4f::identity.m, 100.f);
     // ImGuizmo::ViewManipulate(view_.m, 0.8f, ImVec2(view_manipulate_right - 128, view_manipulate_top), ImVec2(128, 128), 0x10101010);
 
-    //
-
     // Edit transformation.
     [&]() {
-        if (!scene_.registry().is_valid(selected_entity_)) return;
+        SceneEntity selected_entity{nodec::entities::null_entity};
 
-        auto *local_to_world = scene_.registry().try_get_component<LocalToWorld>(selected_entity_);
+        {
+            auto view = scene_.registry().view<nodec_scene_editor::components::Selected>();
+            if (view.begin() == view.end()) return;
+            selected_entity = *view.begin();
+        }
+
+        auto *local_to_world = scene_.registry().try_get_component<LocalToWorld>(selected_entity);
         if (!local_to_world) return;
 
-        // auto model_matrix = local_to_world->value;
-        Matrix4x4f delta_matrix;
-
-        if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, local_to_world->value.m, delta_matrix.m)) {
+        if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, local_to_world->value.m)) {
             local_to_world->dirty = true;
-
-            // Vector3f delta_translation;
-            // Vector3f delta_scale;
-            // Quaternionf delta_rotation;
-            // math::gfx::decompose_trs(delta_matrix, delta_translation, delta_rotation, delta_scale);
-
-            //// I dont know why translation is not zero even if in rotate mode.
-            // if (gizmo_operation_ == ImGuizmo::ROTATE) delta_translation =  Vector3f::zero;
-
-            // trfm->position += delta_translation;
-            // trfm->rotation = delta_rotation * trfm->rotation;
-            // trfm->scale *= delta_scale;
-
-            // trfm->dirty = true;
         }
     }();
 

@@ -196,7 +196,6 @@ void SceneHierarchyWindow::select(nodec_scene::SceneEntity entity) {
     }
 
     selected_entity_ = entity;
-    selected_entity_changed_(selected_entity_);
 
     if (scene_registry.is_valid(selected_entity_)) {
         scene_registry.emplace_component<Selected>(selected_entity_);

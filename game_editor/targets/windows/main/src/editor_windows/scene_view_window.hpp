@@ -27,9 +27,7 @@ class SceneViewWindow final : public imessentials::BaseWindow {
 public:
     SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer,
                     nodec_resources::Resources &,
-                    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_regsitry,
-                    nodec_scene::SceneEntity init_selected_entity,
-                    nodec::signals::SignalInterface<void(nodec_scene::SceneEntity)> selected_entity_changed_signal);
+                    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_regsitry);
 
     void on_gui() override;
 
@@ -49,9 +47,6 @@ private:
     nodec::Matrix4x4f projection_;
     nodec::Matrix4x4f view_;
     std::unique_ptr<SceneRenderingContext> rendering_context_;
-
-    nodec::signals::Connection selected_entity_changed_conn_;
-    nodec_scene::SceneEntity selected_entity_;
 
     ImGuizmo::OPERATION gizmo_operation_{ImGuizmo::TRANSLATE};
     ImGuizmo::MODE gizmo_mode_{ImGuizmo::LOCAL};
