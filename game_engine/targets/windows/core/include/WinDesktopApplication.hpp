@@ -1,15 +1,14 @@
 #pragma once
 
-#include "Logging.hpp"
-#include "Window.hpp"
-
-#include <nodec_application/impl/application_impl.hpp>
-
-#include <nodec/logging.hpp>
+#include <memory>
 
 #include <Windows.h>
 
-#include <memory>
+#include <nodec/logging/logging.hpp>
+#include <nodec_application/impl/application_impl.hpp>
+
+#include "Window.hpp"
+#include "logging.hpp"
 
 class WinDesktopApplication : public nodec_application::impl::ApplicationImpl {
 public:
@@ -31,7 +30,7 @@ protected:
 private:
     int main() {
         // --- Init Logging ---
-        InitLogging(nodec::logging::Level::Debug);
+        init_logging(nodec::logging::Level::Debug);
 
         //
         //#ifndef NDEBUG
@@ -41,8 +40,7 @@ private:
         //#endif
         // end Init Logging ---
 
-        nodec::logging::InfoStream(__FILE__, __LINE__)
-            << "[Main] >>> Hello world. Application start." << std::flush;
+        nodec::logging::info(__FILE__, __LINE__) << "Hello world. Application start.";
 
         setup();
 
@@ -55,8 +53,7 @@ private:
             loop();
         }
 
-        nodec::logging::InfoStream(__FILE__, __LINE__)
-            << "[Main] >>> Application Successfully Ending. See you." << std::flush;
+        nodec::logging::info(__FILE__, __LINE__) << "Application Successfully Ending. See you.";
 
         return exitCode;
     }
@@ -74,8 +71,8 @@ private:
                    L"Unhandled Exception has been caught in main loop. \nFor more detail, Please check the 'output.log'.",
                    L"Fatal Error.", MB_OK | MB_ICONEXCLAMATION);
 
-        nodec::logging::WarnStream(__FILE__, __LINE__)
-            << "[Main] >>> Unexpected Program Ending." << std::flush;
+        nodec::logging::warn(__FILE__, __LINE__)
+            << "Unexpected Program Ending.";
 
         return -1;
     }

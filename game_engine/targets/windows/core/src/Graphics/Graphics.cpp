@@ -16,7 +16,7 @@ namespace wrl = Microsoft::WRL;
 //  * https://docs.microsoft.com/en-us/windows/win32/direct3d11/dx-graphics-overviews
 
 Graphics::Graphics(HWND hWnd, int width, int height)
-    : width_(width), height_(height) {
+    : width_(width), height_(height), logger_(nodec::logging::get_logger("engine.graphics")) {
     DXGI_SWAP_CHAIN_DESC sd = {};
     sd.BufferDesc.Width = width;
     sd.BufferDesc.Height = height;
@@ -111,20 +111,20 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     // init imgui d3d impl
     ImGui_ImplDX11_Init(device_.Get(), context_.Get());
 
-    nodec::logging::InfoStream(__FILE__, __LINE__)
-        << "[Graphics] >>> DXGI Debug Logs:\n"
+    logger_->info(__FILE__, __LINE__)
+        << "DXGI Debug Logs:\n"
         << mInfoLogger.Dump();
 
-    nodec::logging::InfoStream(__FILE__, __LINE__) << "[Graphics] >>> Successfully initialized." << std::flush;
+    logger_->info(__FILE__, __LINE__) << "Successfully initialized.";
 }
 
 Graphics::~Graphics() {
     ImGui_ImplDX11_Shutdown();
 
-    nodec::logging::InfoStream(__FILE__, __LINE__)
-        << "[Graphics] >>> DXGI Debug Logs:\n"
+    logger_->info(__FILE__, __LINE__)
+        << "DXGI Debug Logs:\n"
         << mInfoLogger.Dump();
-    nodec::logging::InfoStream(__FILE__, __LINE__) << "[Graphics] >>> End Graphics." << std::flush;
+    logger_->info(__FILE__, __LINE__) << "End Graphics.";
 }
 
 void Graphics::BeginFrame() noexcept {

@@ -33,7 +33,8 @@ void SceneRenderer::SetupSceneLighting(nodec_scene::Scene &scene) {
 }
 
 SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resource_registry)
-    : gfx_(gfx),
+    : logger_(nodec::logging::get_logger("engine.scene-renderer")),
+      gfx_(gfx),
       cb_scene_properties_(*gfx),
       cb_model_properties_(*gfx),
       cb_texture_config_(*gfx),
@@ -52,8 +53,8 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
         auto quadMesh = resource_registry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
 
         if (!quadMesh) {
-            logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'quad.mesh'.\n"
-                                                       "Make sure the 'org.nodec.game-engine' resource-package is installed.";
+            logger_->warn(__FILE__, __LINE__) << "Cannot load the essential resource 'quad.mesh'.\n"
+                                                 "Make sure the 'org.nodec.game-engine' resource-package is installed.";
         }
 
         quad_mesh_ = std::static_pointer_cast<MeshBackend>(quadMesh);
@@ -62,8 +63,8 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
     {
         auto norm_cube_mesh = resource_registry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/norm-cube.mesh");
         if (!norm_cube_mesh) {
-            logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'norm-cube.mesh'.\n"
-                                                       "Make sure the 'org.nodec.game-engine' resource-package is installed.";
+            logger_->warn(__FILE__, __LINE__) << "Cannot load the essential resource 'norm-cube.mesh'.\n"
+                                                 "Make sure the 'org.nodec.game-engine' resource-package is installed.";
         }
         norm_cube_mesh_ = std::static_pointer_cast<MeshBackend>(norm_cube_mesh);
     }

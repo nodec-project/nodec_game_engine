@@ -2,7 +2,6 @@
 
 #include <DirectXMath.h>
 
-#include <nodec/logging.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
 #include <Rendering/MeshBackend.hpp>
@@ -10,7 +9,7 @@
 #include "components/gizmo_wire.hpp"
 
 SceneGizmoRenderer::SceneGizmoRenderer(Graphics &gfx, nodec_resources::Resources &resources)
-    : gfx_(gfx), resources_(resources),
+    : gfx_(gfx), logger_(nodec::logging::get_logger("editor.scene-gizmo-renderer")), resources_(resources),
       cb_scene_properties_(gfx),
       cb_texture_properties_(gfx),
       cb_model_properties_(gfx),
@@ -22,8 +21,7 @@ SceneGizmoRenderer::SceneGizmoRenderer(Graphics &gfx, nodec_resources::Resources
         resources_.registry().get_resource_direct<Material>(
             "org.nodec.game-editor/materials/gizmo-wire.material"));
     if (!gizmo_wire_material_) {
-        logging::WarnStream(__FILE__, __LINE__)
-            << "[SceneGizmoRenderer] >>> Material load failed.";
+        logger_->warn(__FILE__, __LINE__) << "Material load failed.";
     }
 }
 

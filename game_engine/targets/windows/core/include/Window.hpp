@@ -4,12 +4,12 @@
 
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
+#include <nodec/logging/logging.hpp>
 
 #include <nodec/formatter.hpp>
 #include <nodec/macros.hpp>
 #include <nodec/signals/signal.hpp>
 
-#define NOMINMAX
 #include <Windows.h>
 
 #include <array>
@@ -90,6 +90,7 @@ private:
     LRESULT HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noexcept;
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
     int mWidth;
     int mHeight;
     HWND hWnd;

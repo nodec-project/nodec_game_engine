@@ -14,6 +14,7 @@
 #include "ScreenHandler.hpp"
 #include "Window.hpp"
 
+#include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
@@ -29,14 +30,12 @@
 #include <nodec_screen/impl/screen_module.hpp>
 #include <nodec_world/impl/world_module.hpp>
 
-#include <nodec/logging.hpp>
-
 class Engine final {
 public:
     Engine(nodec_application::impl::ApplicationImpl &app);
 
     ~Engine() {
-        nodec::logging::InfoStream(__FILE__, __LINE__) << "[Engine] >>> Destructed.";
+        logger_->info(__FILE__, __LINE__) << "Destructed.";
 
         // TODO: Consider to unload all modules before backends.
 
@@ -78,6 +77,8 @@ public:
     }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
+
     // imgui must be destroyed after window.
     std::unique_ptr<ImguiManager> imgui_manager_;
     std::unique_ptr<Window> window_;

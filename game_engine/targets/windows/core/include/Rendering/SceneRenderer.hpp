@@ -7,6 +7,9 @@
 
 #include <DirectXMath.h>
 
+#include <nodec/resource_management/resource_registry.hpp>
+#include <nodec/vector4.hpp>
+#include <nodec/logging/logging.hpp>
 #include <nodec_rendering/components/camera.hpp>
 #include <nodec_rendering/components/directional_light.hpp>
 #include <nodec_rendering/components/image_renderer.hpp>
@@ -19,9 +22,6 @@
 #include <nodec_rendering/sampler.hpp>
 #include <nodec_scene/components/local_transform.hpp>
 #include <nodec_scene/scene.hpp>
-
-#include <nodec/resource_management/resource_registry.hpp>
-#include <nodec/vector4.hpp>
 
 #include "cb_model_properties.hpp"
 #include "cb_scene_properties.hpp"
@@ -114,6 +114,8 @@ private:
     }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
+
     // slot 0
     CBSceneProperties cb_scene_properties_;
 

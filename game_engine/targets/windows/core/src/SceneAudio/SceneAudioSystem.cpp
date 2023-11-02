@@ -80,11 +80,11 @@ void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
             }
         } catch (...) {
             [&]() {
-                logging::ErrorStream error(__FILE__, __LINE__);
-                error << "[SceneAudioSystem::UpdateAudio] >>> Audio Error. \n"
+                nodec::logging::LogStream error(logger_, nodec::logging::Level::Error, __FILE__, __LINE__);
+                error << "Audio Error. \n"
                          "entity: "
                       << std::hex << "0x" << entt << std::dec << "\n"
-                                                                 "details:\n";
+                      << "details:\n";
                 try {
                     throw;
                 } catch (std::exception &e) {

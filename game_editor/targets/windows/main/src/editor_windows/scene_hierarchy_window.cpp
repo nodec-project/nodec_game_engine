@@ -1,7 +1,5 @@
 #include "scene_hierarchy_window.hpp"
 
-#include <nodec/logging.hpp>
-
 #include <nodec_scene_editor/components/selected.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_scene_serialization/entity_builder.hpp>
@@ -109,7 +107,7 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
                     scene_.hierarchy_system().append_child(entity, drop_entity);
                 } catch (std::runtime_error &error) {
                     // The exception occurs when the parent of entity is set into itself.
-                    logging::ErrorStream(__FILE__, __LINE__) << error.what();
+                    logger_->error(__FILE__, __LINE__) << error.what();
                 }
             }
 

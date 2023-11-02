@@ -10,7 +10,6 @@
 #include <nodec_physics/components/velocity_force.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
-#include <nodec/logging.hpp>
 #include <nodec/math/gfx.hpp>
 
 bool operator==(const btVector3 &left, const nodec::Vector3f &right) {

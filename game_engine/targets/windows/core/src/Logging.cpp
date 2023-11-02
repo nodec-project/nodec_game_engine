@@ -1,48 +1,55 @@
-#pragma once
-
-#include "Logging.hpp"
-
-#include <nodec/formatter.hpp>
+#include "logging.hpp"
 
 #include <fstream>
+#include <mutex>
 #include <sstream>
+
+#include <nodec/formatter.hpp>
+#include <nodec/logging/formatters/simple_formatter.hpp>
+#include <nodec/logging/logging.hpp>
 
 namespace {
 
-std::ofstream logFile;
-bool initialized = false;
-
-void RecordToFileHandler(const nodec::logging::LogRecord& record) {
-    try {
-        logFile << record << "\n";
-        logFile.flush();
-    }
-    catch (...) {
-        // It is not possible to log exceptions that occur during log writing, so ignore them.
-    }
-}
-
-}
-
-
-void InitLogging(nodec::logging::Level level) {
-    if (initialized) return;
-
-    logFile.open("output.log", std::ios::binary);
-    if (!logFile) {
-        throw std::runtime_error(nodec::ErrorFormatter<std::runtime_error>(__FILE__, __LINE__)
-            << "Logging initialize failed. cannot open the log file."
-        );
+class FileHandler {
+public:
+    FileHandler() {
+        log_file_.open("output.log", std::ios::binary);
+        if (!log_file_) {
+            throw std::runtime_error(nodec::ErrorFormatter<std::runtime_error>(__FILE__, __LINE__)
+                                     << "Logging initialize failed. cannot open the log file.");
+        }
     }
 
-    nodec::logging::set_level(level);
-    nodec::logging::record_handlers().connect(RecordToFileHandler);
+    void operator()(const nodec::logging::LogRecord &record) {
+        std::lock_guard<std::mutex> lock(io_mutex_);
+        using namespace nodec::logging::formatters;
+        try {
+            log_file_ << formatter_(record) << "\n";
+            log_file_.flush();
+        } catch (...) {
+            // It is not possible to log exceptions that occur during log writing, so ignore them.
+        }
+    }
 
-    nodec::logging::InfoStream info_stream(__FILE__, __LINE__);
-    info_stream
-        << "[Logging] >>> Logging successfully initiallized.\n"
-        << "log_level: " << level
-        << std::flush;
+private:
+    std::mutex io_mutex_;
+    std::ofstream log_file_;
+    nodec::logging::formatters::SimpleFormatter formatter_;
+};
 
-    initialized = true;
+} // namespace
+
+void init_logging(nodec::logging::Level level) {
+    static bool initialized = false;
+    assert(!initialized);
+
+    using namespace nodec::logging;
+
+    auto logger = get_logger();
+
+    logger->set_level(level);
+    logger->add_handler(std::make_shared<FileHandler>());
+
+    logger->info(__FILE__, __LINE__) << "Logging successfully initialized.\n"
+                                     << "log_level: " << level;
 }

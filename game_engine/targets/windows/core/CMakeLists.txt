@@ -6,7 +6,7 @@ add_library(${PROJECT_NAME} STATIC
     src/Engine.cpp
     src/imgui_impl_dx11.cpp
     src/imgui_impl_win32.cpp
-    src/Logging.cpp
+    src/logging.cpp
     src/Window.cpp
     src/Graphics/DxgiInfoLogger.cpp
     src/Graphics/Graphics.cpp
