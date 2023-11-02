@@ -4,7 +4,8 @@
 #include <imessentials/window.hpp>
 
 #include <nodec/formatter.hpp>
-#include <nodec/logging.hpp>
+#include <nodec/logging/formatters/simple_formatter.hpp>
+#include <nodec/logging/logging.hpp>
 #include <nodec/signals/scoped_block.hpp>
 #include <nodec/signals/signal.hpp>
 #include <nodec/vector2.hpp>
@@ -20,10 +21,10 @@ class LogWindow final : public imessentials::BaseWindow {
 
     struct RecordEntry {
         RecordEntry(std::uint32_t id, const nodec::logging::LogRecord &record)
-            : id(id), record(record),
-              formatted_text(nodec::Formatter() << record) {}
+            : id(id), level(record.level),
+              formatted_text(nodec::logging::formatters::SimpleFormatter{}(record)) {}
 
-        nodec::logging::LogRecord record;
+        nodec::logging::Level level;
         std::string formatted_text;
         std::uint32_t id;
     };
@@ -40,7 +41,7 @@ public:
             std::lock_guard<std::mutex> lock(pending_records_mutex_);
 
             for (const auto &record : pending_records_) {
-                record_entries_.push_back({next_id_++, record});
+                record_entries_.push_back(record);
             }
             pending_records_.clear();
         }
@@ -71,7 +72,7 @@ public:
 
         auto draw_record_entry = [&](RecordEntry &entry) {
             ImVec4 color;
-            switch (entry.record.level) {
+            switch (entry.level) {
             case Level::Fatal:
             case Level::Error:
                 color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
@@ -127,20 +128,21 @@ public:
     }
 
 private:
-    nodec::signals::Connection logging_handler_conn_ = nodec::logging::record_handlers().connect(
+    nodec::logging::HandlerConnection logging_handler_conn_ = nodec::logging::get_logger()->add_handler(
         [&](const nodec::logging::LogRecord &record) {
             // This section may be called in another thread.
+            using namespace nodec::logging;
             using namespace nodec::signals;
 
-            ScopedBlock<Connection> scoped_block{logging_handler_conn_};
+            ScopedBlock<HandlerConnection> scoped_block{logging_handler_conn_};
 
             {
                 std::lock_guard<std::mutex> lock(pending_records_mutex_);
-                pending_records_.push_back(record);
+                pending_records_.push_back({next_id_++, record});
             }
         });
 
-    std::vector<nodec::logging::LogRecord> pending_records_;
+    std::vector<RecordEntry> pending_records_;
     std::mutex pending_records_mutex_;
     std::deque<RecordEntry> record_entries_;
     std::uint32_t next_id_{0};

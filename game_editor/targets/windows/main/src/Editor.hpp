@@ -5,6 +5,7 @@
 #include <imessentials/impl/menu_impl.hpp>
 #include <imessentials/impl/window_impl.hpp>
 #include <nodec_scene_editor/impl/scene_editor_impl.hpp>
+#include <nodec/logging/logging.hpp>
 
 #include "editor_gui.hpp"
 #include "scene_gizmo_impl.hpp"
@@ -59,6 +60,7 @@ public:
     }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
     Engine *engine_;
     State state_{State::Paused};
     bool do_one_step_{false};

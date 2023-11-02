@@ -9,6 +9,7 @@
 #include "component_editors/camera_editor.hpp"
 #include "component_editors/directional_light_editor.hpp"
 #include "component_editors/image_renderer_editor.hpp"
+#include "component_editors/local_transform_editor.hpp"
 #include "component_editors/mesh_renderer_editor.hpp"
 #include "component_editors/name_editor.hpp"
 #include "component_editors/non_visible_editor.hpp"
@@ -19,7 +20,6 @@
 #include "component_editors/rigid_body_editor.hpp"
 #include "component_editors/scene_lighting_editor.hpp"
 #include "component_editors/text_renderer_editor.hpp"
-#include "component_editors/local_transform_editor.hpp"
 #include "editor_windows/asset_import_window.hpp"
 #include "editor_windows/control_window.hpp"
 #include "editor_windows/entity_inspector_window.hpp"
@@ -29,7 +29,7 @@
 #include "editor_windows/scene_view_window.hpp"
 
 Editor::Editor(Engine *engine)
-    : engine_{engine} {
+    : logger_(nodec::logging::get_logger("editor")), engine_{engine} {
     using namespace nodec;
     using namespace imessentials;
     using namespace nodec_scene_editor;
@@ -132,7 +132,6 @@ Editor::Editor(Engine *engine)
         component_registry().register_component<NonSerialized>("Non Serialized");
     }
 
-
     [=]() {
         std::ifstream file("editor-config.json", std::ios::binary);
         if (!file) return;
@@ -143,7 +142,7 @@ Editor::Editor(Engine *engine)
             cereal::JSONInputArchive archive(file);
             archive(config);
         } catch (std::exception &e) {
-            logging::WarnStream(__FILE__, __LINE__)
+            logger_->warn(__FILE__, __LINE__)
                 << "Failed to load editor configuration.\n"
                 << "details: \n"
                 << e.what();

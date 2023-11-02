@@ -50,7 +50,7 @@ Window::Window(int width, int height,
                const wchar_t *name,
                nodec_input::keyboard::impl::KeyboardDevice *pKeyboard,
                nodec_input::mouse::impl::MouseDevice *pMouse)
-    : mWidth(width), mHeight(height),
+    : logger_(nodec::logging::get_logger("engine.window")), mWidth(width), mHeight(height),
       mpKeyboard(pKeyboard), mpMouse(pMouse) {
     RECT wr;
     wr.left = 100;
@@ -92,7 +92,7 @@ Window::~Window() {
 
     DestroyWindow(hWnd);
 
-    nodec::logging::InfoStream(__FILE__, __LINE__) << "[Window] >>> End Window." << std::flush;
+    logger_->info(__FILE__, __LINE__) << "End Window.";
 }
 
 void Window::SetTitle(const std::string &title) {

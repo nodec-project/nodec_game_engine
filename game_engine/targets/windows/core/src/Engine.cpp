@@ -1,6 +1,7 @@
 #include <Engine.hpp>
 
-Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
+Engine::Engine(nodec_application::impl::ApplicationImpl &app)
+    : logger_(nodec::logging::get_logger("engine")) {
     using namespace nodec_world;
     using namespace nodec_world::impl;
     using namespace nodec_screen::impl;
@@ -10,7 +11,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app) {
     using namespace nodec_scene_serialization;
     using namespace nodec_physics::systems;
 
-    nodec::logging::InfoStream(__FILE__, __LINE__) << "[Engine] >>> Created!";
+    logger_->info(__FILE__, __LINE__) << "Created!";
 
     imgui_manager_.reset(new ImguiManager);
 

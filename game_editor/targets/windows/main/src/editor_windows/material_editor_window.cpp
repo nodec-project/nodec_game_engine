@@ -5,7 +5,7 @@
 
 #include <cereal/archives/json.hpp>
 #include <imessentials/text_buffer.hpp>
-#include <nodec/logging.hpp>
+#include <nodec/logging/logging.hpp>
 #include <nodec_rendering/serialization/resources/material.hpp>
 
 namespace {
@@ -20,7 +20,7 @@ void export_material(std::shared_ptr<nodec_rendering::resources::Material> &mate
     std::ofstream out(path, std::ios::binary);
 
     if (!out) {
-        nodec::logging::WarnStream(__FILE__, __LINE__)
+        nodec::logging::warn(__FILE__, __LINE__)
             << "Failed to open the file.\n"
                "Make sure that the directory exists.\n"
                "  path: "
@@ -34,9 +34,9 @@ void export_material(std::shared_ptr<nodec_rendering::resources::Material> &mate
     try {
         SerializableMaterial ser_material(*material, resources.registry());
         archive(cereal::make_nvp("material", ser_material));
-        nodec::logging::InfoStream(__FILE__, __LINE__) << "Saved!";
+        nodec::logging::info(__FILE__, __LINE__) << "Saved!";
     } catch (std::exception &e) {
-        nodec::logging::WarnStream(__FILE__, __LINE__)
+        nodec::logging::warn(__FILE__, __LINE__)
             << "Failed to export material.\n"
                "details:\n"
             << e.what();
@@ -55,7 +55,7 @@ void import_material(std::shared_ptr<nodec_rendering::resources::Material> &mate
 
     
     if (!file) {
-        nodec::logging::WarnStream(__FILE__, __LINE__)
+        nodec::logging::warn(__FILE__, __LINE__)
             << "Failed to open the file.\n"
                "Make sure that the file exists.\n"
                "  path: "
@@ -71,10 +71,10 @@ void import_material(std::shared_ptr<nodec_rendering::resources::Material> &mate
 
         ser_material.apply_to(*material, resources.registry());
         
-        nodec::logging::InfoStream(__FILE__, __LINE__) << "Imported!";
+        nodec::logging::info(__FILE__, __LINE__) << "Imported!";
     }
     catch (std::exception& e) {
-        nodec::logging::WarnStream(__FILE__, __LINE__)
+        nodec::logging::warn(__FILE__, __LINE__)
             << "Failed to import material.\n"
                "details:\n"
             << e.what();

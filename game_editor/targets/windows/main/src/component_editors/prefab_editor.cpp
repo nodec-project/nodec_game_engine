@@ -4,7 +4,6 @@
 
 #include <imessentials/text_buffer.hpp>
 #include <imgui.h>
-#include <nodec/logging.hpp>
 #include <nodec_scene_serialization/entity_serializer.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 
@@ -31,7 +30,7 @@ void PrefabEditor::on_inspector_gui(nodec_scene_serialization::components::Prefa
             });
 
             if (!serializable) {
-                logging::WarnStream(__FILE__, __LINE__)
+                logger_->warn(__FILE__, __LINE__)
                     << "Failed to save.\n"
                        "details:\n"
                        "Target entity is invalid.";
@@ -39,7 +38,7 @@ void PrefabEditor::on_inspector_gui(nodec_scene_serialization::components::Prefa
             }
             std::ofstream out(Formatter() << resources_.resource_path() << "/" << prefab.source, std::ios::binary);
             if (!out) {
-                logging::WarnStream(__FILE__, __LINE__)
+                logger_->warn(__FILE__, __LINE__)
                     << "Failed to save.\n"
                        "details:\n"
                        "Cannot open the file path. Make sure the directory exists.";
@@ -53,14 +52,14 @@ void PrefabEditor::on_inspector_gui(nodec_scene_serialization::components::Prefa
             try {
                 archive(cereal::make_nvp("entity", *serializable));
             } catch (std::exception &e) {
-                logging::WarnStream(__FILE__, __LINE__)
+                logger_->warn(__FILE__, __LINE__)
                     << "Failed to save.\n"
                        "details:/n"
                     << e.what();
                 return;
             }
 
-            logging::InfoStream(__FILE__, __LINE__) << "Saved!";
+            logger_->info(__FILE__, __LINE__) << "Saved!";
         }();
     }
     ImGui::SameLine();

@@ -1,5 +1,8 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__LOGGING_HPP_
+#define NODEC_GAME_ENGINE__LOGGING_HPP_
 
-#include <nodec/logging.hpp>
+#include <nodec/logging/level.hpp>
 
-void InitLogging(nodec::logging::Level level);
+void init_logging(nodec::logging::Level level);
+
+#endif
