@@ -2,6 +2,7 @@
 
 #include <ImGuizmo.h>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
+#include <nodec_physics/components/static_rigid_body.hpp>
 
 #include "EditorConfig.hpp"
 
@@ -125,7 +126,8 @@ Editor::Editor(Engine *engine)
         component_registry().register_component<PointLight, PointLightEditor>("Point Light");
         component_registry().register_component<PostProcessing, PostProcessingEditor>("Post Processing", *editor_gui_, engine->resources_module());
         component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources_module(), engine->world_module().scene(), engine->scene_serialization());
-        component_registry().register_component<RigidBody, RIgidBodyEditor>("Rigid Body");
+        component_registry().register_component<RigidBody, RigidBodyEditor>("Rigid Body");
+        component_registry().register_component<StaticRigidBody>("Static Rigid Body");
         component_registry().register_component<SceneLighting, SceneLightingEditor>("Scene Lighting", *editor_gui_);
         component_registry().register_component<TextRenderer, TextRendererEditor>("Text Renderer", *editor_gui_);
         component_registry().register_component<LocalTransform, LocalTransformEditor>("Local Transform");

@@ -8,14 +8,20 @@
 
 namespace component_editors {
 
-class RIgidBodyEditor
+class RigidBodyEditor
     : public nodec_scene_editor::BasicComponentEditor<nodec_physics::components::RigidBody> {
 public:
     void on_inspector_gui(nodec_physics::components::RigidBody &rigid_body,
                           const nodec_scene_editor::InspectorGuiContext &context) override {
         using namespace nodec_physics::components;
 
-        ImGui::DragFloat("Mass", &rigid_body.mass);
+        {
+            int current = static_cast<int>(rigid_body.body_type);
+            ImGui::Combo("Body Type", &current, "Dynamic\0Kinematic");
+            rigid_body.body_type = static_cast<RigidBody::BodyType>(current);
+        }
+
+        ImGui::DragFloat("Mass", &rigid_body.mass, 0.005f);
 
         if (ImGui::TreeNode("Constrains")) {
             ImGui::PushID("Freeze Position");
