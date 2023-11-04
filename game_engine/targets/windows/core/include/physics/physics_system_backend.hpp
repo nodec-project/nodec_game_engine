@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__PHYSICS__PHYSICS_SYSTEM_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__PHYSICS__PHYSICS_SYSTEM_BACKEND_HPP_
 
 #include <nodec_physics/systems/physics_system.hpp>
 #include <nodec_world/world.hpp>
@@ -37,3 +38,5 @@ private:
     std::unique_ptr<btSequentialImpulseConstraintSolver> solver_;
     std::unique_ptr<btDynamicsWorld> dynamics_world_;
 };
+
+#endif

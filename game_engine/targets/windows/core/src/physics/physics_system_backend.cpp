@@ -1,6 +1,6 @@
-#include <Physics/PhysicsSystemBackend.hpp>
-#include <Physics/RigidBodyActivity.hpp>
-#include <Physics/RigidBodyBackend.hpp>
+#include <physics/physics_system_backend.hpp>
+
+#include <nodec/math/gfx.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 #include <nodec_physics/components/central_force.hpp>
@@ -10,7 +10,8 @@
 #include <nodec_physics/components/velocity_force.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
-#include <nodec/math/gfx.hpp>
+#include <physics/rigid_body_activity.hpp>
+#include <physics/rigid_body_backend.hpp>
 
 bool operator==(const btVector3 &left, const nodec::Vector3f &right) {
     return left.x() == right.x && left.y() == right.y && left.z() == right.z;

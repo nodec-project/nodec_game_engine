@@ -1,6 +1,9 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__PHYSICS__RIGID_BODY_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__PHYSICS__RIGID_BODY_BACKEND_HPP_
 
-#include "RigidBodyMotionState.hpp"
+#include <algorithm>
+#include <cassert>
+#include <memory>
 
 #include <nodec/math/math.hpp>
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
@@ -10,9 +13,7 @@
 
 #include <btBulletDynamicsCommon.h>
 
-#include <algorithm>
-#include <cassert>
-#include <memory>
+#include "rigid_body_motion_state.hpp"
 
 class RigidBodyBackend final {
 public:
@@ -37,6 +38,11 @@ public:
             collision_shape_.reset(new btSphereShape(1.f));
             const auto radius = std::max({world_shape_scale.x, world_shape_scale.y, world_shape_scale.z}) * shape.radius;
             collision_shape_->setLocalScaling(btVector3(radius, radius, radius));
+        } break;
+
+        case PhysicsShape::ShapeType::Capsule: {
+            const auto scale = std::max({world_shape_scale.x, world_shape_scale.y, world_shape_scale.z});
+            collision_shape_.reset(new btCapsuleShape(scale * shape.radius, scale * shape.height));
         } break;
 
         // Nothing to do here.
@@ -121,3 +127,5 @@ private:
     btDynamicsWorld *binded_world{nullptr};
     nodec::Vector3f world_shape_scale_;
 };
+
+#endif

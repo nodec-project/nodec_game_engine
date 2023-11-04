@@ -1,4 +1,4 @@
-#include "Editor.hpp"
+#include "editor.hpp"
 
 #include <ImGuizmo.h>
 #include <nodec_scene_serialization/components/non_serialized.hpp>

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__PHYSICS__RIGID_BODY_MOTION_STATE_HPP_
+#define NODEC_GAME_ENGINE__PHYSICS__RIGID_BODY_MOTION_STATE_HPP_
 
 #include <btBulletDynamicsCommon.h>
 
@@ -14,7 +15,7 @@ public:
     }
 
     /// synchronizes world transform from physics to user
-    /// Bullet only calls the update of worldtransform for active objects
+    /// Bullet only calls the update of world transform for active objects
     void setWorldTransform(const btTransform &trfm) override {
         current_trfm_ = trfm;
         dirty = true;
@@ -25,3 +26,5 @@ public:
 private:
     btTransform current_trfm_;
 };
+
+#endif

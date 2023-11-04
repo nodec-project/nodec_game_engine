@@ -5,7 +5,6 @@
 #include "ImguiManager.hpp"
 #include "Input/KeyboardDeviceSystem.hpp"
 #include "Input/MouseDeviceSystem.hpp"
-#include "Physics/PhysicsSystemBackend.hpp"
 #include "Rendering/SceneRenderer.hpp"
 #include "Resources/ResourceLoader.hpp"
 #include "Resources/ResourcesModuleBackend.hpp"
@@ -13,6 +12,7 @@
 #include "SceneSerialization/SceneSerializationBackend.hpp"
 #include "ScreenHandler.hpp"
 #include "Window.hpp"
+#include "physics/physics_system_backend.hpp"
 
 #include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
