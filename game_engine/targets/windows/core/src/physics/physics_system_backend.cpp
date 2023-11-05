@@ -1,16 +1,18 @@
-#include <Physics/PhysicsSystemBackend.hpp>
-#include <Physics/RigidBodyActivity.hpp>
-#include <Physics/RigidBodyBackend.hpp>
+#include <physics/physics_system_backend.hpp>
+
+#include <nodec/math/gfx.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 #include <nodec_physics/components/central_force.hpp>
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
+#include <nodec_physics/components/static_rigid_body.hpp>
 #include <nodec_physics/components/velocity_force.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
-#include <nodec/math/gfx.hpp>
+#include <physics/rigid_body_activity.hpp>
+#include <physics/rigid_body_backend.hpp>
 
 bool operator==(const btVector3 &left, const nodec::Vector3f &right) {
     return left.x() == right.x && left.y() == right.y && left.z() == right.z;
@@ -29,71 +31,73 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     auto &scene_registry = world.scene().registry();
 
-    // Pre process for step of simulation.
-    scene_registry.view<RigidBody, PhysicsShape, LocalToWorld>().each(
-        [&](SceneEntity entt, RigidBody &rigid_body, PhysicsShape &shape, LocalToWorld &local_to_world) {
-            Vector3f world_position;
-            Quaternionf world_rotation;
-            Vector3f world_scale;
+    // Sync entity -> bullet rigid body.
+    scene_registry.view<RigidBodyActivity, LocalToWorld>().each(
+        [&](const SceneEntity &entity, RigidBodyActivity &activity, LocalToWorld &local_to_world) {
+            using namespace nodec;
+            assert(activity.rigid_body_backend);
 
-            math::gfx::decompose_trs(local_to_world.value, world_position, world_rotation, world_scale);
+            math::gfx::TRSComponents world_trs;
+            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            activity.rigid_body_backend->update_transform_if_different(world_trs.translation, world_trs.rotation);
+        });
 
-            RigidBodyActivity *activity;
-            {
-                // Emplace an activity component, if not.
-                auto result = scene_registry.emplace_component<RigidBodyActivity>(entt);
-                activity = &result.first;
+    scene_registry.view<StaticRigidBody, PhysicsShape, LocalToWorld>(type_list<RigidBodyActivity>{})
+        .each([&](const SceneEntity &entity, StaticRigidBody &, PhysicsShape &shape, LocalToWorld &local_to_world) {
+            auto &activity = scene_registry.emplace_component<RigidBodyActivity>(entity).first;
 
-                if (result.second) {
-                    // When the activity is first created.
+            math::gfx::TRSComponents world_trs;
+            math::gfx::decompose_trs(local_to_world.value, world_trs);
 
-                    auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entt, rigid_body.mass, shape,
-                                                                                 world_position, world_rotation, world_scale);
+            auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entity, RigidBodyBackend::BodyType::Static, 0.f, shape,
+                                                                         world_trs.translation, world_trs.rotation, world_trs.scale);
 
-                    rigid_body_backend->bind_world(*dynamics_world_);
+            rigid_body_backend->bind_world(*dynamics_world_);
+            activity.rigid_body_backend = std::move(rigid_body_backend);
+        });
 
-                    btVector3 linear_factor(
-                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
-                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
-                        (rigid_body.constraints & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
+    // Make RigidBodyActivity for new rigid bodies.
+    scene_registry.view<RigidBody, PhysicsShape, LocalToWorld>(type_list<RigidBodyActivity>{})
+        .each([&](SceneEntity entt, RigidBody &rigid_body, PhysicsShape &shape, LocalToWorld &local_to_world) {
+            auto &activity = scene_registry.emplace_component<RigidBodyActivity>(entt).first;
 
-                    rigid_body_backend->native().setLinearFactor(linear_factor);
+            math::gfx::TRSComponents world_trs;
+            math::gfx::decompose_trs(local_to_world.value, world_trs);
 
-                    btVector3 angular_factor(
-                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
-                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
-                        (rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
-                    rigid_body_backend->native().setAngularFactor(angular_factor);
-
-                    activity->rigid_body_backend = std::move(rigid_body_backend);
-                }
+            RigidBodyBackend::BodyType body_type{RigidBodyBackend::BodyType::Dynamic};
+            switch (rigid_body.body_type) {
+            case RigidBody::BodyType::Dynamic:
+                body_type = RigidBodyBackend::BodyType::Dynamic;
+                break;
+            case RigidBody::BodyType::Kinematic:
+                body_type = RigidBodyBackend::BodyType::Kinematic;
+                break;
             }
 
-            {
-                btTransform rb_trfm;
-                activity->rigid_body_backend->native().getMotionState()->getWorldTransform(rb_trfm);
+            auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entt, body_type, rigid_body.mass, shape,
+                                                                         world_trs.translation, world_trs.rotation, world_trs.scale);
 
-                auto rb_position = to_vector3(rb_trfm.getOrigin());
-                auto rb_rotation = to_quaternion(rb_trfm.getRotation());
+            rigid_body_backend->bind_world(*dynamics_world_);
 
-                // Sync entity -> bullet rigid body.
-                if (!math::approx_equal(world_position, rb_position)
-                    || !math::approx_equal_rotation(world_rotation, rb_rotation, math::default_rel_tol<float>, 0.001f)) {
-                    activity->rigid_body_backend->update_transform(world_position, world_rotation);
-                }
-            }
+            btVector3 linear_factor(
+                (rigid_body.constraints & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
+                (rigid_body.constraints & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
+                (rigid_body.constraints & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
+
+            rigid_body_backend->native().setLinearFactor(linear_factor);
+
+            btVector3 angular_factor(
+                (rigid_body.constraints & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
+                (rigid_body.constraints & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
+                (rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
+            rigid_body_backend->native().setAngularFactor(angular_factor);
+
+            activity.rigid_body_backend = std::move(rigid_body_backend);
         });
 
     {
-        std::vector<SceneEntity> to_deleted;
-
-        scene_registry.view<RigidBodyActivity>().each([&](auto entt, RigidBodyActivity &activity) {
-            if (scene_registry.all_of<RigidBody, PhysicsShape>(entt)) return;
-
-            to_deleted.push_back(entt);
-        });
-
-        scene_registry.remove_component<RigidBodyActivity>(to_deleted.begin(), to_deleted.end());
+        auto view = scene_registry.view<RigidBodyActivity>(type_list<RigidBody, StaticRigidBody>{});
+        scene_registry.remove_components<RigidBodyActivity>(view.begin(), view.end());
     }
 
     // --- Apply forces ---
@@ -139,8 +143,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
     // Sync rigid body -> entity.
     scene_registry.view<RigidBody, RigidBodyActivity, LocalToWorld>().each(
         [&](SceneEntity, RigidBody &rigid_body, RigidBodyActivity &activity, LocalToWorld &local_to_world) {
-            // An entity with zero mass is static object.
-            if (rigid_body.mass == 0.0f) return;
+            if (activity.rigid_body_backend->body_type() != RigidBodyBackend::BodyType::Dynamic) return;
 
             auto &native = activity.rigid_body_backend->native();
 

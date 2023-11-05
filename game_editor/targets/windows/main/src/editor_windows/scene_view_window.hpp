@@ -50,6 +50,8 @@ private:
 
     ImGuizmo::OPERATION gizmo_operation_{ImGuizmo::TRANSLATE};
     ImGuizmo::MODE gizmo_mode_{ImGuizmo::LOCAL};
+
+    bool scene_view_dragging_{false};
 };
 
 #endif

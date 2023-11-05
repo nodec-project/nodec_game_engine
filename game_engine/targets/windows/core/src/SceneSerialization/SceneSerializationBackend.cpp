@@ -2,6 +2,7 @@
 
 #include <nodec_physics/serialization/components/physics_shape.hpp>
 #include <nodec_physics/serialization/components/rigid_body.hpp>
+#include <nodec_physics/serialization/components/static_rigid_body.hpp>
 #include <nodec_rendering/serialization/components/camera.hpp>
 #include <nodec_rendering/serialization/components/directional_light.hpp>
 #include <nodec_rendering/serialization/components/image_renderer.hpp>
@@ -12,11 +13,11 @@
 #include <nodec_rendering/serialization/components/scene_lighting.hpp>
 #include <nodec_rendering/serialization/components/text_renderer.hpp>
 #include <nodec_scene/scene_registry.hpp>
-#include <nodec_scene_serialization/components/non_serialized.hpp>
-#include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_scene/serialization/components/local_transform.hpp>
 #include <nodec_scene/serialization/components/name.hpp>
 #include <nodec_scene_audio/serialization/components/audio_source.hpp>
+#include <nodec_scene_serialization/components/non_serialized.hpp>
+#include <nodec_scene_serialization/components/prefab.hpp>
 
 SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management::ResourceRegistry *resource_registry,
                                                      nodec_scene_serialization::SceneSerialization &serialization) {
@@ -44,6 +45,7 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
     serialization.register_component<AudioSource, SerializableAudioSource>();
 
     serialization.register_component<RigidBody, SerializableRigidBody>();
+    serialization.register_component<StaticRigidBody, SerializableStaticRigidBody>();
     serialization.register_component<PhysicsShape, SerializablePhysicsShape>();
 
     serialization.register_component<Prefab>();

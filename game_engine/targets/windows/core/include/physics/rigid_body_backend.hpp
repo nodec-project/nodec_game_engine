@@ -1,6 +1,9 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__PHYSICS__RIGID_BODY_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__PHYSICS__RIGID_BODY_BACKEND_HPP_
 
-#include "RigidBodyMotionState.hpp"
+#include <algorithm>
+#include <cassert>
+#include <memory>
 
 #include <nodec/math/math.hpp>
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
@@ -10,26 +13,31 @@
 
 #include <btBulletDynamicsCommon.h>
 
-#include <algorithm>
-#include <cassert>
-#include <memory>
+#include "rigid_body_motion_state.hpp"
 
 class RigidBodyBackend final {
 public:
-    RigidBodyBackend(nodec_scene::SceneEntity entity, float mass,
+    enum class BodyType {
+        Static,
+        Dynamic,
+        Kinematic,
+    };
+
+    RigidBodyBackend(nodec_scene::SceneEntity entity,
+                     BodyType body_type,
+                     float mass,
                      const nodec_physics::components::PhysicsShape &shape,
                      const nodec::Vector3f &start_position,
                      const nodec::Quaternionf &start_rotation,
                      const nodec::Vector3f &world_shape_scale)
-        : entity_(entity), world_shape_scale_(world_shape_scale) {
+        : entity_(entity), body_type_(body_type) {
         using namespace nodec_physics::components;
-        // const btVector3 &local_inertia = btVector3(0, 0, 0)
 
         switch (shape.shape_type) {
         case PhysicsShape::ShapeType::Box: {
             // Make the unit box shape. Then set the size using SetLocalScaling().
             collision_shape_.reset(new btBoxShape(btVector3(0.5f, 0.5f, 0.5f)));
-            const auto size = world_shape_scale_ * shape.size;
+            const auto size = world_shape_scale * shape.size;
             collision_shape_->setLocalScaling(btVector3(size.x, size.y, size.z));
         } break;
 
@@ -39,16 +47,23 @@ public:
             collision_shape_->setLocalScaling(btVector3(radius, radius, radius));
         } break;
 
+        case PhysicsShape::ShapeType::Capsule: {
+            const auto scale = std::max({world_shape_scale.x, world_shape_scale.y, world_shape_scale.z});
+            collision_shape_.reset(new btCapsuleShape(scale * shape.radius, scale * shape.height));
+        } break;
+
         // Nothing to do here.
         default: break;
         }
 
-        btVector3 local_inertia(0, 0, 0);
+        if (body_type_ == BodyType::Static) {
+            mass = 0.f;
+        }
 
+        btVector3 local_inertia(0, 0, 0);
         if (mass != 0.f) {
             collision_shape_->calculateLocalInertia(mass, local_inertia);
         }
-
         btTransform start_trfm;
         start_trfm.setIdentity();
         start_trfm.setOrigin(btVector3(start_position.x, start_position.y, start_position.z));
@@ -60,20 +75,25 @@ public:
 
         native_->setUserPointer(this);
 
-        if (mass == 0.0f) {
-            native_->setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT | btCollisionObject::CF_STATIC_OBJECT);
+        if (body_type_ == BodyType::Kinematic) {
+            native_->setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT);
+            // KinematicRigidBody is always active. StaticRigidBody will never be active even if set as below.
             native_->setActivationState(DISABLE_DEACTIVATION);
         }
     }
 
     ~RigidBodyBackend() {
-        if (binded_world) {
-            binded_world->removeRigidBody(native_.get());
+        if (dynamic_world_) {
+            dynamic_world_->removeRigidBody(native_.get());
         }
     }
 
     nodec_scene::SceneEntity entity() const noexcept {
         return entity_;
+    }
+
+    BodyType body_type() const noexcept {
+        return body_type_;
     }
 
     btRigidBody &native() {
@@ -86,24 +106,32 @@ public:
 
     void bind_world(btDynamicsWorld &world) {
         world.addRigidBody(native_.get());
-        binded_world = &world;
+        dynamic_world_ = &world;
     }
 
     void unbind_world(btDynamicsWorld &world) {
-        assert(&world == binded_world);
-        binded_world->removeRigidBody(native_.get());
+        assert(&world == dynamic_world_);
+        dynamic_world_->removeRigidBody(native_.get());
     }
 
-    void update_transform(const nodec::Vector3f &world_position, const nodec::Quaternionf &world_rotation) {
+    void update_transform_if_different(const nodec::Vector3f &position, const nodec::Quaternionf &rotation) {
         using namespace nodec;
 
         btTransform rb_trfm;
         motion_state_->getWorldTransform(rb_trfm);
 
+        auto rb_position = to_vector3(rb_trfm.getOrigin());
+        auto rb_rotation = to_quaternion(rb_trfm.getRotation());
+
+        if (math::approx_equal(position, rb_position)
+            && math::approx_equal_rotation(rotation, rb_rotation, math::default_rel_tol<float>, 0.001f)) {
+            return;
+        }
+
         btTransform rb_trfm_updated;
         rb_trfm_updated.setIdentity();
-        rb_trfm_updated.setOrigin(btVector3(world_position.x, world_position.y, world_position.z));
-        rb_trfm_updated.setRotation(btQuaternion(world_rotation.x, world_rotation.y, world_rotation.z, world_rotation.w));
+        rb_trfm_updated.setOrigin(to_bt_vector3(position));
+        rb_trfm_updated.setRotation(to_bt_quaternion(rotation));
 
         // NOTE: We need to also set the trfm of rigid body not only motion state.
         //  Why?
@@ -115,9 +143,11 @@ public:
 
 private:
     nodec_scene::SceneEntity entity_;
+    BodyType body_type_;
     std::unique_ptr<RigidBodyMotionState> motion_state_;
     std::unique_ptr<btCollisionShape> collision_shape_;
     std::unique_ptr<btRigidBody> native_;
-    btDynamicsWorld *binded_world{nullptr};
-    nodec::Vector3f world_shape_scale_;
+    btDynamicsWorld *dynamic_world_{nullptr};
 };
+
+#endif

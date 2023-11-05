@@ -1,11 +1,12 @@
-#pragma once
+#ifndef NODEC_GAME_EDITOR__EDITOR_HPP_
+#define NODEC_GAME_EDITOR__EDITOR_HPP_
 
 #include <Engine.hpp>
 
 #include <imessentials/impl/menu_impl.hpp>
 #include <imessentials/impl/window_impl.hpp>
-#include <nodec_scene_editor/impl/scene_editor_impl.hpp>
 #include <nodec/logging/logging.hpp>
+#include <nodec_scene_editor/impl/scene_editor_impl.hpp>
 
 #include "editor_gui.hpp"
 #include "scene_gizmo_impl.hpp"
@@ -67,3 +68,5 @@ private:
     std::unique_ptr<EditorGui> editor_gui_;
     std::unique_ptr<SceneGizmoImpl> scene_gizmo_;
 };
+
+#endif

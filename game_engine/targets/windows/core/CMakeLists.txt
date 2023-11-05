@@ -4,16 +4,16 @@ project(nodec_game_engine_core LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} STATIC
     src/Engine.cpp
-    src/imgui_impl_dx11.cpp
-    src/imgui_impl_win32.cpp
-    src/logging.cpp
-    src/Window.cpp
     src/Graphics/DxgiInfoLogger.cpp
     src/Graphics/Graphics.cpp
-    src/Physics/PhysicsSystemBackend.cpp
+    src/physics/physics_system_backend.cpp
     src/Rendering/SceneRenderer.cpp
     src/SceneAudio/SceneAudioSystem.cpp
     src/SceneSerialization/SceneSerializationBackend.cpp
+    src/Window.cpp
+    src/imgui_impl_dx11.cpp
+    src/imgui_impl_win32.cpp
+    src/logging.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

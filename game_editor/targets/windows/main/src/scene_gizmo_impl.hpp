@@ -12,26 +12,6 @@
 #include "components/gizmo_wire.hpp"
 
 class SceneGizmoImpl : public nodec_scene_editor::SceneGizmo {
-    void emplace_gizmo_wire(const nodec_scene::SceneEntity &entity,
-                            std::shared_ptr<nodec_rendering::resources::Mesh> mesh,
-                            const nodec::Vector3f &translate,
-                            const nodec::Quaternionf &rotation,
-                            const nodec::Vector3f &scale) {
-        using namespace nodec_scene::components;
-        using namespace components;
-        auto &scene_registry = scene_.registry();
-
-        auto gizmo_entity = scene_registry.create_entity();
-        scene_.hierarchy_system().append_child(entity, gizmo_entity);
-        auto &gizmo_wire = scene_registry.emplace_component<GizmoWire>(gizmo_entity).first;
-        gizmo_wire.mesh = mesh;
-
-        auto &local_to_world = scene_registry.emplace_component<LocalToWorld>(entity).first;
-
-        auto &gizmo_local_to_world = scene_registry.emplace_component<LocalToWorld>(gizmo_entity).first;
-        gizmo_local_to_world.value = local_to_world.value * nodec::math::gfx::trs(translate, rotation, scale);
-    }
-
 public:
     SceneGizmoImpl(nodec_scene::Scene &scene, nodec_resources::Resources &resources)
         : scene_(scene), resources_(resources) {
@@ -40,18 +20,27 @@ public:
         wire_sphere_mesh_ = resources_.registry().get_resource_direct<Mesh>("org.nodec.game-editor/meshes/wire-sphere.mesh");
     }
 
-    void draw_wire_cube(const nodec_scene::SceneEntity &entity,
-                        const nodec::Vector3f &size,
-                        const nodec::Vector3f &offset,
+    void draw_wire_cube(const nodec::Vector3f &center, const nodec::Vector3f &size,
                         const nodec::Quaternionf &rotation) override {
-        emplace_gizmo_wire(entity, wire_cube_mesh_, offset, rotation, size);
+        using namespace nodec_scene::components;
+
+        auto gizmo_entity = scene_.registry().create_entity();
+        auto &gizmo_wire = scene_.registry().emplace_component<components::GizmoWire>(gizmo_entity).first;
+        gizmo_wire.mesh = wire_cube_mesh_;
+        auto &local_to_world = scene_.registry().emplace_component<LocalToWorld>(gizmo_entity).first;
+        local_to_world.value = nodec::math::gfx::trs(center, rotation, size);
+        local_to_world.dirty = true;
     }
 
-    void draw_wire_sphere(const nodec_scene::SceneEntity &entity,
-                          float radius,
-                          const nodec::Vector3f &offset) override {
-        using namespace nodec;
-        emplace_gizmo_wire(entity, wire_sphere_mesh_, offset, Quaternionf::identity, Vector3f::ones * radius);
+    void draw_wire_sphere(const nodec::Vector3f &center, float radius) override {
+        using namespace nodec_scene::components;
+
+        auto gizmo_entity = scene_.registry().create_entity();
+        auto &gizmo_wire = scene_.registry().emplace_component<components::GizmoWire>(gizmo_entity).first;
+        gizmo_wire.mesh = wire_sphere_mesh_;
+        auto &local_to_world = scene_.registry().emplace_component<LocalToWorld>(gizmo_entity).first;
+        local_to_world.value = nodec::math::gfx::trs(center, nodec::Quaternionf::identity, nodec::Vector3f::ones * radius);
+        local_to_world.dirty = true;
     }
 
 private:

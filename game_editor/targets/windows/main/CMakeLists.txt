@@ -3,7 +3,7 @@ project(nodec_game_editor_main)
 add_library(${PROJECT_NAME} STATIC)
 
 target_sources(${PROJECT_NAME} PRIVATE
-    src/Editor.cpp
+    src/editor.cpp
     src/WinMain.cpp
     src/component_editors/physics_shape_editor.cpp
     src/component_editors/prefab_editor.cpp
