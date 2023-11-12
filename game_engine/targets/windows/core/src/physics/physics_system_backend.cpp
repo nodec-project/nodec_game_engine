@@ -156,26 +156,65 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             rigid_body.linear_velocity = to_vector3(native.getLinearVelocity());
             rigid_body.angular_velocity = to_vector3(native.getAngularVelocity());
         });
+}
 
-    // https://github.com/bulletphysics/bullet3/issues/1745
-    {
-        const int num_of_manifolds = dynamics_world_->getDispatcher()->getNumManifolds();
+nodec::optional<nodec_physics::RayCastHit> PhysicsSystemBackend::ray_cast(const nodec::Vector3f &ray_start, const nodec::Vector3f &ray_end) {
+    using namespace nodec;
+    using namespace nodec_physics;
 
-        for (int i = 0; i < num_of_manifolds; ++i) {
-            auto *contact_manifold = dynamics_world_->getDispatcher()->getManifoldByIndexInternal(i);
+    btVector3 bt_ray_start(ray_start.x, ray_start.y, ray_start.z);
+    btVector3 bt_ray_end(ray_end.x, ray_end.y, ray_end.z);
 
-            const int num_of_contacts = contact_manifold->getNumContacts();
-            if (num_of_contacts == 0) continue;
+    btCollisionWorld::ClosestRayResultCallback ray_callback(bt_ray_start, bt_ray_end);
 
-            const auto *body0 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody0()->getUserPointer());
-            const auto *body1 = static_cast<const RigidBodyBackend *>(contact_manifold->getBody1()->getUserPointer());
+    dynamics_world_->rayTest(bt_ray_start, bt_ray_end, ray_callback);
+
+    if (ray_callback.hasHit()) {
+        RayCastHit hit{};
+        hit.point = to_vector3(ray_callback.m_hitPointWorld);
+        hit.normal = to_vector3(ray_callback.m_hitNormalWorld);
+        return hit;
+    }
+
+    return nodec::nullopt;
+}
+
+void PhysicsSystemBackend::contact_test(nodec_scene::SceneEntity entity, std::function<void(nodec_physics::CollisionInfo &)> callback) {
+    auto &scene_registry = world_.scene().registry();
+
+    auto activity = scene_registry.try_get_component<RigidBodyActivity>(entity);
+    if (!activity) return;
+
+    auto &collision_body = *activity->rigid_body_backend;
+
+    struct Callback : public btCollisionWorld::ContactResultCallback {
+        Callback(std::function<void(nodec_physics::CollisionInfo &)> callback)
+            : callback(callback) {}
+
+        btScalar addSingleResult(btManifoldPoint &cp,
+                                 const btCollisionObjectWrapper *col_obj0_wrap,
+                                 int part_id0,
+                                 int index0,
+                                 const btCollisionObjectWrapper *col_obj1_wrap,
+                                 int part_id1,
+                                 int index1) override {
+            using namespace nodec;
+            using namespace nodec_physics;
 
             CollisionInfo collision_info{};
 
-            collision_info.entity0 = body0->entity();
-            collision_info.entity1 = body1->entity();
+            auto *body0 = static_cast<const RigidBodyBackend *>(col_obj0_wrap->getCollisionObject()->getUserPointer());
+            auto *body1 = static_cast<const RigidBodyBackend *>(col_obj1_wrap->getCollisionObject()->getUserPointer());
 
-            collision_stay_signal_(collision_info);
+            collision_info.self = body0->entity();
+            collision_info.other = body1->entity();
+
+            callback(collision_info);
+
+            return 0.f;
         }
-    }
+
+        std::function<void(nodec_physics::CollisionInfo &)> callback;
+    };
+    dynamics_world_->contactTest(&collision_body.native(), Callback(callback));
 }

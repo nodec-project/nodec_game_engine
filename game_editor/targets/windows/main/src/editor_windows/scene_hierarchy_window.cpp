@@ -46,6 +46,7 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     using namespace nodec_scene;
     using namespace nodec_scene_serialization;
     using namespace nodec_scene_serialization::components;
+    using namespace nodec_scene_editor::components;
 
     auto &scene_registry = scene_.registry();
 
@@ -57,25 +58,17 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
         auto &hierarchy = scene_registry.get_component<Hierarchy>(entity);
         auto name = scene_registry.try_get_component<Name>(entity);
         prefab = scene_registry.try_get_component<Prefab>(entity);
+        auto selected = scene_registry.try_get_component<Selected>(entity);
 
         std::string label = nodec::Formatter() << "\"" << (name ? name->value : "") << "\" {entity: 0x" << std::hex << entity << "}";
 
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow;
 
         flags |= hierarchy.child_count > 0 ? 0x00 : ImGuiTreeNodeFlags_Leaf;
-        flags |= entity == selected_entity_ ? ImGuiTreeNodeFlags_Selected : 0x00;
+        flags |= (selected ? ImGuiTreeNodeFlags_Selected : 0x00);
 
         auto &style = ImGui::GetStyle();
-
-        // if (prefab) {
-        //     ImGui::PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_HeaderActive]);
-        // }
-
         node_open = ImGui::TreeNodeEx(label.c_str(), flags);
-
-        // if (prefab) {
-        //     ImGui::PopStyleColor();
-        // }
 
         if (prefab) {
             ImDrawList *draw_list = ImGui::GetWindowDrawList();
@@ -85,9 +78,6 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
             draw_list->AddRectFilled(marker_min, marker_max, ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_HeaderActive]));
         }
 
-        if (ImGui::IsItemClicked()) {
-            select(entity);
-        }
 
         // * <https://github.com/ocornut/imgui/issues/2597>
         if (ImGui::BeginDragDropSource()) {
@@ -103,15 +93,27 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
                 IM_ASSERT(payload->DataSize == sizeof(SceneEntity));
                 SceneEntity drop_entity = *static_cast<SceneEntity *>(payload->Data);
 
-                try {
-                    scene_.hierarchy_system().append_child(entity, drop_entity);
-                } catch (std::runtime_error &error) {
-                    // The exception occurs when the parent of entity is set into itself.
-                    logger_->error(__FILE__, __LINE__) << error.what();
-                }
+                scene_registry.view<Selected>().each([&](const SceneEntity &selected_entity, Selected &) {
+                    try {
+                        scene_.hierarchy_system().append_child(entity, selected_entity);
+                    } catch (std::runtime_error &error) {
+                        // The exception occurs when the parent of entity is set into itself.
+                        logger_->error(__FILE__, __LINE__) << error.what();
+                    }
+                });
             }
 
             ImGui::EndDragDropTarget();
+        }
+        if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            // The left mouse button was released while hovering over the item
+
+            if (ImGui::GetIO().KeyCtrl && selected) {
+                scene_registry.remove_component<Selected>(entity);
+                selected = nullptr;
+            } else {
+                select(entity, ImGui::GetIO().KeyCtrl);
+            }
         }
     }
 
@@ -182,20 +184,16 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     }
 }
 
-void SceneHierarchyWindow::select(nodec_scene::SceneEntity entity) {
-    if (entity == selected_entity_) return;
-
+void SceneHierarchyWindow::select(nodec_scene::SceneEntity entity, bool additional) {
     using namespace nodec_scene_editor::components;
+    using namespace nodec::entities;
 
-    auto& scene_registry = scene_.registry();
+    auto &scene_registry = scene_.registry();
 
-    if (scene_registry.is_valid(selected_entity_)) {
-        scene_registry.remove_component<Selected>(selected_entity_);
+    if (!additional) {
+        auto view = scene_registry.view<Selected>();
+        scene_registry.remove_component<Selected>(view.begin(), view.end());
     }
-
-    selected_entity_ = entity;
-
-    if (scene_registry.is_valid(selected_entity_)) {
-        scene_registry.emplace_component<Selected>(selected_entity_);
-    }
+    if (!scene_registry.is_valid(entity)) return;
+    scene_registry.emplace_component<Selected>(entity);
 }

@@ -1,6 +1,11 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__WINDOW_HPP_
+#define NODEC_GAME_ENGINE__WINDOW_HPP_
 
-#include "Graphics/Graphics.hpp"
+#include <array>
+#include <cassert>
+#include <stdexcept>
+
+#include <Windows.h>
 
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
@@ -10,11 +15,8 @@
 #include <nodec/macros.hpp>
 #include <nodec/signals/signal.hpp>
 
-#include <Windows.h>
+#include "Graphics/Graphics.hpp"
 
-#include <array>
-#include <cassert>
-#include <stdexcept>
 
 class Window {
 public:
@@ -101,3 +103,5 @@ private:
 private:
     NODEC_DISABLE_COPY(Window)
 };
+
+#endif

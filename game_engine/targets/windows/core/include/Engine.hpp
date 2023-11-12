@@ -11,8 +11,8 @@
 #include "SceneAudio/SceneAudioSystem.hpp"
 #include "SceneSerialization/SceneSerializationBackend.hpp"
 #include "ScreenHandler.hpp"
-#include "Window.hpp"
 #include "physics/physics_system_backend.hpp"
+#include "window.hpp"
 
 #include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
