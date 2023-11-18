@@ -13,9 +13,10 @@
 
 #include <btBulletDynamicsCommon.h>
 
+#include "collision_object_backend.hpp"
 #include "rigid_body_motion_state.hpp"
 
-class RigidBodyBackend final {
+class RigidBodyBackend final : public CollisionObjectBackend {
 public:
     enum class BodyType {
         Static,
@@ -23,40 +24,16 @@ public:
         Kinematic,
     };
 
+public:
     RigidBodyBackend(nodec_scene::SceneEntity entity,
                      BodyType body_type,
                      float mass,
-                     const nodec_physics::components::PhysicsShape &shape,
+                     std::unique_ptr<btCollisionShape> collision_shape,
                      const nodec::Vector3f &start_position,
-                     const nodec::Quaternionf &start_rotation,
-                     const nodec::Vector3f &world_shape_scale)
-        : entity_(entity), body_type_(body_type) {
-        using namespace nodec_physics::components;
-
-        switch (shape.shape_type) {
-        case PhysicsShape::ShapeType::Box: {
-            // Make the unit box shape. Then set the size using SetLocalScaling().
-            collision_shape_.reset(new btBoxShape(btVector3(0.5f, 0.5f, 0.5f)));
-            const auto size = world_shape_scale * shape.size;
-            collision_shape_->setLocalScaling(btVector3(size.x, size.y, size.z));
-        } break;
-
-        case PhysicsShape::ShapeType::Sphere: {
-            collision_shape_.reset(new btSphereShape(1.f));
-            const auto radius = std::max({world_shape_scale.x, world_shape_scale.y, world_shape_scale.z}) * shape.radius;
-            collision_shape_->setLocalScaling(btVector3(radius, radius, radius));
-        } break;
-
-        case PhysicsShape::ShapeType::Capsule: {
-            const auto scale = std::max({world_shape_scale.x, world_shape_scale.y, world_shape_scale.z});
-            collision_shape_.reset(new btCapsuleShape(scale * shape.radius, scale * shape.height));
-        } break;
-
-        // Nothing to do here.
-        default: break;
-        }
-
-        if (body_type_ == BodyType::Static) {
+                     const nodec::Quaternionf &start_rotation)
+        : CollisionObjectBackend(this, entity),
+          body_type_(body_type), collision_shape_(std::move(collision_shape)) {
+        if (body_type == BodyType::Static) {
             mass = 0.f;
         }
 
@@ -73,13 +50,13 @@ public:
         motion_state_->setWorldTransform(start_trfm);
         native_.reset(new btRigidBody(btRigidBody::btRigidBodyConstructionInfo(mass, motion_state_.get(), collision_shape_.get(), local_inertia)));
 
-        native_->setUserPointer(this);
-
-        if (body_type_ == BodyType::Kinematic) {
+        if (body_type == BodyType::Kinematic) {
             native_->setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT);
             // KinematicRigidBody is always active. StaticRigidBody will never be active even if set as below.
             native_->setActivationState(DISABLE_DEACTIVATION);
         }
+
+        native_->setUserPointer(this);
     }
 
     ~RigidBodyBackend() {
@@ -88,19 +65,15 @@ public:
         }
     }
 
-    nodec_scene::SceneEntity entity() const noexcept {
-        return entity_;
-    }
-
     BodyType body_type() const noexcept {
         return body_type_;
     }
 
-    btRigidBody &native() {
+    btRigidBody &native() const {
         return *native_;
     }
 
-    const btRigidBody &native() const {
+    btCollisionObject& native_collision_object() const override {
         return *native_;
     }
 
@@ -142,7 +115,6 @@ public:
     }
 
 private:
-    nodec_scene::SceneEntity entity_;
     BodyType body_type_;
     std::unique_ptr<RigidBodyMotionState> motion_state_;
     std::unique_ptr<btCollisionShape> collision_shape_;

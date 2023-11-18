@@ -1,4 +1,4 @@
-#include <SceneSerialization/SceneSerializationBackend.hpp>
+#include <scene_serialization/scene_serialization_backend.hpp>
 
 #include <nodec_physics/serialization/components/physics_shape.hpp>
 #include <nodec_physics/serialization/components/rigid_body.hpp>
