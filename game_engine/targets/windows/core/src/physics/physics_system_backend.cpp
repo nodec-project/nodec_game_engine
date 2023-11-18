@@ -145,7 +145,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         });
 
     {
-        auto view = scene_registry.view<CollisionObjectActivity>(type_list<RigidBody, StaticRigidBody>{});
+        auto view = scene_registry.view<CollisionObjectActivity>(type_list<RigidBody, StaticRigidBody, TriggerBody>{});
         scene_registry.remove_components<CollisionObjectActivity>(view.begin(), view.end());
     }
 
