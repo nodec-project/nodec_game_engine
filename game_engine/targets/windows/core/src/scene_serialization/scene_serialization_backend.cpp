@@ -15,6 +15,7 @@
 #include <nodec_rendering/serialization/components/text_renderer.hpp>
 #include <nodec_scene/serialization/components/local_transform.hpp>
 #include <nodec_scene/serialization/components/name.hpp>
+#include <nodec_scene_audio/serialization/components/audio_listener.hpp>
 #include <nodec_scene_audio/serialization/components/audio_source.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
@@ -42,6 +43,7 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
     {
         using namespace nodec_scene_audio::components;
         serialization.register_component<AudioSource, SerializableAudioSource>();
+        serialization.register_component<AudioListener, SerializableAudioListener>();
     }
 
     {

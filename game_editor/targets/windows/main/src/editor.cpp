@@ -8,6 +8,7 @@
 #include "EditorConfig.hpp"
 
 #include "component_editors/audio_source_editor.hpp"
+#include "component_editors/audio_listener_editor.hpp"
 #include "component_editors/camera_editor.hpp"
 #include "component_editors/directional_light_editor.hpp"
 #include "component_editors/image_renderer_editor.hpp"
@@ -117,6 +118,7 @@ Editor::Editor(Engine *engine)
         using namespace nodec_physics::components;
 
         component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
+        component_registry().register_component<AudioListener, AudioListenerEditor>("Audio Listener", *editor_gui_);
         component_registry().register_component<Camera, CameraEditor>("Camera");
         component_registry().register_component<DirectionalLight, DirectionalLightEditor>("Directional Light");
         component_registry().register_component<ImageRenderer, ImageRendererEditor>("Image Renderer", *editor_gui_);
