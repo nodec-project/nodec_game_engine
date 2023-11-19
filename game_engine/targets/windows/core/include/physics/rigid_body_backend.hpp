@@ -33,7 +33,8 @@ public:
                      const nodec::Quaternionf &start_rotation)
         : CollisionObjectBackend(this, entity),
           body_type_(body_type), collision_shape_(std::move(collision_shape)) {
-        if (body_type == BodyType::Static) {
+        if (body_type == BodyType::Static || body_type == BodyType::Kinematic) {
+            // Must be zero for static and kinematic rigid bodies.
             mass = 0.f;
         }
 
