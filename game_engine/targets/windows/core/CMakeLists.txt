@@ -3,13 +3,13 @@ cmake_minimum_required(VERSION 3.10)
 project(nodec_game_engine_core LANGUAGES CXX)
 
 add_library(${PROJECT_NAME} STATIC
-    src/Engine.cpp
+    src/engine.cpp
     src/Graphics/DxgiInfoLogger.cpp
     src/Graphics/Graphics.cpp
     src/physics/physics_system_backend.cpp
     src/Rendering/SceneRenderer.cpp
     src/SceneAudio/SceneAudioSystem.cpp
-    src/SceneSerialization/SceneSerializationBackend.cpp
+    src/scene_serialization/scene_serialization_backend.cpp
     src/Window.cpp
     src/imgui_impl_dx11.cpp
     src/imgui_impl_win32.cpp

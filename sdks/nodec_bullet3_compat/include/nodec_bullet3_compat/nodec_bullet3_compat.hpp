@@ -26,4 +26,6 @@ inline btQuaternion to_bt_quaternion(const Quaternion<btScalar> &q) {
 
 } // namespace nodec
 
+
+
 #endif

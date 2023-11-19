@@ -1,6 +1,8 @@
 #ifndef SCENE_HIERARCHY_WINDOW_HPP_
 #define SCENE_HIERARCHY_WINDOW_HPP_
 
+#include <vector>
+
 #include <imgui.h>
 
 #include <imessentials/window.hpp>
@@ -24,14 +26,12 @@ public:
 private:
     void show_entity_node(const nodec_scene::SceneEntity entity);
 
-    void select(nodec_scene::SceneEntity entity);
+    void select(nodec_scene::SceneEntity entity, bool additional = false);
 
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;
     nodec_scene_serialization::SceneSerialization &serialization_;
     nodec_scene::Scene &scene_;
-
-    nodec_scene::SceneEntity selected_entity_{nodec::entities::null_entity};
     std::unique_ptr<nodec_scene_serialization::SerializableEntity> copied_entity_;
 };
 

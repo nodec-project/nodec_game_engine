@@ -7,7 +7,7 @@
 #include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
 
-#include "Window.hpp"
+#include "window.hpp"
 #include "logging.hpp"
 
 class WinDesktopApplication : public nodec_application::impl::ApplicationImpl {

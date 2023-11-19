@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__ENGINE_HPP_
+#define NODEC_GAME_ENGINE__ENGINE_HPP_
 
 #include "Audio/AudioPlatform.hpp"
 #include "Font/FontLibrary.hpp"
@@ -9,10 +10,10 @@
 #include "Resources/ResourceLoader.hpp"
 #include "Resources/ResourcesModuleBackend.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
-#include "SceneSerialization/SceneSerializationBackend.hpp"
+#include "scene_serialization/scene_serialization_backend.hpp"
 #include "ScreenHandler.hpp"
-#include "Window.hpp"
 #include "physics/physics_system_backend.hpp"
+#include "window.hpp"
 
 #include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
@@ -117,4 +118,6 @@ private:
 
 #if CEREAL_THREAD_SAFE != 1
 #    error The macro 'CEREAL_THREAD_SAFE' must be set to '1' for the whole project.
+#endif
+
 #endif

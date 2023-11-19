@@ -1,8 +1,14 @@
 #ifndef LOG_WINDOW_HPP_
 #define LOG_WINDOW_HPP_
 
-#include <imessentials/window.hpp>
+#include <iomanip>
+#include <mutex>
+#include <queue>
+#include <vector>
 
+#include <imgui.h>
+
+#include <imessentials/window.hpp>
 #include <nodec/formatter.hpp>
 #include <nodec/logging/formatters/simple_formatter.hpp>
 #include <nodec/logging/logging.hpp>
@@ -10,28 +16,24 @@
 #include <nodec/signals/signal.hpp>
 #include <nodec/vector2.hpp>
 
-#include <imgui.h>
-
-#include <mutex>
-#include <queue>
-#include <vector>
-
 class LogWindow final : public imessentials::BaseWindow {
     const int MAX_RECORDS = 100;
 
     struct RecordEntry {
-        RecordEntry(std::uint32_t id, const nodec::logging::LogRecord &record)
-            : id(id), level(record.level),
-              formatted_text(nodec::logging::formatters::SimpleFormatter{}(record)) {}
+        RecordEntry(std::uint32_t id, nodec::logging::Level level, std::string &&formatted_text)
+            : id(id), level(level), formatted_text(std::move(formatted_text)) {
+        }
 
+        std::uint32_t id;
         nodec::logging::Level level;
         std::string formatted_text;
-        std::uint32_t id;
     };
 
 public:
     LogWindow()
-        : BaseWindow("Log", nodec::Vector2f(500, 400)), auto_scroll_(true){};
+        : BaseWindow("Log", nodec::Vector2f(500, 400)),
+          start_time_(std::chrono::system_clock::now()),
+          auto_scroll_(true){};
 
     void on_gui() override {
         using namespace nodec;
@@ -128,22 +130,29 @@ public:
     }
 
 private:
+    const std::chrono::system_clock::time_point start_time_;
+    std::mutex pending_records_mutex_;
+    std::vector<RecordEntry> pending_records_;
+
     nodec::logging::HandlerConnection logging_handler_conn_ = nodec::logging::get_logger()->add_handler(
         [&](const nodec::logging::LogRecord &record) {
             // This section may be called in another thread.
             using namespace nodec::logging;
             using namespace nodec::signals;
+            using namespace nodec;
+            using namespace std::chrono;
 
             ScopedBlock<HandlerConnection> scoped_block{logging_handler_conn_};
 
             {
                 std::lock_guard<std::mutex> lock(pending_records_mutex_);
-                pending_records_.push_back({next_id_++, record});
+                pending_records_.push_back({next_id_++, record.level,
+                                            Formatter() << std::left << std::setw(4)
+                                                        << duration_cast<milliseconds>(record.time - start_time_).count() << " "
+                                                        << formatters::SimpleFormatter()(record)});
             }
         });
 
-    std::vector<RecordEntry> pending_records_;
-    std::mutex pending_records_mutex_;
     std::deque<RecordEntry> record_entries_;
     std::uint32_t next_id_{0};
     std::uint32_t selected_id_{0xFFFFFFFF};
