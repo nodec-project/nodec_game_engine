@@ -3,8 +3,8 @@
 
 #include <memory>
 
-#include <btBulletDynamicsCommon.h>
 #include <BulletCollision/CollisionDispatch/btGhostObject.h>
+#include <btBulletDynamicsCommon.h>
 
 #include "collision_object_backend.hpp"
 
@@ -24,6 +24,9 @@ public:
         native_.reset(new btGhostObject());
         native_->setCollisionShape(collision_shape_.get());
         native_->setWorldTransform(start_trfm);
+        native_->setCollisionFlags(native_->getCollisionFlags()
+                                   | btCollisionObject::CF_NO_CONTACT_RESPONSE);
+        native_->setUserPointer(this);
     }
 
     ~GhostObjectBackend() override {
@@ -49,6 +52,26 @@ public:
         assert(world_ == &world);
         world_->removeCollisionObject(native_.get());
         world_ = nullptr;
+    }
+
+    void update_transform_if_different(const nodec::Vector3f &position, const nodec::Quaternionf &rotation) {
+        using namespace nodec;
+
+        auto rb_trfm = native_->getWorldTransform();
+
+        auto rb_position = to_vector3(rb_trfm.getOrigin());
+        auto rb_rotation = to_quaternion(rb_trfm.getRotation());
+
+        if (math::approx_equal(position, rb_position)
+            && math::approx_equal_rotation(rotation, rb_rotation, math::default_rel_tol<float>, 0.001f)) {
+            return;
+        }
+
+        btTransform rb_trfm_updated;
+        rb_trfm_updated.setIdentity();
+        rb_trfm_updated.setOrigin(to_bt_vector3(position));
+        rb_trfm_updated.setRotation(to_bt_quaternion(rotation));
+        native_->setWorldTransform(rb_trfm_updated);
     }
 
 private:

@@ -1,5 +1,6 @@
 #include <physics/physics_system_backend.hpp>
 
+#include <nodec/logging/logging.hpp>
 #include <nodec/math/gfx.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
@@ -70,6 +71,17 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             math::gfx::TRSComponents world_trs;
             math::gfx::decompose_trs(local_to_world.value, world_trs);
             rigid_body_backend->update_transform_if_different(world_trs.translation, world_trs.rotation);
+        });
+
+    scene_registry.view<TriggerBody, CollisionObjectActivity, LocalToWorld>().each(
+        [&](SceneEntity entity, TriggerBody &, CollisionObjectActivity &activity, LocalToWorld &local_to_world) {
+            auto ghost_body_backend = collision_object_cast<GhostObjectBackend>(activity.collision_object_backend.get());
+            assert(ghost_body_backend);
+            using namespace nodec;
+
+            math::gfx::TRSComponents world_trs;
+            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            ghost_body_backend->update_transform_if_different(world_trs.translation, world_trs.rotation);
         });
 
     scene_registry.view<TriggerBody, PhysicsShape, LocalToWorld>(type_list<CollisionObjectActivity>{})
@@ -229,7 +241,9 @@ nodec::optional<nodec_physics::RayCastHit> PhysicsSystemBackend::ray_cast(const 
 
     if (ray_callback.hasHit()) {
         RayCastHit hit{};
-        // TODO: get the entity from the rigid body.
+        auto collision_object = static_cast<CollisionObjectBackend *>(ray_callback.m_collisionObject->getUserPointer());
+        assert(collision_object);
+        hit.entity = collision_object->entity();
         hit.point = to_vector3(ray_callback.m_hitPointWorld);
         hit.normal = to_vector3(ray_callback.m_hitNormalWorld);
         return hit;
@@ -262,8 +276,11 @@ void PhysicsSystemBackend::contact_test(nodec_scene::SceneEntity entity, std::fu
 
             CollisionInfo collision_info{};
 
-            auto *body0 = static_cast<const RigidBodyBackend *>(col_obj0_wrap->getCollisionObject()->getUserPointer());
-            auto *body1 = static_cast<const RigidBodyBackend *>(col_obj1_wrap->getCollisionObject()->getUserPointer());
+            auto *body0 = static_cast<const CollisionObjectBackend *>(col_obj0_wrap->getCollisionObject()->getUserPointer());
+            auto *body1 = static_cast<const CollisionObjectBackend *>(col_obj1_wrap->getCollisionObject()->getUserPointer());
+
+            assert(body0 && body1
+                   && "Collision object is not registered. Make sure that the collision object is registered in constructor by setUserPointer().");
 
             collision_info.self = body0->entity();
             collision_info.other = body1->entity();
