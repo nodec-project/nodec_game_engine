@@ -4,6 +4,7 @@
 
 #include <nodec_screen/impl/screen_module.hpp>
 
+#include <nodec/logging/logging.hpp>
 #include <nodec/macros.hpp>
 #include <nodec/signals/signal.hpp>
 
@@ -52,13 +53,13 @@ public:
                     mpWindow->SetTitle(title);
                     screen.internal_title = title;
                 } catch (const std::exception &e) {
-                    nodec::logging::ErrorStream(__FILE__, __LINE__)
+                    nodec::logging::error(__FILE__, __LINE__)
                         << "[ScreenHandlers] >>> Exception has been occurred while Window::SetTitle().\n"
-                        << "detail: " << e.what() << std::flush;
+                        << "detail: " << e.what();
                 } catch (...) {
-                    nodec::logging::ErrorStream(__FILE__, __LINE__)
+                    nodec::logging::error(__FILE__, __LINE__)
                         << "[ScreenHandlers] >>> Unknown Exception has been occurred while Window::SetTitle().\n"
-                        << "detail: Unavailable." << std::flush;
+                        << "detail: Unavailable.";
                 }
             });
     }

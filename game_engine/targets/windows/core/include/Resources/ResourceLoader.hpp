@@ -1,32 +1,30 @@
 #pragma once
 
-#include <Graphics/Graphics.hpp>
-#include <Rendering/ImageTexture.hpp>
-#include <Rendering/MaterialBackend.hpp>
-#include <Rendering/MeshBackend.hpp>
-#include <Rendering/ShaderBackend.hpp>
-#include <Rendering/TextureBackend.hpp>
-
-#include <SceneAudio/AudioClipBackend.hpp>
-
-#include <Font/FontBackend.hpp>
-#include <Font/FontLibrary.hpp>
-
-#include <nodec_scene_serialization/archive_context.hpp>
-#include <nodec_scene_serialization/serializable_entity.hpp>
-#include <nodec_serialization/nodec_rendering/resources/material.hpp>
-#include <nodec_serialization/nodec_rendering/resources/mesh.hpp>
-#include <nodec_serialization/nodec_rendering/resources/shader.hpp>
+#include <fstream>
 
 #include <nodec/concurrent/thread_pool_executor.hpp>
+#include <nodec/logging/logging.hpp>
 #include <nodec/resource_management/resource_registry.hpp>
+#include <nodec_rendering/serialization/resources/material.hpp>
+#include <nodec_rendering/serialization/resources/mesh.hpp>
+#include <nodec_rendering/serialization/resources/shader.hpp>
+#include <nodec_scene_serialization/archive_context.hpp>
+#include <nodec_scene_serialization/serializable_entity.hpp>
 
 #include <cereal/archives/adapters.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/archives/portable_binary.hpp>
 #include <cereal/cereal.hpp>
 
-#include <fstream>
+#include <Font/FontBackend.hpp>
+#include <Font/FontLibrary.hpp>
+#include <Graphics/Graphics.hpp>
+#include <Rendering/ImageTexture.hpp>
+#include <Rendering/MaterialBackend.hpp>
+#include <Rendering/MeshBackend.hpp>
+#include <Rendering/ShaderBackend.hpp>
+#include <Rendering/TextureBackend.hpp>
+#include <SceneAudio/AudioClipBackend.hpp>
 
 class ResourceLoader {
     using ResourceRegistry = nodec::resource_management::ResourceRegistry;
@@ -37,7 +35,7 @@ class ResourceLoader {
     template<typename T>
     using ResourcePtr = std::shared_ptr<T>;
 
-    static void HandleException(const std::string &identifier) {
+    void HandleException(const std::string &identifier) const {
         using namespace nodec;
 
         std::string details;
@@ -50,7 +48,7 @@ class ResourceLoader {
             details = "Unknown";
         }
 
-        logging::WarnStream(__FILE__, __LINE__)
+        logger_->warn(__FILE__, __LINE__)
             << "Failed to make resource (" << identifier << ")\n"
             << "details: \n"
             << details;
@@ -58,7 +56,8 @@ class ResourceLoader {
 
 public:
     ResourceLoader(Graphics *pGraphics, ResourceRegistry *pRegistry, FontLibrary *pFontLibrary)
-        : mpGraphics{pGraphics}, mpRegistry{pRegistry}, mpFontLibrary{pFontLibrary} {
+        : logger_(nodec::logging::get_logger("engine.resources.resource-loader")),
+          mpGraphics{pGraphics}, mpRegistry{pRegistry}, mpFontLibrary{pFontLibrary} {
     }
 
     // For resource registry
@@ -77,7 +76,7 @@ public:
                 // <https://github.com/microsoft/DirectXTex/issues/163>
                 HRESULT hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
                 if (FAILED(hr)) {
-                    logging::WarnStream(__FILE__, __LINE__) << "CoInitializeEx failed.";
+                    logger_->warn(__FILE__, __LINE__) << "CoInitializeEx failed.";
                 }
 
                 std::shared_ptr<Resource> resource = LoadBackend<ResourceBackend>(path);
@@ -99,7 +98,7 @@ public:
         std::ifstream file(path, std::ios::binary);
 
         if (!file) {
-            logging::WarnStream(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
+            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
             // return empty mesh.
             return {};
         }
@@ -141,7 +140,7 @@ public:
         std::ifstream file(Formatter() << path << "/shader.meta", std::ios::binary);
 
         if (!file) {
-            logging::WarnStream(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
+            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
             // return empty mesh.
             return {};
         }
@@ -190,7 +189,7 @@ public:
         std::ifstream file(path, std::ios::binary);
 
         if (!file) {
-            logging::WarnStream(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
+            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
             // return empty mesh.
             return {};
         }
@@ -240,7 +239,7 @@ public:
         std::ifstream file(path, std::ios::binary);
 
         if (!file) {
-            logging::WarnStream(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
+            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
             // return empty mesh.
             return {};
         }
@@ -291,6 +290,7 @@ public:
     }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
     nodec::concurrent::ThreadPoolExecutor mExecutor;
     Graphics *mpGraphics;
     ResourceRegistry *mpRegistry;

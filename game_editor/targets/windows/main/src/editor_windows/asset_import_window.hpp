@@ -1,18 +1,17 @@
 #ifndef ASSET_IMPORT_WINDOW_HPP_
 #define ASSET_IMPORT_WINDOW_HPP_
 
-#include "../ResourceExporter.hpp"
+#include <cassert>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <imessentials/window.hpp>
 #include <imgui.h>
-
 #include <nodec/formatter.hpp>
-#include <nodec/logging.hpp>
+#include <nodec/logging/logging.hpp>
 
-#include <cassert>
+#include "../ResourceExporter.hpp"
 
 class AssetImportWindow final : public imessentials::BaseWindow {
     using ResourceRegistry = nodec::resource_management::ResourceRegistry;
@@ -22,6 +21,7 @@ public:
                       nodec_scene::Scene *dest_scene,
                       ResourceRegistry *resource_registry)
         : BaseWindow("Asset Importer", nodec::Vector2f(600, 280)),
+          logger_(nodec::logging::get_logger("editor.asset-import-window")),
           resource_path_(resource_path),
           dest_scene_(dest_scene),
           resource_registry_(resource_registry) {
@@ -41,9 +41,9 @@ public:
                 aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_MakeLeftHanded | aiProcess_FlipUVs | aiProcess_FlipWindingOrder);
 
             if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
-                logging::ErrorStream(__FILE__, __LINE__) << "Import failed!\n"
-                                                            "details: "
-                                                         << importer.GetErrorString();
+                logger_->error(__FILE__, __LINE__) << "Import failed!\n"
+                                                      "details: "
+                                                   << importer.GetErrorString();
 
                 last_import_failed = true;
             } else {
@@ -238,11 +238,12 @@ private:
     static void set_str_buffer(char *buffer, const size_t buffer_size, const std::string &source) {
         source.copy(buffer, buffer_size - 1);
 
-        auto null_pos = std::min(source.size(), buffer_size - 1);
+        auto null_pos = (std::min)(source.size(), buffer_size - 1);
         buffer[null_pos] = '\0';
     }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
     std::string resource_path_;
     ResourceRegistry *resource_registry_;
     nodec_scene::Scene *dest_scene_;

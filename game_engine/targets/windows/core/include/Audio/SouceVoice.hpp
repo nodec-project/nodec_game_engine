@@ -1,11 +1,13 @@
 #pragma once
 
-#include "AudioPlatform.hpp"
-#include <Exceptions.hpp>
-
 #include <atomic>
 #include <chrono>
 #include <thread>
+
+#include <nodec/logging/logging.hpp>
+
+#include "../Exceptions.hpp"
+#include "AudioPlatform.hpp"
 
 class SourceVoice : private IXAudio2VoiceCallback {
 public:
@@ -21,10 +23,10 @@ public:
 
 public:
     SourceVoice(AudioPlatform *pAudioPlatform, const WAVEFORMATEX &wfx)
-        : mWfx{wfx} {
+        : logger_(nodec::logging::get_logger("engine.audio.source-voice")), mWfx{wfx} {
         using namespace Exceptions;
 
-        nodec::logging::InfoStream(__FILE__, __LINE__) << std::this_thread::get_id();
+        logger_->info(__FILE__, __LINE__) << std::this_thread::get_id();
 
         mX3DAudioHandle = &pAudioPlatform->x3daudio_handle();
 
@@ -93,7 +95,7 @@ public:
 private:
     void OnBufferStart(void *) override {
         using namespace nodec;
-        logging::InfoStream(__FILE__, __LINE__) << "[OnBufferStart]" << std::this_thread::get_id();
+        logger_->info(__FILE__, __LINE__) << "[OnBufferStart]" << std::this_thread::get_id();
         mBufferStartTime = clock::now();
         mLoopCount = 1;
         mBufferState = BufferState::BufferStart;
@@ -101,7 +103,7 @@ private:
 
     void OnBufferEnd(void *) override {
         using namespace nodec;
-        logging::InfoStream(__FILE__, __LINE__) << "[OnBufferEnd]" << std::this_thread::get_id();
+        logger_->info(__FILE__, __LINE__) << "[OnBufferEnd]" << std::this_thread::get_id();
         mBufferState = BufferState::BufferEnd;
     }
 
@@ -109,29 +111,30 @@ private:
         using namespace nodec;
         mBufferStartTime = clock::now();
         ++mLoopCount;
-        logging::InfoStream(__FILE__, __LINE__) << "[OnLoopEnd]" << std::this_thread::get_id();
+        logger_->info(__FILE__, __LINE__) << "[OnLoopEnd]" << std::this_thread::get_id();
     }
 
     void OnStreamEnd() override {
         using namespace nodec;
-        logging::InfoStream(__FILE__, __LINE__) << "[OnStreamEnd]" << std::this_thread::get_id();
+        logger_->info(__FILE__, __LINE__) << "[OnStreamEnd]" << std::this_thread::get_id();
     }
 
     void OnVoiceError(void *, HRESULT) override {
         using namespace nodec;
-        logging::InfoStream(__FILE__, __LINE__) << "[OnStreamEnd]" << std::this_thread::get_id();
+        logger_->info(__FILE__, __LINE__) << "[OnStreamEnd]" << std::this_thread::get_id();
     }
 
     void OnVoiceProcessingPassStart(UINT32) override {
         using namespace nodec;
-        // logging::InfoStream(__FILE__, __LINE__) << "[OnVoiceProcessingPassStart]" << std::this_thread::get_id();
+        // logger_->info(__FILE__, __LINE__) << "[OnVoiceProcessingPassStart]" << std::this_thread::get_id();
     }
     void OnVoiceProcessingPassEnd() override {
         using namespace nodec;
-        // logging::InfoStream(__FILE__, __LINE__) << "[OnVoiceProcessingPassEnd]" << std::this_thread::get_id();
+        // logger_->info(__FILE__, __LINE__) << "[OnVoiceProcessingPassEnd]" << std::this_thread::get_id();
     }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
     IXAudio2SourceVoice *mpSourceVoice{nullptr};
     X3DAUDIO_HANDLE *mX3DAudioHandle;
 

@@ -1,0 +1,9 @@
+{
+  "material": {
+    "shader": "org.nodec.game-editor/shaders/gizmo-wire",
+    "cull_mode": 0,
+    "float_properties": [],
+    "vector4_properties": [],
+    "texture_properties": []
+  }
+}

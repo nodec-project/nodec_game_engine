@@ -1,43 +1,36 @@
-#pragma once
-
-#include "Graphics.hpp"
-
-#include <nodec/unicode.hpp>
+#ifndef NODEC_GAME_ENGINE__GRAPHICS__PIXEL_SHADER_HPP_
+#define NODEC_GAME_ENGINE__GRAPHICS__PIXEL_SHADER_HPP_
 
 #include <d3dcompiler.h>
 
+#include <nodec/unicode.hpp>
+
+#include "Graphics.hpp"
 
 class PixelShader {
 public:
-    PixelShader(Graphics* pGraphics, const std::string& path) {
-        Microsoft::WRL::ComPtr<ID3DBlob> pBlob;
+    PixelShader(Graphics &gfx, const std::string &path)
+        : gfx_(gfx) {
+        Microsoft::WRL::ComPtr<ID3DBlob> blob;
 
         ThrowIfFailedGfx(
-            D3DReadFileToBlob(nodec::unicode::utf8to16<std::wstring>(path).c_str(), &pBlob),
-            pGraphics, __FILE__, __LINE__
-        );
+            D3DReadFileToBlob(nodec::unicode::utf8to16<std::wstring>(path).c_str(), &blob),
+            &gfx, __FILE__, __LINE__);
 
         ThrowIfFailedGfx(
-            pGraphics->device().CreatePixelShader(
-                pBlob->GetBufferPointer(), pBlob->GetBufferSize(),
-                nullptr, &mpPixelShader
-            ),
-            pGraphics, __FILE__, __LINE__
-        );
+            gfx.device().CreatePixelShader(
+                blob->GetBufferPointer(), blob->GetBufferSize(),
+                nullptr, &pixel_shader_),
+            &gfx, __FILE__, __LINE__);
     }
 
-    void Bind(Graphics* pGraphics) {
-        pGraphics->context().PSSetShader(mpPixelShader.Get(), nullptr, 0u);
-
-        // NOTE: The following code is too heavy to run for each model.
-        // const auto logs = pGraphics->info_logger().Dump();
-        // if (!logs.empty()) {
-        //     nodec::logging::WarnStream(__FILE__, __LINE__)
-        //         << "[PixelShader::Bind] >>> DXGI Logs:"
-        //         << logs;
-        // }
+    void bind() {
+        gfx_.context().PSSetShader(pixel_shader_.Get(), nullptr, 0u);
     }
 
 private:
-    Microsoft::WRL::ComPtr<ID3D11PixelShader> mpPixelShader;
+    Graphics &gfx_;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel_shader_;
 };
+
+#endif

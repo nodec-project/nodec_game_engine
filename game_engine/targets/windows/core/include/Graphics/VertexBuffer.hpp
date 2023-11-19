@@ -1,15 +1,15 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__GRAPHICS__VERTEX_BUFFER_HPP_
+#define NODEC_GAME_ENGINE__GRAPHICS__VERTEX_BUFFER_HPP_
 
 #include "Graphics.hpp"
 
 /**
-* vertices in device memory
-*/
+ * vertices in device memory
+ */
 class VertexBuffer {
 public:
-    VertexBuffer(Graphics* pGraphics, UINT sizeBytes, UINT strideBytes, const void* pSysMem)
-        : mSizeBytes(sizeBytes)
-        , mStrideBytes(strideBytes) {
+    VertexBuffer(Graphics *pGraphics, UINT sizeBytes, UINT strideBytes, const void *pSysMem)
+        : mSizeBytes(sizeBytes), mStrideBytes(strideBytes) {
         D3D11_BUFFER_DESC bd = {};
         bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         bd.Usage = D3D11_USAGE_DEFAULT;
@@ -24,7 +24,7 @@ public:
             pGraphics, __FILE__, __LINE__);
     }
 
-    void Bind(Graphics* pGraphics) {
+    void Bind(Graphics *pGraphics) {
         const UINT offset = 0u;
 
         pGraphics->context().IASetVertexBuffers(0u, 1u, pVertexBuffer.GetAddressOf(), &mStrideBytes, &offset);
@@ -46,3 +46,5 @@ private:
 private:
     NODEC_DISABLE_COPY(VertexBuffer)
 };
+
+#endif

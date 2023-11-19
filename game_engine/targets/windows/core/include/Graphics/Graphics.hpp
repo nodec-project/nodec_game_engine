@@ -4,6 +4,7 @@
 
 #include <nodec/formatter.hpp>
 #include <nodec/macros.hpp>
+#include <nodec/logging/logging.hpp>
 
 // Prevent to define min/max macro in windows api.
 #define NOMINMAX
@@ -54,6 +55,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
     //Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDSV;
+    std::shared_ptr<nodec::logging::Logger> logger_;
 
 private:
     NODEC_DISABLE_COPY(Graphics)

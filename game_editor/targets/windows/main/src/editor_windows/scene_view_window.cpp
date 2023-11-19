@@ -1,14 +1,18 @@
 #include "scene_view_window.hpp"
 
+#include <imgui_internal.h>
+
 #include <nodec/math/gfx.hpp>
+#include <nodec_scene_editor/components/selected.hpp>
 
 #include <DirectXMath.h>
 
-SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer,
-                                 nodec_scene::SceneEntity init_selected_entity,
-                                 nodec::signals::SignalInterface<void(nodec_scene::SceneEntity)> selected_change_signal)
+SceneViewWindow::SceneViewWindow(
+    Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer, nodec_resources::Resources &resources,
+    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry)
     : BaseWindow("Scene View##EditorWindows", nodec::Vector2f(VIEW_WIDTH, VIEW_HEIGHT)),
-      scene_(&scene), renderer_(&renderer), selected_entity_(init_selected_entity) {
+      scene_gizmo_(scene_gizmo), component_registry_(component_registry), resources_(resources),
+      scene_(scene), renderer_(renderer) {
     // Generate the render target textures.
     D3D11_TEXTURE2D_DESC texture_desc{};
     texture_desc.Width = VIEW_WIDTH;
@@ -48,16 +52,14 @@ SceneViewWindow::SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, Scene
     }
 
     rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, &gfx));
-    scene_ = &scene;
-    renderer_ = &renderer;
-
-    selected_entity_changed_conn_ = selected_change_signal.connect([&](auto entity) { selected_entity_ = entity; });
+    scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
 }
 
 void SceneViewWindow::on_gui() {
     using namespace nodec;
     using namespace DirectX;
     using namespace nodec_scene::components;
+    using namespace nodec_scene;
 
     if (ImGui::RadioButton("Translate", gizmo_operation_ == ImGuizmo::TRANSLATE)) {
         gizmo_operation_ = ImGuizmo::TRANSLATE;
@@ -81,113 +83,122 @@ void SceneViewWindow::on_gui() {
     if (ImGui::RadioButton("World", gizmo_mode_ == ImGuizmo::WORLD)) {
         gizmo_mode_ = ImGuizmo::WORLD;
     }
-
-    // ImGui::BeginChildFrame(100, ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
     ImGui::BeginChild("SceneRender", ImVec2(VIEW_WIDTH, VIEW_HEIGHT), false, ImGuiWindowFlags_NoMove);
-
-    // const float window_width = (float)ImGui::GetWindowWidth();
-    // const float window_height = (float)ImGui::GetWindowHeight();
-
-    // const float view_manipulate_right = ImGui::GetWindowPos().x + window_width;
-    // const float view_manipulate_top = ImGui::GetWindowPos().y;
-
-    const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
-
     {
-        XMFLOAT4X4 matrix;
-        XMStoreFloat4x4(&matrix, XMMatrixPerspectiveFovLH(
-                                     XMConvertToRadians(45),
-                                     view_aspect,
-                                     0.01f, 10000.0f));
+        const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
 
-        projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
-    }
+        {
+            XMFLOAT4X4 matrix;
+            XMStoreFloat4x4(&matrix, XMMatrixPerspectiveFovLH(
+                                         XMConvertToRadians(45),
+                                         view_aspect,
+                                         0.01f, 10000.0f));
 
-    if (ImGui::IsWindowHovered()) {
+            projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
+        }
+
         auto &io = ImGui::GetIO();
-        Vector3f position;
-        Vector3f scale;
-        Quaternionf rotation;
-
         auto view_inverse_ = math::inv(view_);
+        math::gfx::TRSComponents camera_trs;
+        math::gfx::decompose_trs(view_inverse_, camera_trs);
 
-        math::gfx::decompose_trs(view_inverse_, position, rotation, scale);
+        const auto forward = math::gfx::rotate(Vector3f(0.f, 0.f, 1.f), camera_trs.rotation);
+        const auto right = math::gfx::rotate(Vector3f(1.f, 0.f, 0.f), camera_trs.rotation);
+        const auto up = math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), camera_trs.rotation);
 
-        const auto forward = math::gfx::rotate(Vector3f(0.f, 0.f, 1.f), rotation);
-        const auto right = math::gfx::rotate(Vector3f(1.f, 0.f, 0.f), rotation);
-        const auto up = math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), rotation);
-
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-            constexpr float SCALE_FACTOR = 0.02f;
-            const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
-
-            // The mouse moving right, the camera moving left.
-            position -= right * delta.x * SCALE_FACTOR;
-            position += up * delta.y * SCALE_FACTOR;
-
-            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
+            scene_view_dragging_ = true;
         }
 
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
-            constexpr float SCALE_FACTOR = 0.2f;
-            const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
-
-            // Apply rotation around the local right vector after current rotation.
-            rotation = math::gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * rotation;
-
-            // And apply rotation around the world up vector.
-            rotation = math::gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * rotation;
-
-            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle) && ImGui::IsWindowHovered()) {
+            scene_view_dragging_ = true;
         }
 
-        position += forward * io.MouseWheel;
+        if (scene_view_dragging_) {
+            {
+                // XXX: This code prevent other items captures the mouse event while dragging.
+                // But, I dont understand why this code works:)
+                auto *window = ImGui::GetCurrentWindow();
+                ImGui::SetActiveID(ImGui::GetID("SceneViewDragging"), window);
+            }
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+                constexpr float SCALE_FACTOR = 0.2f;
+                const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
 
-        view_inverse_ = math::gfx::trs(position, rotation, scale);
-        view_ = math::inv(view_inverse_);
+                // Apply rotation around the local right vector after current rotation.
+                camera_trs.rotation = math::gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
+
+                // And apply rotation around the world up vector.
+                camera_trs.rotation = math::gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
+
+                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
+            }
+
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+                constexpr float SCALE_FACTOR = 0.02f;
+                const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+
+                // The mouse moving right, the camera moving left.
+                camera_trs.translation -= right * delta.x * SCALE_FACTOR;
+                camera_trs.translation += up * delta.y * SCALE_FACTOR;
+
+                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+            }
+
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+                scene_view_dragging_ = false;
+            }
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
+                scene_view_dragging_ = false;
+            }
+        }
+
+        if (ImGui::IsWindowHovered()) {
+            camera_trs.translation += forward * io.MouseWheel;
+        }
+
+        {
+            view_inverse_ = math::gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
+            view_ = math::inv(view_inverse_);
+
+            renderer_.Render(scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
+        }
+
+        {
+            using namespace nodec_scene_editor;
+            SceneGuiContext context{scene_.registry()};
+            for (auto &pair : component_registry_) {
+                pair.second->editor().on_scene_gui(scene_gizmo_, context);
+            }
+            scene_gizmo_renderer_->render(scene_, view_, projection_, *render_target_view_.Get(), *rendering_context_);
+            scene_gizmo_renderer_->clear_gizmos(scene_);
+        }
+
+        ImGui::Image((void *)shader_resource_view_.Get(), ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
+
+        ImGuizmo::SetDrawlist();
+        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, VIEW_WIDTH, VIEW_HEIGHT);
+
+        // ImGuizmo::DrawGrid(view_.m, projection_.m, Matrix4x4f::identity.m, 100.f);
+        // ImGuizmo::ViewManipulate(view_.m, 0.8f, ImVec2(view_manipulate_right - 128, view_manipulate_top), ImVec2(128, 128), 0x10101010);
+
+        // Edit transformation.
+        [&]() {
+            SceneEntity selected_entity{nodec::entities::null_entity};
+
+            {
+                auto view = scene_.registry().view<nodec_scene_editor::components::Selected>();
+                if (view.begin() == view.end()) return;
+                selected_entity = *view.begin();
+            }
+
+            auto *local_to_world = scene_.registry().try_get_component<LocalToWorld>(selected_entity);
+            if (!local_to_world) return;
+
+            if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, local_to_world->value.m)) {
+                local_to_world->dirty = true;
+            }
+        }();
     }
-
-    // logging::InfoStream(__FILE__, __LINE__) << io.MouseWheel;
-
-    renderer_->Render(*scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
-
-    ImGui::Image((void *)shader_resource_view_.Get(), ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
-
-    ImGuizmo::SetDrawlist();
-
-    ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, VIEW_WIDTH, VIEW_HEIGHT);
-
-    // ImGuizmo::DrawGrid(view_.m, projection_.m, Matrix4x4f::identity.m, 100.f);
-    // ImGuizmo::ViewManipulate(view_.m, 0.8f, ImVec2(view_manipulate_right - 128, view_manipulate_top), ImVec2(128, 128), 0x10101010);
-
-    // Edit transformation.
-    [&]() {
-        if (!scene_->registry().is_valid(selected_entity_)) return;
-
-        auto *local_to_world = scene_->registry().try_get_component<LocalToWorld>(selected_entity_);
-        if (!local_to_world) return;
-
-        //auto model_matrix = local_to_world->value;
-        Matrix4x4f delta_matrix;
-
-        if (ImGuizmo::Manipulate(view_.m, projection_.m, gizmo_operation_, gizmo_mode_, local_to_world->value.m, delta_matrix.m)) {
-            local_to_world->dirty = true;
-
-            //Vector3f delta_translation;
-            //Vector3f delta_scale;
-            //Quaternionf delta_rotation;
-            //math::gfx::decompose_trs(delta_matrix, delta_translation, delta_rotation, delta_scale);
-
-            //// I dont know why translation is not zero even if in rotate mode.
-            //if (gizmo_operation_ == ImGuizmo::ROTATE) delta_translation =  Vector3f::zero;
-
-            //trfm->position += delta_translation;
-            //trfm->rotation = delta_rotation * trfm->rotation;
-            //trfm->scale *= delta_scale;
-
-            //trfm->dirty = true;
-        }
-    }();
-
     ImGui::EndChild();
 }

@@ -1,42 +1,33 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__GRAPHICS__INPUT_LAYOUT_HPP_
+#define NODEC_GAME_ENGINE__GRAPHICS__INPUT_LAYOUT_HPP_
 
 #include "Graphics.hpp"
 
-class InputLayout
-{
+class InputLayout {
 public:
-    InputLayout(
-        Graphics* pGraphics,
-        const D3D11_INPUT_ELEMENT_DESC* pInputElementDescs,
-        UINT numElements,
-        const void* pShaderBytecode,
-        SIZE_T bytecodeLength) {
-
+    InputLayout(Graphics &gfx,
+                const D3D11_INPUT_ELEMENT_DESC *input_element_descs,
+                UINT num_of_elements,
+                const void *shader_bytecode,
+                SIZE_T shader_bytecode_size)
+        : gfx_(gfx) {
         ThrowIfFailedGfx(
-            pGraphics->device().CreateInputLayout(
-                pInputElementDescs,
-                numElements,
-                pShaderBytecode,
-                bytecodeLength,
-                &mpInputLayout
-            ),
-            pGraphics, __FILE__, __LINE__
-        );
-
+            gfx.device().CreateInputLayout(
+                input_element_descs,
+                num_of_elements,
+                shader_bytecode,
+                shader_bytecode_size,
+                &input_layout_),
+            &gfx, __FILE__, __LINE__);
     }
 
-    void Bind(Graphics* pGraphics) {
-        pGraphics->context().IASetInputLayout(mpInputLayout.Get());
-
-        // NOTE: The following code is too heavy to run for each model.
-        // const auto logs = pGraphics->info_logger().Dump();
-        // if (!logs.empty()) {
-        //     nodec::logging::WarnStream(__FILE__, __LINE__)
-        //         << "[InputLayout::Bind] >>> DXGI Logs:"
-        //         << logs;
-        // }
+    void bind() {
+        gfx_.context().IASetInputLayout(input_layout_.Get());
     }
 
 private:
-    Microsoft::WRL::ComPtr<ID3D11InputLayout> mpInputLayout;
+    Graphics &gfx_;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> input_layout_;
 };
+
+#endif

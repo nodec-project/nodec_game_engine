@@ -6,7 +6,7 @@
 #include <x3daudio.h>
 #include <xaudio2.h>
 
-#include <nodec/logging.hpp>
+#include <nodec/logging/logging.hpp>
 
 #pragma comment(lib, "xaudio2.lib")
 
@@ -28,7 +28,8 @@ inline bool operator!=(const WAVEFORMATEX &left, const WAVEFORMATEX &right) {
 
 class AudioPlatform {
 public:
-    AudioPlatform() {
+    AudioPlatform()
+        : logger_(nodec::logging::get_logger("engine.audio-platform")) {
         using namespace Exceptions;
 
         ThrowIfFailed(XAudio2Create(&xaudio2_), __FILE__, __LINE__);
@@ -55,7 +56,7 @@ public:
     }
 
     ~AudioPlatform() {
-        nodec::logging::InfoStream(__FILE__, __LINE__) << "[AudioPlatform] >>> Destructed.";
+        logger_->info(__FILE__, __LINE__) << "Destructed.";
     }
 
     IXAudio2 &xaudio() noexcept {
@@ -67,9 +68,10 @@ public:
 
     IXAudio2MasteringVoice *mastering_voice() noexcept {
         return mastering_voice_;
-    } 
+    }
 
 private:
+    std::shared_ptr<nodec::logging::Logger> logger_;
     Microsoft::WRL::ComPtr<IXAudio2> xaudio2_;
     IXAudio2MasteringVoice *mastering_voice_{nullptr};
     X3DAUDIO_HANDLE x3daudio_handle_;

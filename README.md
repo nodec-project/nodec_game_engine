@@ -17,7 +17,7 @@ English | [日本語](./README_jp.md)
 
 ## Architecture
 
-![](./docs/architecture.drawio.png)
+![](./docs/fig-architecture.png)
 
 ## Template Project
 

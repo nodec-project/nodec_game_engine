@@ -3,6 +3,7 @@
 
 #include <DirectXMath.h>
 
+#include <nodec/iterator.hpp>
 #include <nodec/unicode.hpp>
 #include <nodec_scene/components/local_to_world.hpp>
 
@@ -14,10 +15,10 @@ void SceneRenderer::SetupSceneLighting(nodec_scene::Scene &scene) {
     using namespace nodec_scene::components;
     using namespace nodec;
 
-    mSceneProperties.lights.directional.enabled = 0x00;
+    cb_scene_properties_.data().lights.directional.enabled = 0x00;
     scene.registry().view<const nodec_rendering::components::DirectionalLight, const LocalToWorld>().each(
         [&](SceneEntity entt, const nodec_rendering::components::DirectionalLight &light, const LocalToWorld &local_to_world) {
-            auto &directional = mSceneProperties.lights.directional;
+            auto &directional = cb_scene_properties_.data().lights.directional;
             directional.enabled = 0x01;
             directional.color = light.color;
             directional.intensity = light.intensity;
@@ -26,21 +27,22 @@ void SceneRenderer::SetupSceneLighting(nodec_scene::Scene &scene) {
             directional.direction.set(direction.x, direction.y, direction.z);
         });
 
-    scene.registry().view<const nodec_rendering::components::SceneLighting>().each([&](auto entt, const nodec_rendering::components::SceneLighting &lighting) {
-        mSceneProperties.lights.ambientColor = lighting.ambient_color;
+    scene.registry().view<const nodec_rendering::components::SceneLighting>().each([&](SceneEntity entt, const nodec_rendering::components::SceneLighting &lighting) {
+        cb_scene_properties_.data().lights.ambient_color = lighting.ambient_color;
     });
 }
 
 SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::ResourceRegistry &resource_registry)
-    : gfx_(gfx),
-      mScenePropertiesCB(gfx, sizeof(SceneProperties), &mSceneProperties),
-      mModelPropertiesCB(gfx, sizeof(ModelProperties), &mModelProperties),
-      mTextureConfigCB(gfx, sizeof(TextureConfig), &mTextureConfig),
+    : logger_(nodec::logging::get_logger("engine.scene-renderer")),
+      gfx_(gfx),
+      cb_scene_properties_(*gfx),
+      cb_model_properties_(*gfx),
+      cb_texture_config_(*gfx),
       mBSDefault(BlendState::CreateDefaultBlend(gfx)),
       mBSAlphaBlend(BlendState::CreateAlphaBlend(gfx)),
-      rs_cull_back_{gfx, D3D11_CULL_BACK},
-      rs_cull_none_{gfx, D3D11_CULL_NONE},
-      rs_cull_front_{gfx, D3D11_CULL_FRONT},
+      rs_cull_back_{*gfx, D3D11_CULL_BACK},
+      rs_cull_none_{*gfx, D3D11_CULL_NONE},
+      rs_cull_front_{*gfx, D3D11_CULL_FRONT},
       mFontCharacterDatabase{gfx} {
     using namespace nodec_rendering::resources;
     using namespace nodec::resource_management;
@@ -51,8 +53,8 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
         auto quadMesh = resource_registry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/quad.mesh");
 
         if (!quadMesh) {
-            logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'quad.mesh'.\n"
-                                                       "Make sure the 'org.nodec.game-engine' resource-package is installed.";
+            logger_->warn(__FILE__, __LINE__) << "Cannot load the essential resource 'quad.mesh'.\n"
+                                                 "Make sure the 'org.nodec.game-engine' resource-package is installed.";
         }
 
         quad_mesh_ = std::static_pointer_cast<MeshBackend>(quadMesh);
@@ -61,8 +63,8 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
     {
         auto norm_cube_mesh = resource_registry.get_resource_direct<Mesh>("org.nodec.game-engine/meshes/norm-cube.mesh");
         if (!norm_cube_mesh) {
-            logging::WarnStream(__FILE__, __LINE__) << "[SceneRenderer] >>> Cannot load the essential resource 'norm-cube.mesh'.\n"
-                                                       "Make sure the 'org.nodec.game-engine' resource-package is installed.";
+            logger_->warn(__FILE__, __LINE__) << "Cannot load the essential resource 'norm-cube.mesh'.\n"
+                                                 "Make sure the 'org.nodec.game-engine' resource-package is installed.";
         }
         norm_cube_mesh_ = std::static_pointer_cast<MeshBackend>(norm_cube_mesh);
     }
@@ -91,8 +93,6 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
 }
 
 void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &render_target, SceneRenderingContext &context) {
-    // assert(context != nullptr);
-
     using namespace nodec;
     using namespace nodec_scene;
     using namespace nodec_scene::components;
@@ -101,11 +101,8 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
     using namespace nodec_rendering::resources;
     using namespace DirectX;
 
-    mScenePropertiesCB.bind_vs(gfx_, SCENE_PROPERTIES_CB_SLOT);
-    mScenePropertiesCB.bind_ps(gfx_, SCENE_PROPERTIES_CB_SLOT);
-
-    mTextureConfigCB.bind_vs(gfx_, TEXTURE_CONFIG_CB_SLOT);
-    mTextureConfigCB.bind_ps(gfx_, TEXTURE_CONFIG_CB_SLOT);
+    cb_scene_properties_.buffer().bind(SCENE_PROPERTIES_CB_SLOT);
+    cb_texture_config_.buffer().bind(TEXTURE_CONFIG_CB_SLOT);
 
     SetupSceneLighting(scene);
 
@@ -182,9 +179,9 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
                 set_cull_mode(materialBackend->cull_mode());
                 materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
 
-                mTextureConfig.texHasFlag = 0x00;
-                const auto slot_offset = bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag);
-                mTextureConfigCB.update(gfx_, &mTextureConfig);
+                cb_texture_config_.data().tex_has_flag = 0x00;
+                const auto slot_offset = bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag);
+                cb_texture_config_.apply();
 
                 for (int passNum = 0; passNum < shaderBackend->pass_count(); ++passNum) {
                     if (passNum == shaderBackend->pass_count() - 1) {
@@ -224,7 +221,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, ID3D11RenderTargetView &re
                         auto *view = &buffer.shader_resource_view();
                         gfx_->context().PSSetShaderResources(slot_offset + i, 1u, &view);
                     }
-                    shaderBackend->bind(gfx_, passNum);
+                    shaderBackend->bind(passNum);
 
                     screen_quad_mesh_->bind(gfx_);
                     gfx_->DrawIndexed(screen_quad_mesh_->triangles.size());
@@ -243,11 +240,8 @@ void SceneRenderer::Render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, n
     using namespace DirectX;
     using namespace nodec;
 
-    mScenePropertiesCB.bind_vs(gfx_, SCENE_PROPERTIES_CB_SLOT);
-    mScenePropertiesCB.bind_ps(gfx_, SCENE_PROPERTIES_CB_SLOT);
-
-    mTextureConfigCB.bind_vs(gfx_, TEXTURE_CONFIG_CB_SLOT);
-    mTextureConfigCB.bind_ps(gfx_, TEXTURE_CONFIG_CB_SLOT);
+    cb_scene_properties_.buffer().bind(SCENE_PROPERTIES_CB_SLOT);
+    cb_texture_config_.buffer().bind(TEXTURE_CONFIG_CB_SLOT);
 
     SetupSceneLighting(scene);
 
@@ -319,16 +313,16 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
         gfx_->context().ClearRenderTargetView(pTarget, color);
     }
 
-    XMStoreFloat4x4(&mSceneProperties.matrixP, matrixP);
-    XMStoreFloat4x4(&mSceneProperties.matrixPInverse, matrixPInverse);
+    XMStoreFloat4x4(&cb_scene_properties_.data().matrix_p, matrixP);
+    XMStoreFloat4x4(&cb_scene_properties_.data().matrix_p_inverse, matrixPInverse);
 
-    XMStoreFloat4x4(&mSceneProperties.matrixV, matrixV);
-    XMStoreFloat4x4(&mSceneProperties.matrixVInverse, matrixVInverse);
+    XMStoreFloat4x4(&cb_scene_properties_.data().matrix_v, matrixV);
+    XMStoreFloat4x4(&cb_scene_properties_.data().matrix_v_inverse, matrixVInverse);
 
     XMVECTOR scale, rotQuat, trans;
     XMMatrixDecompose(&scale, &rotQuat, &trans, matrixVInverse);
 
-    mSceneProperties.cameraPos.set(
+    cb_scene_properties_.data().camera_position.set(
         XMVectorGetByIndex(trans, 0),
         XMVectorGetByIndex(trans, 1),
         XMVectorGetByIndex(trans, 2),
@@ -336,27 +330,28 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
 
     // Update active point lights.
     {
-        mSceneProperties.lights.numOfPointLights = 0;
+        auto &lights = cb_scene_properties_.data().lights;
+        lights.num_of_point_lights = 0;
         auto view = scene.registry().view<const LocalToWorld, const nodec_rendering::components::PointLight>();
         for (const auto &entt : view) {
             // TODO: Light culling.
-            const auto index = mSceneProperties.lights.numOfPointLights;
-            if (index >= MAX_NUM_OF_POINT_LIGHTS) break;
+            const auto index = lights.num_of_point_lights;
+            if (index >= nodec::size(lights.point_lights)) break;
 
             const auto &local_to_world = view.get<const LocalToWorld>(entt);
             const auto &light = view.get<const nodec_rendering::components::PointLight>(entt);
             const auto worldPosition = local_to_world.value * Vector4f(0, 0, 0, 1.0f);
 
-            mSceneProperties.lights.pointLights[index].position.set(worldPosition.x, worldPosition.y, worldPosition.z);
-            mSceneProperties.lights.pointLights[index].color.set(light.color.x, light.color.y, light.color.z);
-            mSceneProperties.lights.pointLights[index].intensity = light.intensity;
-            mSceneProperties.lights.pointLights[index].range = light.range;
+            lights.point_lights[index].position.set(worldPosition.x, worldPosition.y, worldPosition.z);
+            lights.point_lights[index].color.set(light.color.x, light.color.y, light.color.z);
+            lights.point_lights[index].intensity = light.intensity;
+            lights.point_lights[index].range = light.range;
 
-            ++mSceneProperties.lights.numOfPointLights;
+            ++lights.num_of_point_lights;
         }
     }
 
-    mScenePropertiesCB.update(gfx_, &mSceneProperties);
+    cb_scene_properties_.apply();
 
     // Reset depth buffer.
     gfx_->context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
@@ -381,14 +376,14 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
         D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
         gfx_->context().RSSetViewports(1u, &vp);
         gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        shader_backend->bind(gfx_);
+        shader_backend->bind();
 
         material_backend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
         set_cull_mode(material_backend->cull_mode());
 
-        mTextureConfig.texHasFlag = 0x00;
-        bind_texture_entries(material_backend->texture_entries(), mTextureConfig.texHasFlag);
-        mTextureConfigCB.update(gfx_, &mTextureConfig);
+        cb_texture_config_.data().tex_has_flag = 0x00;
+        bind_texture_entries(material_backend->texture_entries(), cb_texture_config_.data().tex_has_flag);
+        cb_texture_config_.apply();
 
         // set_cull_mode(nodec_rendering::CullMode::Back);
 
@@ -404,7 +399,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
             D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
             gfx_->context().RSSetViewports(1u, &vp);
             gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            activeShader->bind(gfx_);
+            activeShader->bind();
 
             // now lets draw the mesh.
             RenderModel(scene, activeShader, matrixV, matrixP);
@@ -430,7 +425,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
                 gfx_->context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
                 gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                activeShader->bind(gfx_, 0);
+                activeShader->bind(0);
 
                 RenderModel(scene, activeShader, matrixV, matrixP);
             }
@@ -458,7 +453,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
                     gfx_->context().PSSetShaderResources(i, 1u, &view);
                 }
 
-                activeShader->bind(gfx_, passNum);
+                activeShader->bind(passNum);
 
                 GetSamplerState({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(gfx_, 0);
 
@@ -483,12 +478,11 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
     using namespace nodec_rendering::resources;
     using namespace DirectX;
 
-    mModelPropertiesCB.bind_vs(gfx_, MODEL_PROPERTIES_CB_SLOT);
-    mModelPropertiesCB.bind_ps(gfx_, MODEL_PROPERTIES_CB_SLOT);
+    cb_model_properties_.buffer().bind(MODEL_PROPERTIES_CB_SLOT);
 
     UINT used_slot_max = 0;
 
-    // TODO: Extract sub rebderer class.
+    // TODO: Extract sub renderer class.
     scene.registry().view<const LocalToWorld, const MeshRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const MeshRenderer &renderer) {
         if (renderer.meshes.size() == 0) return;
         if (renderer.meshes.size() != renderer.materials.size()) return;
@@ -507,11 +501,11 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
         auto matrixMVP = matrixM * matrixV * matrixP;
 
-        XMStoreFloat4x4(&mModelProperties.matrixM, matrixM);
-        XMStoreFloat4x4(&mModelProperties.matrixMInverse, matrixMInverse);
-        XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
+        XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
+        XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
+        XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrixMVP);
 
-        mModelPropertiesCB.update(gfx_, &mModelProperties);
+        cb_model_properties_.apply();
 
         for (int i = 0; i < renderer.meshes.size(); ++i) {
             auto &mesh = renderer.meshes[i];
@@ -527,9 +521,9 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
             set_cull_mode(materialBackend->cull_mode());
 
-            mTextureConfig.texHasFlag = 0x00;
-            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
-            mTextureConfigCB.update(gfx_, &mTextureConfig);
+            cb_texture_config_.data().tex_has_flag = 0x00;
+            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
+            cb_texture_config_.apply();
 
             meshBackend->bind(gfx_);
             gfx_->DrawIndexed(meshBackend->triangles.size());
@@ -561,9 +555,9 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
             set_cull_mode(materialBackend->cull_mode());
 
-            mTextureConfig.texHasFlag = 0x00;
-            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
-            mTextureConfigCB.update(gfx_, &mTextureConfig);
+            cb_texture_config_.data().tex_has_flag = 0x00;
+            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
+            cb_texture_config_.apply();
 
             XMMATRIX matrixM{local_to_world.value.m};
             const auto width = imageBackend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
@@ -577,11 +571,11 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             // HLSL using column-major representation
             auto matrixMVP = matrixM * matrixV * matrixP;
 
-            XMStoreFloat4x4(&mModelProperties.matrixM, matrixM);
-            XMStoreFloat4x4(&mModelProperties.matrixMInverse, matrixMInverse);
-            XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrixMVP);
 
-            mModelPropertiesCB.update(gfx_, &mModelProperties);
+            cb_model_properties_.apply();
 
             quad_mesh_->bind(gfx_);
             gfx_->DrawIndexed(quad_mesh_->triangles.size());
@@ -643,9 +637,9 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 materialBackend->bind_constant_buffer(gfx_, 3);
                 set_cull_mode(materialBackend->cull_mode());
 
-                mTextureConfig.texHasFlag = 0x00;
-                used_slot_max = std::max(bind_texture_entries(materialBackend->texture_entries(), mTextureConfig.texHasFlag), used_slot_max);
-                mTextureConfigCB.update(gfx_, &mTextureConfig);
+                cb_texture_config_.data().tex_has_flag = 0x00;
+                used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
+                cb_texture_config_.apply();
 
                 XMMATRIX matrixM{local_to_world.value.m};
                 matrixM = XMMatrixScaling(w / 2, h / 2, 1.0f) * XMMatrixTranslation(posX + w / 2, posY + h / 2, 0.0f) * matrixM;
@@ -657,11 +651,11 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 // HLSL using column-major representation
                 auto matrixMVP = matrixM * matrixV * matrixP;
 
-                XMStoreFloat4x4(&mModelProperties.matrixM, matrixM);
-                XMStoreFloat4x4(&mModelProperties.matrixMInverse, matrixMInverse);
-                XMStoreFloat4x4(&mModelProperties.matrixMVP, matrixMVP);
+                XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
+                XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
+                XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrixMVP);
 
-                mModelPropertiesCB.update(gfx_, &mModelProperties);
+                cb_model_properties_.apply();
                 screen_quad_mesh_->bind(gfx_);
                 gfx_->DrawIndexed(screen_quad_mesh_->triangles.size());
             }
@@ -681,7 +675,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
     unbind_all_shader_resources(used_slot_max);
 }
 
-UINT SceneRenderer::bind_texture_entries(const std::vector<TextureEntry> &textureEntries, uint32_t &texHasFlag) {
+UINT SceneRenderer::bind_texture_entries(const std::vector<TextureEntry> &textureEntries, uint32_t &tex_has_flag) {
     UINT slot = 0;
 
     for (auto &entry : textureEntries) {
@@ -708,7 +702,7 @@ UINT SceneRenderer::bind_texture_entries(const std::vector<TextureEntry> &textur
         samplerState.BindVS(gfx_, slot);
         samplerState.BindPS(gfx_, slot);
 
-        texHasFlag |= 0x01 << slot;
+        tex_has_flag |= 0x01 << slot;
 
         ++slot;
     }

@@ -14,31 +14,43 @@ set(CMAKE_CXX_STANDARD 14)
 
 option(NODEC_GAME_EDITOR_ENABLED ON)
 
-add_subdirectory(nodec/nodec)
+add_subdirectory(nodec)
 
 # set(THREAD_SAFE ON)
-add_subdirectory(nodec/modules/nodec_application)
-add_subdirectory(nodec/modules/nodec_input)
-add_subdirectory(nodec/modules/nodec_rendering)
-add_subdirectory(nodec/modules/nodec_resources)
-add_subdirectory(nodec/modules/nodec_scene)
-add_subdirectory(nodec/modules/nodec_scene_audio)
-add_subdirectory(nodec/modules/nodec_scene_serialization)
-add_subdirectory(nodec/modules/nodec_screen)
-add_subdirectory(nodec/modules/nodec_serialization)
-add_subdirectory(nodec/modules/nodec_world)
-add_subdirectory(nodec/modules/nodec_animation)
-add_subdirectory(nodec/modules/nodec_physics)
+add_subdirectory(modules/nodec_application)
+add_subdirectory(modules/nodec_input)
+
+set(NODEC_RENDERING_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
+add_subdirectory(modules/nodec_rendering)
+
+add_subdirectory(modules/nodec_resources)
+
+set(NODEC_SCENE_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
+add_subdirectory(modules/nodec_scene)
+
+set(NODEC_SCENE_AUDIO_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
+add_subdirectory(modules/nodec_scene_audio)
+
+add_subdirectory(modules/nodec_scene_serialization)
+add_subdirectory(modules/nodec_screen)
+add_subdirectory(modules/nodec_serialization)
+add_subdirectory(modules/nodec_world)
+add_subdirectory(modules/nodec_animation)
+
+set(NODEC_PHYSICS_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
+add_subdirectory(modules/nodec_physics)
 
 if(NODEC_GAME_EDITOR_ENABLED)
     set(BUILD_SHARED_LIBS ON)
-    add_subdirectory(nodec/modules/assimp/assimp)
+    set(ASSIMP_BUILD_ZLIB ON)
+    set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
+    set(ASSIMP_BUILD_ASSIMP_VIEW OFF)
+    add_subdirectory(modules/assimp)
 
-    add_subdirectory(nodec/modules/imgui)
-    add_subdirectory(nodec/modules/imessentials)
-    add_subdirectory(nodec/modules/imwindows)
-    add_subdirectory(nodec/modules/imguizmo)
-    add_subdirectory(nodec/modules/nodec_scene_editor)
+    add_subdirectory(modules/imgui)
+    add_subdirectory(modules/imessentials)
+    add_subdirectory(modules/imguizmo)
+    add_subdirectory(modules/nodec_scene_editor)
 endif()
 
 add_library(${PROJECT_NAME} INTERFACE)
@@ -72,7 +84,7 @@ set(BUILD_OPENGL3_DEMOS OFF CACHE BOOL "" FORCE)
 set(BUILD_OPENGL3_DEMOS OFF CACHE BOOL "" FORCE)
 set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
 
-add_subdirectory(nodec/platforms/sdks/bullet3)
+add_subdirectory(sdks/bullet3)
 
 target_include_directories(Bullet3Collision PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/src)
 target_include_directories(Bullet3Common PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/src)
@@ -87,29 +99,10 @@ target_include_directories(BulletSoftBody PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/sr
 target_include_directories(LinearMath PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/src)
 
 # End bullet3 configuration ===
-add_subdirectory(nodec/platforms/sdks/nodec_bullet3_compat)
+add_subdirectory(sdks/nodec_bullet3_compat)
 
-add_subdirectory(nodec/platforms/sdks/DirectXTex/DirectXTex)
-add_subdirectory(nodec/platforms/sdks/freetype)
-
-if(WIN32)
-    add_subdirectory(game_engine/targets/windows/core)
-
-    if(NODEC_GAME_EDITOR_ENABLED)
-        # if(NOT WIN32)
-        # message(FATAL_ERROR "Editor mode is still only supported on Windows.")
-        # endif()
-        add_subdirectory(game_editor/targets/windows/main)
-
-        target_link_libraries(${PROJECT_NAME}
-            INTERFACE
-            nodec_game_editor
-        )
-    else()
-    endif()
-else()
-    message(FATAL_MESSAGE "This platform does not supported.")
-endif()
+add_subdirectory(sdks/DirectXTex)
+add_subdirectory(sdks/freetype)
 
 # === Configure shader build system ===
 set_target_properties(${PROJECT_NAME}
@@ -117,103 +110,44 @@ set_target_properties(${PROJECT_NAME}
     SHADER_COMMON_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/game_engine/resources/org.nodec.game-engine/shaders
 )
 
-# https://stackoverflow.com/questions/71299716/how-to-compile-hlsl-shaders-during-build-with-cmake
-add_custom_target(nodec_game_engine_shaders)
-
 if(MSVC)
-    function(add_vertex_shader LIST FILE)
-        set(${LIST} ${${LIST}} ${FILE} PARENT_SCOPE)
-        set_source_files_properties(${FILE}
-            PROPERTIES
-            SHADER_TYPE "vs"
-            SHADER_MODEL "4_0"
-            ENTRY_POINT_NAME "VSMain"
-        )
-    endfunction()
-
-    function(add_pixel_shader LIST FILE)
-        set(${LIST} ${${LIST}} ${FILE} PARENT_SCOPE)
-        set_source_files_properties(${FILE}
-            PROPERTIES
-            SHADER_TYPE "ps"
-            SHADER_MODEL "4_0"
-            ENTRY_POINT_NAME "PSMain"
-        )
-    endfunction()
-
-    set(HLSL_SHADER_FILES "")
-
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/image/vertex.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/pbr/vertex.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/pbr-defer/geometry_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/pbr-defer/lighting_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/blend_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/blur_h_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/blur_v_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/brightness_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/hdr/hdr_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_vs.hlsl")
-    add_vertex_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/skybox/panoramic/vertex.hlsl")
-
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/image/pixel.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/pbr/pixel.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/pbr-defer/geometry_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/pbr-defer/lighting_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/blend_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/blur_h_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/blur_v_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/bloom/brightness_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/hdr/hdr_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_ps.hlsl")
-    add_pixel_shader(HLSL_SHADER_FILES
-        "game_engine/resources/org.nodec.game-engine/shaders/skybox/panoramic/pixel.hlsl")
-
-    foreach(FILE ${HLSL_SHADER_FILES})
+    function(nodec_add_vertex_shader TARGET FILE)
         get_target_property(SHADER_COMMON_INCLUDE_DIR ${PROJECT_NAME} SHADER_COMMON_INCLUDE_DIR)
         get_filename_component(FILE_WE ${FILE} NAME_WE)
         get_filename_component(DIRECTORY ${FILE} DIRECTORY)
-        get_source_file_property(SHADER_TYPE ${FILE} SHADER_TYPE)
-        get_source_file_property(SHADER_MODEL ${FILE} SHADER_MODEL)
-        get_source_file_property(ENTRY_POINT_NAME ${FILE} ENTRY_POINT_NAME)
-
-        add_custom_command(TARGET nodec_game_engine_shaders
-
-            # OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${FILE_WE}.cso
-            COMMAND fxc.exe /nologo /E${ENTRY_POINT_NAME} /T${SHADER_TYPE}_${SHADER_MODEL} /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
+        add_custom_command(TARGET ${TARGET}
+            COMMAND fxc.exe /nologo /EVSMain /Tvs_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
             MAIN_DEPENDENCY ${FILE}
             COMMENT "HLSL ${FILE}"
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            VERBATIM)
+            VERBATIM
+        )
+    endfunction()
 
-        # add_dependencies(nodec_game_engine_shaders ${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${FILE_WE}.cso)
-    endforeach(FILE)
-endif()
-
-option(NODEC_GAME_ENGINE_BUILD_SHADERS OFF)
-
-if(NODEC_GAME_ENGINE_BUILD_SHADERS)
-    add_dependencies(${PROJECT_NAME} nodec_game_engine_shaders)
+    function(nodec_add_pixel_shader TARGET FILE)
+        get_target_property(SHADER_COMMON_INCLUDE_DIR ${PROJECT_NAME} SHADER_COMMON_INCLUDE_DIR)
+        get_filename_component(FILE_WE ${FILE} NAME_WE)
+        get_filename_component(DIRECTORY ${FILE} DIRECTORY)
+        add_custom_command(TARGET ${TARGET}
+            COMMAND fxc.exe /nologo /EPSMain /Tps_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
+            MAIN_DEPENDENCY ${FILE}
+            COMMENT "HLSL ${FILE}"
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            VERBATIM
+        )
+    endfunction()
 endif()
 
 # END Configure shader build system ===
+add_subdirectory(game_engine)
+
+if(NODEC_GAME_EDITOR_ENABLED)
+    add_subdirectory(game_editor)
+
+    target_link_libraries(${PROJECT_NAME}
+        INTERFACE
+        nodec_game_editor_main
+    )
+else()
+    # TODO: link engine main library
+endif()

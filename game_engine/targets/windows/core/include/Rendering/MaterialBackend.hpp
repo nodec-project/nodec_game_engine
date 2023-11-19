@@ -28,7 +28,7 @@ private:
     void update_device_memory() {
         if (!dirty_ || !constant_buffer_) return;
 
-        constant_buffer_->update(gfx_, property_memory_.data());
+        constant_buffer_->update(property_memory_.data());
         dirty_ = false;
     }
 
@@ -79,8 +79,8 @@ public:
         update_device_memory();
 
         if (constant_buffer_) {
-            constant_buffer_->bind_vs(gfx, slot);
-            constant_buffer_->bind_ps(gfx, slot);
+            constant_buffer_->bind_vs(slot);
+            constant_buffer_->bind_ps(slot);
         }
     }
 
@@ -106,7 +106,7 @@ protected:
         property_memory_ = shader_backend->create_property_memory();
 
         if (property_memory_.size() > 0) {
-            constant_buffer_.reset(new ConstantBuffer(gfx_, property_memory_.size(), property_memory_.data()));
+            constant_buffer_.reset(new ConstantBuffer(*gfx_, property_memory_.size(), property_memory_.data()));
         } else {
             // if the size of property memory is zero, we should not create constant buffer.
             // Otherwise, error will occur.
