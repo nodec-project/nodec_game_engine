@@ -72,6 +72,11 @@ target_link_libraries(${PROJECT_NAME}
     nodec_physics
 )
 
+target_compile_definitions(${PROJECT_NAME}
+    INTERFACE
+    CEREAL_THREAD_SAFE=1
+)
+
 # == bullet3 configuration ===
 # https://github.com/bulletphysics/bullet3/pull/3860
 set(BUILD_SHARED_LIBS OFF)
