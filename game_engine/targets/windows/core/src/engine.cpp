@@ -97,7 +97,7 @@ void Engine::setup() {
 
     world_module_->stepped().connect([&](nodec_world::World &world) {
         scene_audio_system_->UpdateAudio(world_module_->scene().registry());
-        animator_system_->update(world_module_->scene().registry(), world.clock().delta_time() * 1000);
+        animator_system_->update(world_module_->scene().registry(), world.clock().delta_time());
     });
 }
 
