@@ -1,9 +1,9 @@
-#pragma once
+#ifndef NODEC_GAME_EDITOR__RESOURCE_EXPORTER_HPP_
+#define NODEC_GAME_EDITOR__RESOURCE_EXPORTER_HPP_
 
 #include <nodec_rendering/components/mesh_renderer.hpp>
 #include <nodec_rendering/resources/material.hpp>
 #include <nodec_rendering/resources/mesh.hpp>
-#include <nodec_rendering/serialization/components/mesh_renderer.hpp>
 #include <nodec_rendering/serialization/resources/material.hpp>
 #include <nodec_rendering/serialization/resources/mesh.hpp>
 #include <nodec_scene/scene.hpp>
@@ -24,7 +24,7 @@
 
 // * <https://learnopengl.com/Model-Loading/Model>
 
-namespace ResourceExporter {
+namespace resource_exporter {
 
 struct ResourceNameEntry {
     std::string source;
@@ -184,4 +184,6 @@ inline void ExportScene(const aiScene *pScene, nodec_scene::Scene &destScene, co
 //     nodec::resource_management::ResourceRegistry &resourceRegistry,
 //     const std::string &destPath);
 
-} // namespace ResourceExporter
+} // namespace resource_exporter
+
+#endif

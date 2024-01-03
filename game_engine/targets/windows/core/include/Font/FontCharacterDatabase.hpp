@@ -57,7 +57,7 @@ public:
             throw std::runtime_error("Failed to load Glyph");
         }
 
-        character.advance = face->glyph->advance.x;
+        character.advance = static_cast<std::uint16_t>(face->glyph->advance.x);
         character.size.set(face->glyph->bitmap.width, face->glyph->bitmap.rows);
         character.bearing.set(face->glyph->bitmap_left, face->glyph->bitmap_top);
 

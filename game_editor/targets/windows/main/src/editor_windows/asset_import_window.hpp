@@ -1,5 +1,5 @@
-#ifndef ASSET_IMPORT_WINDOW_HPP_
-#define ASSET_IMPORT_WINDOW_HPP_
+#ifndef NODEC_GAME_EDITOR__EDITOR_WINDOWS__ASSET_IMPORT_WINDOW_HPP_
+#define NODEC_GAME_EDITOR__EDITOR_WINDOWS__ASSET_IMPORT_WINDOW_HPP_
 
 #include <cassert>
 
@@ -11,7 +11,7 @@
 #include <nodec/formatter.hpp>
 #include <nodec/logging/logging.hpp>
 
-#include "../ResourceExporter.hpp"
+#include "../resource_exporter.hpp"
 
 class AssetImportWindow final : public imessentials::BaseWindow {
     using ResourceRegistry = nodec::resource_management::ResourceRegistry;
@@ -92,7 +92,7 @@ public:
                     std::string dest_path = Formatter() << resource_path_ << "/"
                                                         << resource_name_prefix << resource_name_map_[Formatter() << "mesh-" << i].target;
 
-                    if (ResourceExporter::ExportMesh(mesh, dest_path)) {
+                    if (resource_exporter::ExportMesh(mesh, dest_path)) {
                         export_messages_.emplace_back(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), Formatter() << "Mesh export success: " << dest_path);
                     } else {
                         export_messages_.emplace_back(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
@@ -106,7 +106,7 @@ public:
                     std::string dest_path = Formatter() << resource_path_ << "/"
                                                         << resource_name_prefix << resource_name_map_[Formatter() << "material-" << i].target;
 
-                    if (ResourceExporter::ExportMaterial(mat, dest_path)) {
+                    if (resource_exporter::ExportMaterial(mat, dest_path)) {
                         export_messages_.emplace_back(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), Formatter() << "Material export success: " << dest_path);
                     } else {
                         export_messages_.emplace_back(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
@@ -115,7 +115,7 @@ public:
                     }
                 }
 
-                ResourceExporter::ExportScene(current_scene, *dest_scene_, resource_name_prefix, resource_name_map_, *resource_registry_);
+                resource_exporter::ExportScene(current_scene, *dest_scene_, resource_name_prefix, resource_name_map_, *resource_registry_);
             }
 
             for (auto &record : export_messages_) {
@@ -224,7 +224,7 @@ private:
     }
 
 private:
-    using ResourceNameEntry = ResourceExporter::ResourceNameEntry;
+    using ResourceNameEntry = resource_exporter::ResourceNameEntry;
 
     struct MessageRecord {
         MessageRecord(const ImVec4 &color, const std::string &message)
@@ -254,7 +254,7 @@ private:
     const aiScene *current_scene{nullptr};
 
     char resource_name_prefix[128]{0};
-    ResourceExporter::ResourceNameMap resource_name_map_;
+    resource_exporter::ResourceNameMap resource_name_map_;
     std::vector<MessageRecord> export_messages_;
 
     char temp_str_buffer[128]{0};

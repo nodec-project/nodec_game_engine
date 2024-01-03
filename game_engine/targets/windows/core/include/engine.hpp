@@ -10,12 +10,14 @@
 #include "Resources/ResourceLoader.hpp"
 #include "Resources/ResourcesModuleBackend.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
-#include "scene_serialization/scene_serialization_backend.hpp"
 #include "ScreenHandler.hpp"
 #include "physics/physics_system_backend.hpp"
+#include "scene_serialization/scene_serialization_backend.hpp"
 #include "window.hpp"
 
 #include <nodec/logging/logging.hpp>
+#include <nodec_animation/component_registry.hpp>
+#include <nodec_animation/systems/animator_system.hpp>
 #include <nodec_application/impl/application_impl.hpp>
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
@@ -35,14 +37,7 @@ class Engine final {
 public:
     Engine(nodec_application::impl::ApplicationImpl &app);
 
-    ~Engine() {
-        logger_->info(__FILE__, __LINE__) << "Destructed.";
-
-        // TODO: Consider to unload all modules before backends.
-
-        // unload all scene entities.
-        world_module_->scene().registry().clear();
-    }
+    ~Engine();
 
     void setup();
 
@@ -114,6 +109,9 @@ private:
 
     std::unique_ptr<SceneRenderingContext> scene_rendering_context_;
     std::unique_ptr<nodec_scene_serialization::systems::PrefabLoadSystem> prefab_load_system_;
+
+    std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
+    std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
 };
 
 #if CEREAL_THREAD_SAFE != 1
