@@ -35,7 +35,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     mouse_device_system_ = &input_devices_->emplace_device_system<MouseDeviceSystem>();
 
     // --- resources ---
-    resources_module_.reset(new ResourcesModuleBackend());
+    resources_module_.reset(new ResourcesBackend());
 
     resources_module_->setup_on_boot();
 
@@ -85,7 +85,7 @@ void Engine::setup() {
 
     screen_handler_->Setup(window_.get());
 
-    resources_module_->setup_on_runtime(&window_->graphics(), font_library_.get());
+    resources_module_->setup_on_runtime(window_->graphics(), *font_library_, *scene_serialization_);
 
     scene_renderer_.reset(new SceneRenderer(&window_->graphics(), resources_module_->registry()));
 
