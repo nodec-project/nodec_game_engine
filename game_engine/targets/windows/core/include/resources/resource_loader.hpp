@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RESOURCES__RESOURCE_LOADER_HPP_
+#define NODEC_GAME_ENGINE__RESOURCES__RESOURCE_LOADER_HPP_
 
 #include <fstream>
 
@@ -9,6 +10,7 @@
 #include <nodec_rendering/serialization/resources/mesh.hpp>
 #include <nodec_rendering/serialization/resources/shader.hpp>
 #include <nodec_scene_serialization/archive_context.hpp>
+#include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_scene_serialization/serializable_entity.hpp>
 
 #include <cereal/archives/adapters.hpp>
@@ -55,9 +57,11 @@ class ResourceLoader {
     }
 
 public:
-    ResourceLoader(Graphics *pGraphics, ResourceRegistry *pRegistry, FontLibrary *pFontLibrary)
+    ResourceLoader(Graphics &gfx, ResourceRegistry &registry,
+                   FontLibrary &font_library,
+                   nodec_scene_serialization::SceneSerialization &scene_serialization)
         : logger_(nodec::logging::get_logger("engine.resources.resource-loader")),
-          mpGraphics{pGraphics}, mpRegistry{pRegistry}, mpFontLibrary{pFontLibrary} {
+          gfx_{gfx}, registry_{registry}, font_library_{font_library}, scene_serialization_{scene_serialization} {
     }
 
     // For resource registry
@@ -71,7 +75,7 @@ public:
     ResourceFuture<Resource> LoadAsync(const std::string &name, const std::string &path, ResourceRegistry::LoadNotifyer<Resource> notifyer) {
         using namespace nodec;
 
-        return mExecutor.submit(
+        return executor_.submit(
             [=]() {
                 // <https://github.com/microsoft/DirectXTex/issues/163>
                 HRESULT hr = CoInitializeEx(nullptr, COINITBASE_MULTITHREADED);
@@ -122,7 +126,7 @@ public:
         mesh->triangles = source.triangles;
 
         try {
-            mesh->update_device_memory(mpGraphics);
+            mesh->update_device_memory(&gfx_);
         } catch (...) {
             HandleException(Formatter() << "Mesh::" << path);
             return {};
@@ -171,7 +175,7 @@ public:
 
         std::shared_ptr<ShaderBackend> shader;
         try {
-            shader = std::make_shared<ShaderBackend>(mpGraphics, path, metaInfo, subShaderMetaInfos);
+            shader = std::make_shared<ShaderBackend>(&gfx_, path, metaInfo, subShaderMetaInfos);
         } catch (...) {
             HandleException(Formatter() << "Shader::" << path);
             return {};
@@ -204,10 +208,10 @@ public:
             return {};
         }
 
-        auto material = std::make_shared<MaterialBackend>(mpGraphics);
+        auto material = std::make_shared<MaterialBackend>(&gfx_);
 
         try {
-            source.apply_to(*material, *mpRegistry);
+            source.apply_to(*material, registry_);
         } catch (...) {
             HandleException(Formatter() << "Material::" << path);
             return {};
@@ -221,7 +225,7 @@ public:
         using namespace nodec;
 
         try {
-            auto texture = std::make_shared<ImageTexture>(mpGraphics, path);
+            auto texture = std::make_shared<ImageTexture>(&gfx_, path);
             return texture;
         } catch (...) {
             HandleException(Formatter() << "Texture::" << path);
@@ -247,7 +251,7 @@ public:
         SerializableEntity ser_entity;
 
         try {
-            ArchiveContext context{*mpRegistry};
+            ArchiveContext context{scene_serialization_, registry_};
             cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, file);
             archive(ser_entity);
         } catch (...) {
@@ -280,7 +284,7 @@ public:
 
         std::shared_ptr<FontBackend> font;
         try {
-            font = std::make_shared<FontBackend>(*mpFontLibrary, path);
+            font = std::make_shared<FontBackend>(font_library_, path);
         } catch (...) {
             HandleException(Formatter() << "Font::" << path);
             return {};
@@ -290,9 +294,12 @@ public:
     }
 
 private:
+    Graphics &gfx_;
+    ResourceRegistry &registry_;
+    FontLibrary &font_library_;
+    nodec_scene_serialization::SceneSerialization &scene_serialization_;
     std::shared_ptr<nodec::logging::Logger> logger_;
-    nodec::concurrent::ThreadPoolExecutor mExecutor;
-    Graphics *mpGraphics;
-    ResourceRegistry *mpRegistry;
-    FontLibrary *mpFontLibrary;
+    nodec::concurrent::ThreadPoolExecutor executor_;
 };
+
+#endif

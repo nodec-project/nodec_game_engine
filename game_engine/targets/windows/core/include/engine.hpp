@@ -7,11 +7,10 @@
 #include "Input/KeyboardDeviceSystem.hpp"
 #include "Input/MouseDeviceSystem.hpp"
 #include "Rendering/SceneRenderer.hpp"
-#include "Resources/ResourceLoader.hpp"
-#include "Resources/ResourcesModuleBackend.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
 #include "ScreenHandler.hpp"
 #include "physics/physics_system_backend.hpp"
+#include "resources/resources_backend.hpp"
 #include "scene_serialization/scene_serialization_backend.hpp"
 #include "window.hpp"
 
@@ -92,7 +91,7 @@ private:
 
     std::shared_ptr<nodec_scene_serialization::impl::EntityLoaderImpl> entity_loader_;
 
-    std::shared_ptr<ResourcesModuleBackend> resources_module_;
+    std::shared_ptr<ResourcesBackend> resources_module_;
 
     std::shared_ptr<nodec_scene_serialization::SceneSerialization> scene_serialization_;
     std::unique_ptr<SceneSerializationBackend> scene_serialization_backend_;

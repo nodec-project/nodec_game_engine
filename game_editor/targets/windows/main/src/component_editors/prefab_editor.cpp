@@ -4,6 +4,7 @@
 
 #include <imessentials/text_buffer.hpp>
 #include <imgui.h>
+#include <nodec_scene_serialization/archive_context.hpp>
 #include <nodec_scene_serialization/entity_serializer.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 
@@ -45,7 +46,7 @@ void PrefabEditor::on_inspector_gui(nodec_scene_serialization::components::Prefa
                 return;
             }
 
-            ArchiveContext context(resources_.registry());
+            ArchiveContext context(serialization_, resources_.registry());
             using Options = cereal::JSONOutputArchive::Options;
             cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(context, out, Options(324, Options::IndentChar::space, 2u));
 

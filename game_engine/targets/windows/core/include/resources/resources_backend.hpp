@@ -1,10 +1,11 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RESOURCES__RESOURCES_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__RESOURCES__RESOURCES_BACKEND_HPP_
 
-#include "ResourceLoader.hpp"
+#include "resource_loader.hpp"
 
 #include <nodec_resources/impl/resources_impl.hpp>
 
-class ResourcesModuleBackend : public nodec_resources::impl::ResourcesImpl {
+class ResourcesBackend : public nodec_resources::impl::ResourcesImpl {
 public:
     void setup_on_boot() {
         resource_path_changed_connection_ = resource_path_changed().connect(
@@ -13,7 +14,7 @@ public:
             });
     }
 
-    void setup_on_runtime(Graphics *graphics, FontLibrary *font_library) {
+    void setup_on_runtime(Graphics &graphics, FontLibrary &font_library, nodec_scene_serialization::SceneSerialization &scene_serialization) {
         using namespace nodec;
         using namespace nodec_rendering::resources;
         using namespace nodec_scene_serialization;
@@ -21,7 +22,7 @@ public:
 
         resource_path_changed_connection_.disconnect();
 
-        resource_loader_.reset(new ResourceLoader(graphics, &registry(), font_library));
+        resource_loader_.reset(new ResourceLoader(graphics, registry(), font_library, scene_serialization));
 
         registry().register_resource_loader<Mesh>(
             [=](auto &name) {
@@ -84,3 +85,5 @@ private:
     nodec::signals::Connection resource_path_changed_connection_;
     std::unique_ptr<ResourceLoader> resource_loader_;
 };
+
+#endif

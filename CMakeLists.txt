@@ -31,9 +31,9 @@ add_subdirectory(modules/nodec_scene)
 set(NODEC_SCENE_AUDIO_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_scene_audio)
 
+add_subdirectory(modules/nodec_serialization)
 add_subdirectory(modules/nodec_scene_serialization)
 add_subdirectory(modules/nodec_screen)
-add_subdirectory(modules/nodec_serialization)
 add_subdirectory(modules/nodec_world)
 add_subdirectory(modules/nodec_animation)
 
