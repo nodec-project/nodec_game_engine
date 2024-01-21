@@ -1,32 +1,14 @@
 #ifndef NODEC_GAME_ENGINE__RESOURCES__RESOURCE_LOADER_HPP_
 #define NODEC_GAME_ENGINE__RESOURCES__RESOURCE_LOADER_HPP_
 
-#include <fstream>
-
 #include <nodec/concurrent/thread_pool_executor.hpp>
 #include <nodec/logging/logging.hpp>
 #include <nodec/resource_management/resource_registry.hpp>
-#include <nodec_rendering/serialization/resources/material.hpp>
-#include <nodec_rendering/serialization/resources/mesh.hpp>
-#include <nodec_rendering/serialization/resources/shader.hpp>
-#include <nodec_scene_serialization/archive_context.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
-#include <nodec_scene_serialization/serializable_entity.hpp>
-
-#include <cereal/archives/adapters.hpp>
-#include <cereal/archives/json.hpp>
-#include <cereal/archives/portable_binary.hpp>
-#include <cereal/cereal.hpp>
 
 #include <Font/FontBackend.hpp>
 #include <Font/FontLibrary.hpp>
 #include <Graphics/Graphics.hpp>
-#include <Rendering/ImageTexture.hpp>
-#include <Rendering/MaterialBackend.hpp>
-#include <Rendering/MeshBackend.hpp>
-#include <Rendering/ShaderBackend.hpp>
-#include <Rendering/TextureBackend.hpp>
-#include <SceneAudio/AudioClipBackend.hpp>
 
 class ResourceLoader {
     using ResourceRegistry = nodec::resource_management::ResourceRegistry;
@@ -66,13 +48,13 @@ public:
 
     // For resource registry
     template<typename Resource, typename ResourceBackend>
-    ResourcePtr<Resource> LoadDirect(const std::string &path) {
-        std::shared_ptr<Resource> resource = LoadBackend<ResourceBackend>(path);
+    ResourcePtr<Resource> load_direct(const std::string &path) {
+        std::shared_ptr<Resource> resource = load_backend<ResourceBackend>(path);
         return resource;
     }
 
     template<typename Resource, typename ResourceBackend>
-    ResourceFuture<Resource> LoadAsync(const std::string &name, const std::string &path, ResourceRegistry::LoadNotifyer<Resource> notifyer) {
+    ResourceFuture<Resource> load_async(const std::string &name, const std::string &path, ResourceRegistry::LoadNotifyer<Resource> notifyer) {
         using namespace nodec;
 
         return executor_.submit(
@@ -83,7 +65,7 @@ public:
                     logger_->warn(__FILE__, __LINE__) << "CoInitializeEx failed.";
                 }
 
-                std::shared_ptr<Resource> resource = LoadBackend<ResourceBackend>(path);
+                std::shared_ptr<Resource> resource = load_backend<ResourceBackend>(path);
                 notifyer.on_loaded(name, resource);
 
                 CoUninitialize();
@@ -92,206 +74,7 @@ public:
     }
 
     template<typename ResourceBackend>
-    std::shared_ptr<ResourceBackend> LoadBackend(const std::string &path) const noexcept;
-
-    template<>
-    std::shared_ptr<MeshBackend> LoadBackend<MeshBackend>(const std::string &path) const noexcept {
-        using namespace nodec_rendering::resources;
-        using namespace nodec;
-
-        std::ifstream file(path, std::ios::binary);
-
-        if (!file) {
-            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
-            // return empty mesh.
-            return {};
-        }
-
-        cereal::PortableBinaryInputArchive archive(file);
-
-        SerializableMesh source;
-        try {
-            archive(source);
-        } catch (...) {
-            HandleException(Formatter() << "Mesh::" << path);
-            return {};
-        }
-
-        auto mesh = std::make_shared<MeshBackend>();
-        mesh->vertices.reserve(source.vertices.size());
-        for (auto &&src : source.vertices) {
-            mesh->vertices.push_back({src.position, src.normal, src.uv, src.tangent});
-        }
-
-        mesh->triangles = source.triangles;
-
-        try {
-            mesh->update_device_memory(&gfx_);
-        } catch (...) {
-            HandleException(Formatter() << "Mesh::" << path);
-            return {};
-        }
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-        return mesh;
-    }
-
-    template<>
-    std::shared_ptr<ShaderBackend> LoadBackend<ShaderBackend>(const std::string &path) const noexcept {
-        using namespace nodec;
-        using namespace nodec_rendering::resources;
-
-        std::ifstream file(Formatter() << path << "/shader.meta", std::ios::binary);
-
-        if (!file) {
-            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
-            // return empty mesh.
-            return {};
-        }
-
-        ShaderMetaInfo metaInfo;
-        try {
-            cereal::JSONInputArchive archive(file);
-            archive(metaInfo);
-        } catch (...) {
-            HandleException(Formatter() << "Shader::" << path);
-            return {};
-        }
-
-        std::vector<SubShaderMetaInfo> subShaderMetaInfos;
-        for (const auto &subShaderName : metaInfo.pass) {
-            std::ifstream file(Formatter() << path << "/" << subShaderName << ".meta");
-            if (!file) return {};
-            SubShaderMetaInfo info;
-            try {
-                cereal::JSONInputArchive archive(file);
-                archive(info);
-                subShaderMetaInfos.push_back(std::move(info));
-            } catch (...) {
-                HandleException(Formatter() << "Shader::" << path);
-                return {};
-            }
-        }
-
-        std::shared_ptr<ShaderBackend> shader;
-        try {
-            shader = std::make_shared<ShaderBackend>(&gfx_, path, metaInfo, subShaderMetaInfos);
-        } catch (...) {
-            HandleException(Formatter() << "Shader::" << path);
-            return {};
-        }
-
-        return shader;
-    }
-
-    template<>
-    std::shared_ptr<MaterialBackend> LoadBackend<MaterialBackend>(const std::string &path) const noexcept {
-        using namespace nodec;
-        using namespace nodec::resource_management;
-        using namespace nodec_rendering::resources;
-
-        std::ifstream file(path, std::ios::binary);
-
-        if (!file) {
-            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
-            // return empty mesh.
-            return {};
-        }
-
-        SerializableMaterial source;
-
-        try {
-            cereal::JSONInputArchive archive(file);
-            archive(source);
-        } catch (...) {
-            HandleException(Formatter() << "Material::" << path);
-            return {};
-        }
-
-        auto material = std::make_shared<MaterialBackend>(&gfx_);
-
-        try {
-            source.apply_to(*material, registry_);
-        } catch (...) {
-            HandleException(Formatter() << "Material::" << path);
-            return {};
-        }
-
-        return material;
-    }
-
-    template<>
-    std::shared_ptr<TextureBackend> LoadBackend<TextureBackend>(const std::string &path) const noexcept {
-        using namespace nodec;
-
-        try {
-            auto texture = std::make_shared<ImageTexture>(&gfx_, path);
-            return texture;
-        } catch (...) {
-            HandleException(Formatter() << "Texture::" << path);
-            return {};
-        }
-
-        return {};
-    }
-
-    template<>
-    std::shared_ptr<nodec_scene_serialization::SerializableEntity> LoadBackend<nodec_scene_serialization::SerializableEntity>(const std::string &path) const noexcept {
-        using namespace nodec;
-        using namespace nodec_scene_serialization;
-
-        std::ifstream file(path, std::ios::binary);
-
-        if (!file) {
-            logger_->warn(__FILE__, __LINE__) << "Failed to open resource file. path: " << path;
-            // return empty mesh.
-            return {};
-        }
-
-        SerializableEntity ser_entity;
-
-        try {
-            ArchiveContext context{scene_serialization_, registry_};
-            cereal::UserDataAdapter<ArchiveContext, cereal::JSONInputArchive> archive(context, file);
-            archive(ser_entity);
-        } catch (...) {
-            HandleException(Formatter() << "SerializableEntity::" << path);
-            return {};
-        }
-
-        return std::make_shared<SerializableEntity>(std::move(ser_entity));
-    }
-
-    template<>
-    std::shared_ptr<AudioClipBackend> LoadBackend<AudioClipBackend>(const std::string &path) const noexcept {
-        using namespace nodec;
-
-        std::shared_ptr<AudioClipBackend> clip;
-
-        try {
-            clip = std::make_shared<AudioClipBackend>(path);
-        } catch (...) {
-            HandleException(Formatter() << "AudioClip::" << path);
-            return {};
-        }
-
-        return clip;
-    }
-
-    template<>
-    std::shared_ptr<FontBackend> LoadBackend(const std::string &path) const noexcept {
-        using namespace nodec;
-
-        std::shared_ptr<FontBackend> font;
-        try {
-            font = std::make_shared<FontBackend>(font_library_, path);
-        } catch (...) {
-            HandleException(Formatter() << "Font::" << path);
-            return {};
-        }
-
-        return font;
-    }
+    std::shared_ptr<ResourceBackend> load_backend(const std::string &path) const noexcept;
 
 private:
     Graphics &gfx_;

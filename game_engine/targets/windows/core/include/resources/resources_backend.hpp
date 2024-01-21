@@ -3,6 +3,7 @@
 
 #include "resource_loader.hpp"
 
+#include <nodec_animation/resources/animation_clip.hpp>
 #include <nodec_resources/impl/resources_impl.hpp>
 
 class ResourcesBackend : public nodec_resources::impl::ResourcesImpl {
@@ -26,59 +27,70 @@ public:
 
         registry().register_resource_loader<Mesh>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<Mesh, MeshBackend>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<Mesh, MeshBackend>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<Mesh, MeshBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<Mesh, MeshBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<Shader>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<Shader, ShaderBackend>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<Shader, ShaderBackend>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<Shader, ShaderBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<Shader, ShaderBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<Texture>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<Texture, TextureBackend>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<Texture, TextureBackend>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<Texture, TextureBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<Texture, TextureBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<Material>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<Material, MaterialBackend>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<Material, MaterialBackend>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<Material, MaterialBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<Material, MaterialBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<SerializableEntity>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<SerializableEntity, SerializableEntity>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<SerializableEntity, SerializableEntity>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<SerializableEntity, SerializableEntity>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<SerializableEntity, SerializableEntity>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<AudioClip>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<AudioClip, AudioClipBackend>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<AudioClip, AudioClipBackend>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<AudioClip, AudioClipBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<AudioClip, AudioClipBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
 
         registry().register_resource_loader<Font>(
             [=](auto &name) {
-                return resource_loader_->LoadDirect<Font, FontBackend>(Formatter() << resource_path() << "/" << name);
+                return resource_loader_->load_direct<Font, FontBackend>(Formatter() << resource_path() << "/" << name);
             },
             [=](auto &name, auto notifyer) {
-                return resource_loader_->LoadAsync<Font, FontBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                return resource_loader_->load_async<Font, FontBackend>(name, Formatter() << resource_path() << "/" << name, notifyer);
             });
+
+        {
+            using namespace nodec_animation::resources;
+            registry().register_resource_loader<AnimationClip>(
+                [=](auto &name) {
+                    return resource_loader_->load_direct<AnimationClip, AnimationClip>(Formatter() << resource_path() << "/" << name);
+                },
+                [=](auto &name, auto notifyer) {
+                    return resource_loader_->load_async<AnimationClip, AnimationClip>(name, Formatter() << resource_path() << "/" << name, notifyer);
+                });
+        }
     }
 
 private:
