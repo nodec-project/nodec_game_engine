@@ -36,7 +36,7 @@ protected:
         configure();
 
         // ImGui does not work if the resolution and window size are not the same.
-        engine->screen_module().internal_size = engine->screen_module().internal_resolution;
+        engine->screen().set_size(engine->screen().resolution());
 
         engine->setup();
         editor->setup();

@@ -70,7 +70,7 @@ public:
 
 public:
     static bool ProcessMessages(int &exit_code) noexcept;
-    void SetTitle(const std::string &title);
+    void set_title(const std::string &title);
 
     Graphics &graphics() {
         return *graphics_;

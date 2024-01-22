@@ -7,7 +7,6 @@ add_library(${PROJECT_NAME} STATIC
     src/Graphics/Graphics.cpp
     src/Rendering/SceneRenderer.cpp
     src/SceneAudio/SceneAudioSystem.cpp
-    src/Window.cpp
     src/engine.cpp
     src/imgui_impl_dx11.cpp
     src/imgui_impl_win32.cpp
@@ -15,6 +14,8 @@ add_library(${PROJECT_NAME} STATIC
     src/physics/physics_system_backend.cpp
     src/resources/resource_loader.cpp
     src/scene_serialization/scene_serialization_backend.cpp
+    src/screen/screen_backend.cpp
+    src/window.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

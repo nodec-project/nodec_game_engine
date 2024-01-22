@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__INPUT__MOUSE_DEVICE_SYSTEM_HPP_
+#define NODEC_GAME_ENGINE__INPUT__MOUSE_DEVICE_SYSTEM_HPP_
 
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
@@ -25,5 +26,5 @@ public:
 private:
     std::pair<DeviceHandle, std::shared_ptr<MouseDevice>> mouse_device_;
     RegistryOperations mRegistryOps;
-
 };
+#endif
