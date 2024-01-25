@@ -170,6 +170,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             auto rigid_body_backend = collision_object_cast<RigidBodyBackend>(activity.collision_object_backend.get());
             assert(rigid_body_backend);
             rigid_body_backend->native().applyCentralImpulse(to_bt_vector3(force.force));
+            rigid_body_backend->native().activate();
         });
 
         scene_registry.remove_components<ImpulseForce>(view.begin(), view.end());
@@ -182,6 +183,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             auto rigid_body_backend = collision_object_cast<RigidBodyBackend>(activity.collision_object_backend.get());
             assert(rigid_body_backend);
             rigid_body_backend->native().applyCentralForce(to_bt_vector3(force.force));
+            rigid_body_backend->native().activate();
         });
 
         scene_registry.remove_components<CentralForce>(view.begin(), view.end());
@@ -195,6 +197,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             auto &native = rigid_body_backend->native();
             const auto impulse = native.getMass() * force.value;
             native.applyCentralImpulse(to_bt_vector3(impulse));
+            rigid_body_backend->native().activate();
         });
         scene_registry.remove_components<VelocityForce>(view.begin(), view.end());
     }

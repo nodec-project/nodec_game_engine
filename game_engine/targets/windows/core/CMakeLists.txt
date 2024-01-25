@@ -10,6 +10,7 @@ add_library(${PROJECT_NAME} STATIC
     src/engine.cpp
     src/imgui_impl_dx11.cpp
     src/imgui_impl_win32.cpp
+    src/input/mouse_device_backend.cpp
     src/logging.cpp
     src/physics/physics_system_backend.cpp
     src/resources/resource_loader.cpp

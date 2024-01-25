@@ -4,6 +4,8 @@
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
 
+#include "mouse_device_backend.hpp"
+
 class MouseDeviceSystem {
     using MouseDevice = nodec_input::mouse::impl::MouseDevice;
     using Mouse = nodec_input::mouse::Mouse;
@@ -13,10 +15,10 @@ class MouseDeviceSystem {
 public:
     using device_type = Mouse;
 
-    MouseDeviceSystem(RegistryOperations registryOps)
-        : mRegistryOps{registryOps} {
-        mouse_device_.second = std::make_shared<MouseDevice>();
-        mouse_device_.first = registryOps.add_device(mouse_device_.second);
+    MouseDeviceSystem(RegistryOperations registry_ops)
+        : registry_ops_{registry_ops} {
+        mouse_device_.second = std::make_shared<MouseDeviceBackend>();
+        mouse_device_.first = registry_ops_.add_device(mouse_device_.second);
     }
 
     MouseDevice &device() {
@@ -25,6 +27,6 @@ public:
 
 private:
     std::pair<DeviceHandle, std::shared_ptr<MouseDevice>> mouse_device_;
-    RegistryOperations mRegistryOps;
+    RegistryOperations registry_ops_;
 };
 #endif

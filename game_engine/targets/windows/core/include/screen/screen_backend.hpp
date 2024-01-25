@@ -37,6 +37,12 @@ public:
 
     void set_title(const std::string &title) override;
 
+    nodec::Vector2f position() const noexcept override {
+        if (!window_) return nodec::Vector2f::zero;
+
+        return window_->screen_position();
+    }
+
 private:
     nodec::Vector2i resolution_{1280, 720};
     nodec::Vector2i size_{1280, 720};

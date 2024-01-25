@@ -7,16 +7,15 @@
 
 #include <Windows.h>
 
+#include <nodec/logging/logging.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
 #include <nodec_input/mouse/impl/mouse_device.hpp>
-#include <nodec/logging/logging.hpp>
 
 #include <nodec/formatter.hpp>
 #include <nodec/macros.hpp>
 #include <nodec/signals/signal.hpp>
 
 #include "Graphics/Graphics.hpp"
-
 
 class Window {
 public:
@@ -74,6 +73,18 @@ public:
 
     Graphics &graphics() {
         return *graphics_;
+    }
+
+    nodec::Vector2f position() const noexcept {
+        RECT rect;
+        GetWindowRect(hWnd, &rect);
+        return nodec::Vector2f{(float)rect.left, (float)rect.top};
+    }
+
+    nodec::Vector2f screen_position() const noexcept {
+        POINT top_left{0, 0};
+        ClientToScreen(hWnd, &top_left);
+        return nodec::Vector2f{(float)top_left.x, (float)top_left.y};
     }
 
 public:
