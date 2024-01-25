@@ -6,7 +6,6 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     : logger_(nodec::logging::get_logger("engine")) {
     using namespace nodec_world;
     using namespace nodec_world::impl;
-    using namespace nodec_screen::impl;
     using namespace nodec_screen;
     using namespace nodec_input;
     using namespace nodec_resources;
@@ -20,10 +19,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     font_library_.reset(new FontLibrary);
 
     // --- screen ---
-    screen_module_.reset(new ScreenModule());
-
-    screen_handler_.reset(new ScreenHandler(screen_module_.get()));
-    screen_handler_->BindHandlersOnBoot();
+    screen_.reset(new ScreenBackend());
 
     // --- world ---
     world_module_.reset(new WorldModule());
@@ -35,14 +31,14 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     mouse_device_system_ = &input_devices_->emplace_device_system<MouseDeviceSystem>();
 
     // --- resources ---
-    resources_module_.reset(new ResourcesBackend());
+    resources_.reset(new ResourcesBackend());
 
-    resources_module_->setup_on_boot();
+    resources_->setup_on_boot();
 
     // --- scene serialization ---
     scene_serialization_.reset(new SceneSerialization());
-    scene_serialization_backend_.reset(new SceneSerializationBackend(&resources_module_->registry(), *scene_serialization_));
-    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_, world_module_->scene(), resources_module_->registry()));
+    scene_serialization_backend_.reset(new SceneSerializationBackend(&resources_->registry(), *scene_serialization_));
+    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_, world_module_->scene(), resources_->registry()));
 
     // --- others ---
     physics_system_.reset(new PhysicsSystemBackend(*world_module_));
@@ -55,10 +51,10 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     animator_system_.reset(new nodec_animation::systems::AnimatorSystem(*animation_component_registry_));
 
     // --- Export the services to application.
-    app.add_service<Screen>(screen_module_);
+    app.add_service<Screen>(screen_);
     app.add_service<World>(world_module_);
     app.add_service<InputDevices>(input_devices_);
-    app.add_service<Resources>(resources_module_);
+    app.add_service<Resources>(resources_);
     app.add_service<SceneSerialization>(scene_serialization_);
     app.add_service<EntityLoader>(entity_loader_);
     app.add_service<PhysicsSystem>(physics_system_);
@@ -78,16 +74,16 @@ void Engine::setup() {
     using namespace nodec;
 
     window_.reset(new Window(
-        screen_module_->internal_size.x, screen_module_->internal_size.y,
-        screen_module_->internal_resolution.x, screen_module_->internal_resolution.y,
-        unicode::utf8to16<std::wstring>(screen_module_->internal_title).c_str(),
+        screen_->size().x, screen_->size().y,
+        screen_->resolution().x, screen_->resolution().y,
+        unicode::utf8to16<std::wstring>(screen_->title()).c_str(),
         &keyboard_device_system_->device(), &mouse_device_system_->device()));
 
-    screen_handler_->Setup(window_.get());
+    screen_->setup(window_.get());
 
-    resources_module_->setup_on_runtime(window_->graphics(), *font_library_, *scene_serialization_);
+    resources_->setup_on_runtime(window_->graphics(), *font_library_, *scene_serialization_);
 
-    scene_renderer_.reset(new SceneRenderer(&window_->graphics(), resources_module_->registry()));
+    scene_renderer_.reset(new SceneRenderer(&window_->graphics(), resources_->registry()));
 
     audio_platform_.reset(new AudioPlatform());
 

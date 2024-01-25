@@ -4,14 +4,14 @@
 #include "Audio/AudioPlatform.hpp"
 #include "Font/FontLibrary.hpp"
 #include "ImguiManager.hpp"
-#include "Input/KeyboardDeviceSystem.hpp"
-#include "Input/MouseDeviceSystem.hpp"
 #include "Rendering/SceneRenderer.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
-#include "ScreenHandler.hpp"
+#include "input/keyboard_device_system.hpp"
+#include "input/mouse_device_system.hpp"
 #include "physics/physics_system_backend.hpp"
 #include "resources/resources_backend.hpp"
 #include "scene_serialization/scene_serialization_backend.hpp"
+#include "screen/screen_backend.hpp"
 #include "window.hpp"
 
 #include <nodec/logging/logging.hpp>
@@ -29,7 +29,6 @@
 #include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
-#include <nodec_screen/impl/screen_module.hpp>
 #include <nodec_world/impl/world_module.hpp>
 
 class Engine final {
@@ -44,16 +43,16 @@ public:
 
     void frame_end();
 
-    nodec_screen::impl::ScreenModule &screen_module() {
-        return *screen_module_;
+    nodec_screen::Screen& screen() {
+        return *screen_;
     }
 
     nodec_world::impl::WorldModule &world_module() {
         return *world_module_;
     }
 
-    nodec_resources::impl::ResourcesImpl &resources_module() {
-        return *resources_module_;
+    nodec_resources::impl::ResourcesImpl &resources() {
+        return *resources_;
     }
 
     nodec_scene_serialization::SceneSerialization &scene_serialization() {
@@ -82,8 +81,7 @@ private:
 
     std::unique_ptr<AudioPlatform> audio_platform_;
 
-    std::shared_ptr<nodec_screen::impl::ScreenModule> screen_module_;
-    std::unique_ptr<ScreenHandler> screen_handler_;
+    std::shared_ptr<ScreenBackend> screen_;
 
     std::shared_ptr<nodec_input::InputDevices> input_devices_;
     KeyboardDeviceSystem *keyboard_device_system_;
@@ -91,7 +89,7 @@ private:
 
     std::shared_ptr<nodec_scene_serialization::impl::EntityLoaderImpl> entity_loader_;
 
-    std::shared_ptr<ResourcesBackend> resources_module_;
+    std::shared_ptr<ResourcesBackend> resources_;
 
     std::shared_ptr<nodec_scene_serialization::SceneSerialization> scene_serialization_;
     std::unique_ptr<SceneSerializationBackend> scene_serialization_backend_;

@@ -54,7 +54,7 @@ int Application::main_impl()
                   &(gameEngineModule->keyboard_module()),
                   &(gameEngineModule->mouse_module())
     );
-    window.SetTitle(gameEngineModule->screen_module().title_);
+    window.set_title(gameEngineModule->screen_module().title_);
     // End launch Window ===
     
 

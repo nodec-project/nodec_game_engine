@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__INPUT__KEYBOARD_DEVICE_SYSTEM_HPP_
+#define NODEC_GAME_ENGINE__INPUT__KEYBOARD_DEVICE_SYSTEM_HPP_
 
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
@@ -11,7 +12,7 @@ class KeyboardDeviceSystem {
 
 public:
     using device_type = Keyboard;
-    
+
     KeyboardDeviceSystem(RegistryOperations registryOps)
         : mRegistryOps{registryOps} {
         keyboard_device_.second = std::make_shared<KeyboardDevice>();
@@ -26,3 +27,5 @@ private:
     std::pair<DeviceHandle, std::shared_ptr<KeyboardDevice>> keyboard_device_;
     RegistryOperations mRegistryOps;
 };
+
+#endif
