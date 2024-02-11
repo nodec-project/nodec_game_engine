@@ -1,5 +1,7 @@
 #include "scene_hierarchy_window.hpp"
 
+#include <imgui_internal.h>
+
 #include <nodec_scene_editor/components/selected.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_scene_serialization/entity_builder.hpp>
@@ -55,10 +57,17 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
     Prefab *prefab{nullptr};
 
     {
+        struct DragDropPayloadData {
+            SceneEntity entity{null_entity};
+            bool is_in_multi_selection{false};
+        };
+
         auto &hierarchy = scene_registry.get_component<Hierarchy>(entity);
         auto name = scene_registry.try_get_component<Name>(entity);
         prefab = scene_registry.try_get_component<Prefab>(entity);
         auto selected = scene_registry.try_get_component<Selected>(entity);
+
+        const auto node_cursor_position = ImGui::GetCursorPos();
 
         std::string label = nodec::Formatter() << "\"" << (name ? name->value : "") << "\" {entity: 0x" << std::hex << entity << "}";
 
@@ -68,7 +77,9 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
         flags |= (selected ? ImGuiTreeNodeFlags_Selected : 0x00);
 
         auto &style = ImGui::GetStyle();
+
         node_open = ImGui::TreeNodeEx(label.c_str(), flags);
+        const auto node_size = ImGui::GetItemRectSize();
 
         if (prefab) {
             ImDrawList *draw_list = ImGui::GetWindowDrawList();
@@ -78,10 +89,12 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
             draw_list->AddRectFilled(marker_min, marker_max, ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_HeaderActive]));
         }
 
-
         // * <https://github.com/ocornut/imgui/issues/2597>
         if (ImGui::BeginDragDropSource()) {
-            ImGui::SetDragDropPayload("DND_SCENE_ENTITY", &entity, sizeof(SceneEntity));
+            DragDropPayloadData data;
+            data.entity = entity;
+            data.is_in_multi_selection = selected != nullptr;
+            ImGui::SetDragDropPayload("DND_SCENE_ENTITY", &data, sizeof(DragDropPayloadData));
 
             ImGui::Text("Move Entity");
 
@@ -90,22 +103,33 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
 
         if (ImGui::BeginDragDropTarget()) {
             if (auto *payload = ImGui::AcceptDragDropPayload("DND_SCENE_ENTITY")) {
-                IM_ASSERT(payload->DataSize == sizeof(SceneEntity));
-                SceneEntity drop_entity = *static_cast<SceneEntity *>(payload->Data);
-
-                scene_registry.view<Selected>().each([&](const SceneEntity &selected_entity, Selected &) {
+                IM_ASSERT(payload->DataSize == sizeof(DragDropPayloadData));
+                auto *data = reinterpret_cast<DragDropPayloadData *>(payload->Data);
+                if (data->is_in_multi_selection) {
+                    scene_registry.view<Selected>().each([&](const SceneEntity &selected_entity, Selected &) {
+                        try {
+                            scene_.hierarchy_system().append_child(entity, selected_entity);
+                        } catch (std::runtime_error &error) {
+                            // The exception occurs when the parent of entity is set into itself.
+                            logger_->error(__FILE__, __LINE__) << error.what();
+                        }
+                    });
+                } else {
                     try {
-                        scene_.hierarchy_system().append_child(entity, selected_entity);
+                        scene_.hierarchy_system().append_child(entity, data->entity);
                     } catch (std::runtime_error &error) {
                         // The exception occurs when the parent of entity is set into itself.
                         logger_->error(__FILE__, __LINE__) << error.what();
                     }
-                });
+                }
             }
 
             ImGui::EndDragDropTarget();
         }
-        if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+
+        const auto drag_drop_active = ImGui::GetCurrentContext()->DragDropActive;
+
+        if (!drag_drop_active && ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
             // The left mouse button was released while hovering over the item
 
             if (ImGui::GetIO().KeyCtrl && selected) {
@@ -115,53 +139,100 @@ void SceneHierarchyWindow::show_entity_node(const nodec_scene::SceneEntity entit
                 select(entity, ImGui::GetIO().KeyCtrl);
             }
         }
-    }
 
-    // Use last item id as popup id
-    if (ImGui::BeginPopupContextItem()) {
-        if (ImGui::MenuItem("Copy")) {
-            copied_entity_ = EntitySerializer(serialization_).serialize(entity, scene_);
-        }
-
-        if (ImGui::MenuItem("Paste", nullptr, false, static_cast<bool>(copied_entity_))) {
-            auto entt = scene_registry.create_entity();
-            EntityBuilder(serialization_).build(copied_entity_.get(), entt, scene_);
-            scene_.hierarchy_system().append_child(entity, entt);
-        }
-
-        if (ImGui::MenuItem("Delete")) {
-            scene_registry.destroy_entity(entity);
-        }
-
-        if (ImGui::MenuItem("Move to root")) {
-            auto parent = scene_registry.get_component<Hierarchy>(entity).parent;
-            if (parent != nodec::entities::null_entity) {
-                scene_.hierarchy_system().remove_child(parent, entity);
+        // Use last item id as popup id
+        if (ImGui::BeginPopupContextItem()) {
+            if (ImGui::MenuItem("Copy")) {
+                copied_entity_ = EntitySerializer(serialization_).serialize(entity, scene_);
             }
+
+            if (ImGui::MenuItem("Paste", nullptr, false, static_cast<bool>(copied_entity_))) {
+                auto entt = scene_registry.create_entity();
+                EntityBuilder(serialization_).build(copied_entity_.get(), entt, scene_);
+                scene_.hierarchy_system().append_child(entity, entt);
+            }
+
+            if (ImGui::MenuItem("Delete")) {
+                scene_registry.destroy_entity(entity);
+            }
+
+            if (ImGui::MenuItem("Move to root")) {
+                auto parent = scene_registry.get_component<Hierarchy>(entity).parent;
+                if (parent != nodec::entities::null_entity) {
+                    scene_.hierarchy_system().remove_child(parent, entity);
+                }
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("New Entity")) {
+                auto child = scene_.create_entity("New Entity");
+                scene_.hierarchy_system().append_child(entity, child);
+            }
+
+            ImGui::EndPopup();
         }
 
-        ImGui::Separator();
+        if (drag_drop_active) {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+            const auto next_cursor_pos = ImGui::GetCursorPos();
 
-        if (ImGui::MenuItem("New Entity")) {
-            auto child = scene_.create_entity("New Entity");
-            scene_.hierarchy_system().append_child(entity, child);
+            ImGui::SetCursorPos(ImVec2(node_cursor_position.x, node_cursor_position.y - 2));
+
+            ImGui::InvisibleButton("##top", ImVec2(node_size.x, 2));
+            if (ImGui::BeginDragDropTarget()) {
+                if (auto *payload = ImGui::AcceptDragDropPayload("DND_SCENE_ENTITY")) {
+                    IM_ASSERT(payload->DataSize == sizeof(DragDropPayloadData));
+                    auto *data = reinterpret_cast<DragDropPayloadData *>(payload->Data);
+                    if (data->is_in_multi_selection) {
+                        scene_registry.view<Selected>().each([&](const SceneEntity &selected_entity, Selected &) {
+                            try {
+                                scene_.hierarchy_system().insert_before(selected_entity, entity);
+                            } catch (std::runtime_error &error) {
+                                // The exception occurs when the parent of entity is set into itself.
+                                logger_->error(__FILE__, __LINE__) << error.what();
+                            }
+                        });
+                    } else {
+                        try {
+                            scene_.hierarchy_system().insert_before(data->entity, entity);
+                        } catch (std::runtime_error &error) {
+                            // The exception occurs when the parent of entity is set into itself.
+                            logger_->error(__FILE__, __LINE__) << error.what();
+                        }
+                    }
+                }
+            }
+
+            ImGui::SetCursorPos(ImVec2(node_cursor_position.x, node_cursor_position.y + node_size.y));
+            ImGui::InvisibleButton("##bottom", ImVec2(node_size.x, 2));
+            if (ImGui::BeginDragDropTarget()) {
+                if (auto *payload = ImGui::AcceptDragDropPayload("DND_SCENE_ENTITY")) {
+                    IM_ASSERT(payload->DataSize == sizeof(DragDropPayloadData));
+                    auto *data = reinterpret_cast<DragDropPayloadData *>(payload->Data);
+                    if (data->is_in_multi_selection) {
+                        scene_registry.view<Selected>().each([&](const SceneEntity &selected_entity, Selected &) {
+                            try {
+                                scene_.hierarchy_system().insert_after(selected_entity, entity);
+                            } catch (std::runtime_error &error) {
+                                // The exception occurs when the parent of entity is set into itself.
+                                logger_->error(__FILE__, __LINE__) << error.what();
+                            }
+                        });
+                    } else {
+                        try {
+                            scene_.hierarchy_system().insert_after(data->entity, entity);
+                        } catch (std::runtime_error &error) {
+                            // The exception occurs when the parent of entity is set into itself.
+                            logger_->error(__FILE__, __LINE__) << error.what();
+                        }
+                    }
+                }
+            }
+
+            ImGui::SetCursorPos(next_cursor_pos);
+            ImGui::PopStyleVar();
         }
-
-        //[&]() {
-        //    if (!prefab) return;
-
-        //    ImGui::Separator();
-
-        //    if (ImGui::MenuItem("Save Prefab")) {
-
-        //    }
-
-        //    if (ImGui::MenuItem("Load Prefab")) {
-        //    }
-
-        //}();
-
-        ImGui::EndPopup();
     }
 
     if (node_open) {
