@@ -29,7 +29,7 @@
 #include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
-#include <nodec_world/impl/world_module.hpp>
+#include <nodec_world/impl/world_impl.hpp>
 
 class Engine final {
 public:
@@ -47,8 +47,8 @@ public:
         return *screen_;
     }
 
-    nodec_world::impl::WorldModule &world_module() {
-        return *world_module_;
+    nodec_world::impl::WorldImpl &world_module() {
+        return *world_;
     }
 
     nodec_resources::impl::ResourcesImpl &resources() {
@@ -94,7 +94,7 @@ private:
     std::shared_ptr<nodec_scene_serialization::SceneSerialization> scene_serialization_;
     std::unique_ptr<SceneSerializationBackend> scene_serialization_backend_;
 
-    std::shared_ptr<nodec_world::impl::WorldModule> world_module_;
+    std::shared_ptr<nodec_world::impl::WorldImpl> world_;
 
     std::unique_ptr<SceneRenderer> scene_renderer_;
 
