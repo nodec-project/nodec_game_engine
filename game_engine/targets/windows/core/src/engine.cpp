@@ -22,7 +22,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     screen_.reset(new ScreenBackend());
 
     // --- world ---
-    world_module_.reset(new WorldModule());
+    world_.reset(new WorldImpl());
 
     // --- input ---
     input_devices_.reset(new nodec_input::InputDevices());
@@ -38,13 +38,13 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     // --- scene serialization ---
     scene_serialization_.reset(new SceneSerialization());
     scene_serialization_backend_.reset(new SceneSerializationBackend(&resources_->registry(), *scene_serialization_));
-    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_, world_module_->scene(), resources_->registry()));
+    entity_loader_.reset(new nodec_scene_serialization::impl::EntityLoaderImpl(*scene_serialization_, world_->scene(), resources_->registry()));
 
     // --- others ---
-    physics_system_.reset(new PhysicsSystemBackend(*world_module_));
+    physics_system_.reset(new PhysicsSystemBackend(*world_));
 
-    visibility_system_.reset(new nodec_rendering::systems::VisibilitySystem(world_module_->scene()));
-    prefab_load_system_.reset(new nodec_scene_serialization::systems::PrefabLoadSystem(world_module_->scene(), *entity_loader_));
+    visibility_system_.reset(new nodec_rendering::systems::VisibilitySystem(world_->scene()));
+    prefab_load_system_.reset(new nodec_scene_serialization::systems::PrefabLoadSystem(world_->scene(), *entity_loader_));
 
     animation_component_registry_.reset(new nodec_animation::ComponentRegistry());
     setup_animation_component_registry(*animation_component_registry_);
@@ -52,7 +52,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
 
     // --- Export the services to application.
     app.add_service<Screen>(screen_);
-    app.add_service<World>(world_module_);
+    app.add_service<World>(world_);
     app.add_service<InputDevices>(input_devices_);
     app.add_service<Resources>(resources_);
     app.add_service<SceneSerialization>(scene_serialization_);
@@ -67,7 +67,7 @@ Engine::~Engine() {
     // TODO: Consider to unload all modules before backends.
 
     // unload all scene entities.
-    world_module_->scene().registry().clear();
+    world_->scene().registry().clear();
 }
 
 void Engine::setup() {
@@ -87,38 +87,40 @@ void Engine::setup() {
 
     audio_platform_.reset(new AudioPlatform());
 
-    scene_audio_system_.reset(new SceneAudioSystem(audio_platform_.get(), &world_module_->scene().registry()));
+    scene_audio_system_.reset(new SceneAudioSystem(audio_platform_.get(), &world_->scene().registry()));
 
     scene_rendering_context_.reset(new SceneRenderingContext(window_->graphics().width(), window_->graphics().height(), &window_->graphics()));
 
-    world_module_->stepped().connect([&](nodec_world::World &world) {
-        scene_audio_system_->UpdateAudio(world_module_->scene().registry());
-        animator_system_->update(world_module_->scene().registry(), world.clock().delta_time());
+    world_->stepped().connect([&](nodec_world::World &world) {
+        scene_audio_system_->UpdateAudio(world_->scene().registry());
+        animator_system_->update(world_->scene().registry(), world.clock().delta_time());
     });
 }
 
 void Engine::frame_begin() {
-    window_->graphics().BeginFrame();
+    window_->graphics().begin_frame();
 }
 
 void Engine::frame_end() {
     using namespace nodec::entities;
     using namespace nodec_scene::components;
 
+    // Emplacing the entities then update these transforms. 
+    prefab_load_system_->update();
+    entity_loader_->update();
+
+    // Update transform
     {
-        auto root = world_module_->scene().hierarchy_system().root_hierarchy().first;
+        auto root = world_->scene().hierarchy_system().root_hierarchy().first;
         while (root != null_entity) {
-            nodec_scene::systems::update_transform(world_module_->scene().registry(), root);
-            root = world_module_->scene().registry().get_component<Hierarchy>(root).next;
+            nodec_scene::systems::update_transform(world_->scene().registry(), root);
+            root = world_->scene().registry().get_component<Hierarchy>(root).next;
         }
     }
 
-    scene_renderer_->Render(world_module_->scene(),
+    scene_renderer_->Render(world_->scene(),
                             window_->graphics().render_target_view(),
                             *scene_rendering_context_);
 
-    window_->graphics().EndFrame();
-
-    prefab_load_system_->update();
-    entity_loader_->update();
+    window_->graphics().end_frame();
 }

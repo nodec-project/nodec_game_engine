@@ -3,7 +3,7 @@
 #include "ShaderBackend.hpp"
 
 #include <Graphics/ConstantBuffer.hpp>
-#include <Graphics/Graphics.hpp>
+#include <Graphics/graphics.hpp>
 
 #include <nodec_rendering/resources/material.hpp>
 

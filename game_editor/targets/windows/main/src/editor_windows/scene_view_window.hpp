@@ -13,7 +13,7 @@
 #include <nodec_scene/scene_entity.hpp>
 #include <nodec_scene_editor/component_registry.hpp>
 
-#include <Graphics/Graphics.hpp>
+#include <Graphics/graphics.hpp>
 #include <Rendering/SceneRenderer.hpp>
 
 #include "../scene_gizmo_impl.hpp"

@@ -1,9 +1,9 @@
 #include "editor.hpp"
 
 #include <ImGuizmo.h>
-#include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_physics/components/static_rigid_body.hpp>
 #include <nodec_physics/components/trigger_body.hpp>
+#include <nodec_scene_serialization/components/non_serialized.hpp>
 
 #include "EditorConfig.hpp"
 
