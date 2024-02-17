@@ -9,6 +9,23 @@
 
 #include <Font/FontBackend.hpp>
 
+// class BaseRenderer {
+// public:
+//     virtual ~BaseRenderer() {}
+//     virtual void render() = 0;
+// };
+
+// class MeshRenderer : public BaseRenderer {
+// public:
+//     void render() override {
+//         // Render the mesh.
+//     }
+// };
+
+// struct PrioritizedRenderer {
+//     std::unique_ptr<BaseRenderer> renderer;
+// };
+
 void SceneRenderer::SetupSceneLighting(nodec_scene::Scene &scene) {
     using namespace nodec_rendering::components;
     using namespace nodec_scene;
@@ -38,8 +55,8 @@ SceneRenderer::SceneRenderer(Graphics *gfx, nodec::resource_management::Resource
       cb_scene_properties_(*gfx),
       cb_model_properties_(*gfx),
       cb_texture_config_(*gfx),
-      mBSDefault(BlendState::CreateDefaultBlend(gfx)),
-      mBSAlphaBlend(BlendState::CreateAlphaBlend(gfx)),
+      bs_default_(BlendState::CreateDefaultBlend(gfx)),
+      bs_alpha_blend_(BlendState::CreateAlphaBlend(gfx)),
       rs_cull_back_{*gfx, D3D11_CULL_BACK},
       rs_cull_none_{*gfx, D3D11_CULL_NONE},
       rs_cull_front_{*gfx, D3D11_CULL_FRONT},
@@ -402,7 +419,7 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
             activeShader->bind();
 
             // now lets draw the mesh.
-            RenderModel(scene, activeShader, matrixV, matrixP);
+            render_model(scene, activeShader, matrixV, matrixP);
         } else {
             // Multi pass shader.
             const auto passCount = activeShader->pass_count();
@@ -427,14 +444,13 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
                 gfx_->context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                 activeShader->bind(0);
 
-                RenderModel(scene, activeShader, matrixV, matrixP);
+                render_model(scene, activeShader, matrixV, matrixP);
             }
 
             // medium pass
             // NOTE: This pass maybe not necessary.
             //  Alternatively, we can use the another shader pass.
             {
-
             }
 
             // final pass
@@ -466,9 +482,9 @@ void SceneRenderer::Render(nodec_scene::Scene &scene,
     }
 }
 
-void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *activeShader,
-                                const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixP) {
-    if (activeShader == nullptr) return;
+void SceneRenderer::render_model(nodec_scene::Scene &scene, ShaderBackend *active_shader,
+                                 const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p) {
+    if (active_shader == nullptr) return;
 
     using namespace nodec;
     using namespace nodec_scene;
@@ -482,58 +498,61 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
     UINT used_slot_max = 0;
 
-    // TODO: Extract sub renderer class.
-    scene.registry().view<const LocalToWorld, const MeshRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const MeshRenderer &renderer) {
-        if (renderer.meshes.size() == 0) return;
-        if (renderer.meshes.size() != renderer.materials.size()) return;
+    // Render the mesh.
+    [&]() {
+        scene.registry().view<const LocalToWorld, const MeshRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const MeshRenderer &renderer) {
+            if (renderer.meshes.size() == 0) return;
+            if (renderer.meshes.size() != renderer.materials.size()) return;
 
-        // DirectX Math using row-major representation, row-major memory order.
-        // nodec using column-major representation, column-major memory order.
-        // HLSL using column-major representation, row-major memory order.
-        //
-        // nodec -> DirectX Math
-        //  Mathematically, when a matrix is converted from column-major representation to row-major representation,
-        //  it needs to be transposed.
-        //  However, memory ordering of nodec and DirectX Math is different.
-        //  Therefore, the matrix is automatically transposed when it is assigned to each other.
-        XMMATRIX matrixM{local_to_world.value.m};
-        auto matrixMInverse = XMMatrixInverse(nullptr, matrixM);
+            // DirectX Math using row-major representation, row-major memory order.
+            // nodec using column-major representation, column-major memory order.
+            // HLSL using column-major representation, row-major memory order.
+            //
+            // nodec -> DirectX Math
+            //  Mathematically, when a matrix is converted from column-major representation to row-major representation,
+            //  it needs to be transposed.
+            //  However, memory ordering of nodec and DirectX Math is different.
+            //  Therefore, the matrix is automatically transposed when it is assigned to each other.
+            XMMATRIX matrixM{local_to_world.value.m};
+            auto matrixMInverse = XMMatrixInverse(nullptr, matrixM);
 
-        auto matrixMVP = matrixM * matrixV * matrixP;
+            auto matrixMVP = matrixM * matrix_v * matrix_p;
 
-        XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
-        XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
-        XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrixMVP);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrixMVP);
 
-        cb_model_properties_.apply();
+            cb_model_properties_.apply();
 
-        for (int i = 0; i < renderer.meshes.size(); ++i) {
-            auto &mesh = renderer.meshes[i];
-            auto &material = renderer.materials[i];
-            if (!mesh || !material) continue;
+            for (int i = 0; i < renderer.meshes.size(); ++i) {
+                auto &mesh = renderer.meshes[i];
+                auto &material = renderer.materials[i];
+                if (!mesh || !material) continue;
 
-            auto *meshBackend = static_cast<MeshBackend *>(mesh.get());
-            auto *materialBackend = static_cast<MaterialBackend *>(material.get());
-            auto *shaderBackend = static_cast<ShaderBackend *>(material->shader().get());
+                auto *meshBackend = static_cast<MeshBackend *>(mesh.get());
+                auto *materialBackend = static_cast<MaterialBackend *>(material.get());
+                auto *shaderBackend = static_cast<ShaderBackend *>(material->shader().get());
 
-            if (shaderBackend != activeShader) continue;
+                if (shaderBackend != active_shader) continue;
 
-            materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
-            set_cull_mode(materialBackend->cull_mode());
+                materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
+                set_cull_mode(materialBackend->cull_mode());
 
-            cb_texture_config_.data().tex_has_flag = 0x00;
-            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
-            cb_texture_config_.apply();
+                cb_texture_config_.data().tex_has_flag = 0x00;
+                used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
+                cb_texture_config_.apply();
 
-            meshBackend->bind(gfx_);
-            gfx_->DrawIndexed(meshBackend->triangles.size());
-        } // End foreach mesh
-    });   // End foreach mesh renderer
+                meshBackend->bind(gfx_);
+                gfx_->DrawIndexed(meshBackend->triangles.size());
+            } // End foreach mesh
+        });   // End foreach mesh renderer
+    }();
 
+    // Render the image.
     [&]() {
         if (!quad_mesh_) return;
 
-        mBSAlphaBlend.Bind(gfx_);
+        bs_alpha_blend_.Bind(gfx_);
 
         scene.registry().view<const LocalToWorld, const ImageRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const ImageRenderer &renderer) {
             using namespace DirectX;
@@ -543,102 +562,108 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
             auto &material = renderer.material;
             if (!image || !material) return;
 
-            auto *imageBackend = static_cast<TextureBackend *>(image.get());
-            auto *materialBackend = static_cast<MaterialBackend *>(material.get());
-            auto *shaderBackend = static_cast<ShaderBackend *>(material->shader().get());
+            auto *image_backend = static_cast<TextureBackend *>(image.get());
+            auto *material_backend = static_cast<MaterialBackend *>(material.get());
+            auto *shader_backend = static_cast<ShaderBackend *>(material->shader().get());
 
-            if (shaderBackend != activeShader) return;
+            if (shader_backend != active_shader) return;
 
-            auto savedAlbedo = materialBackend->get_texture_entry("albedo");
-            materialBackend->set_texture_entry("albedo", {image, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
+            auto backup_image = material_backend->get_texture_entry("image");
+            auto backup_color = material_backend->get_vector4_property("color");
 
-            materialBackend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
-            set_cull_mode(materialBackend->cull_mode());
+            material_backend->set_texture_entry("image", {image, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
+            material_backend->set_vector4_property("color", renderer.color);
+
+            material_backend->bind_constant_buffer(gfx_, MATERIAL_PROPERTIES_CB_SLOT);
+            set_cull_mode(material_backend->cull_mode());
 
             cb_texture_config_.data().tex_has_flag = 0x00;
-            used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
+            used_slot_max = (std::max)(bind_texture_entries(material_backend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
             cb_texture_config_.apply();
 
-            XMMATRIX matrixM{local_to_world.value.m};
-            const auto width = imageBackend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
-            const auto height = imageBackend->height() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
-            matrixM = XMMatrixScaling(width, height, 1.0f) * matrixM;
+            XMMATRIX matrix_m{local_to_world.value.m};
+            const auto width = image_backend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
+            const auto height = image_backend->height() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
+            matrix_m = XMMatrixScaling(width, height, 1.0f) * matrix_m;
 
-            // matrixM
-            auto matrixMInverse = XMMatrixInverse(nullptr, matrixM);
+            auto matrix_m_inverse = XMMatrixInverse(nullptr, matrix_m);
 
             // DirectX Math using row-major representation
             // HLSL using column-major representation
-            auto matrixMVP = matrixM * matrixV * matrixP;
+            auto matrix_mvp = matrix_m * matrix_v * matrix_p;
 
-            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
-            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
-            XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrixMVP);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrix_m);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrix_m_inverse);
+            XMStoreFloat4x4(&cb_model_properties_.data().matrix_mvp, matrix_mvp);
 
             cb_model_properties_.apply();
-
             quad_mesh_->bind(gfx_);
             gfx_->DrawIndexed(quad_mesh_->triangles.size());
 
-            if (savedAlbedo) {
-                materialBackend->set_texture_entry("albedo", *savedAlbedo);
+            if (backup_image) {
+                material_backend->set_texture_entry("image", *backup_image);
+            }
+            if (backup_color) {
+                material_backend->set_vector4_property("color", *backup_color);
             }
         });
 
-        mBSDefault.Bind(gfx_);
+        bs_default_.Bind(gfx_);
     }();
 
+    // Render the text.
     [&]() {
-        mBSAlphaBlend.Bind(gfx_);
+        bs_alpha_blend_.Bind(gfx_);
+
         scene.registry().view<const LocalToWorld, const TextRenderer>(type_list<NonVisible>{}).each([&](SceneEntity entt, const LocalToWorld &local_to_world, const TextRenderer &renderer) {
             using namespace DirectX;
             using namespace nodec_rendering;
 
-            auto fontBackend = std::static_pointer_cast<FontBackend>(renderer.font);
-            if (!fontBackend) return;
+            auto font_backend = static_cast<FontBackend *>(renderer.font.get());
+            if (!font_backend) return;
 
-            auto materialBackend = std::static_pointer_cast<MaterialBackend>(renderer.material);
-            if (!materialBackend) return;
+            auto material_backend = static_cast<MaterialBackend *>(renderer.material.get());
+            if (!material_backend) return;
 
-            auto shaderBackend = std::static_pointer_cast<ShaderBackend>(materialBackend->shader());
-            if (shaderBackend.get() != activeShader) return;
+            auto shader_backend = static_cast<ShaderBackend *>(material_backend->shader().get());
+            if (shader_backend != active_shader) return;
 
-            auto savedMask = materialBackend->get_texture_entry("mask");
-            auto savedAlbedo = materialBackend->get_vector4_property("albedo");
+            auto backup_mask = material_backend->get_texture_entry("mask");
+            auto backup_color = material_backend->get_vector4_property("color");
 
             const auto u32Text = nodec::unicode::utf8to32<std::u32string>(renderer.text);
-            const float pixelsPerUnit = renderer.pixels_per_unit;
+            const float pixels_per_unit = static_cast<float>(renderer.pixels_per_unit);
 
             float offsetX = 0.0f;
             float offsetY = 0.0f;
             for (const auto &chCode : u32Text) {
                 if (chCode == '\n') {
-                    offsetY -= renderer.pixel_size / pixelsPerUnit;
+                    offsetY -= renderer.pixel_size / pixels_per_unit;
                     offsetX = 0.0f;
                     continue;
                 }
 
-                const auto &character = mFontCharacterDatabase.Get(fontBackend->GetFace(), renderer.pixel_size, chCode);
+                const auto &character = mFontCharacterDatabase.Get(font_backend->GetFace(), renderer.pixel_size, chCode);
 
-                float posX = offsetX + character.bearing.x / pixelsPerUnit;
-                float posY = offsetY - (character.size.y - character.bearing.y) / pixelsPerUnit;
-                float w = character.size.x / pixelsPerUnit;
-                float h = character.size.y / pixelsPerUnit;
+                float posX = offsetX + character.bearing.x / pixels_per_unit;
+                float posY = offsetY - (character.size.y - character.bearing.y) / pixels_per_unit;
+                float w = character.size.x / pixels_per_unit;
+                float h = character.size.y / pixels_per_unit;
 
-                offsetX += (character.advance >> 6) / pixelsPerUnit;
+                offsetX += (character.advance >> 6) / pixels_per_unit;
 
                 if (!character.pFontTexture) {
                     continue;
                 }
 
-                materialBackend->set_texture_entry("mask", {character.pFontTexture, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
-                materialBackend->set_vector4_property("albedo", renderer.color);
+                material_backend->set_texture_entry("mask", {character.pFontTexture, {Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}});
+                material_backend->set_vector4_property("color", renderer.color);
 
-                materialBackend->bind_constant_buffer(gfx_, 3);
-                set_cull_mode(materialBackend->cull_mode());
+                material_backend->bind_constant_buffer(gfx_, 3);
+                set_cull_mode(material_backend->cull_mode());
 
                 cb_texture_config_.data().tex_has_flag = 0x00;
-                used_slot_max = (std::max)(bind_texture_entries(materialBackend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
+                used_slot_max = (std::max)(bind_texture_entries(material_backend->texture_entries(), cb_texture_config_.data().tex_has_flag), used_slot_max);
                 cb_texture_config_.apply();
 
                 XMMATRIX matrixM{local_to_world.value.m};
@@ -649,7 +674,7 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
 
                 // DirectX Math using row-major representation
                 // HLSL using column-major representation
-                auto matrixMVP = matrixM * matrixV * matrixP;
+                auto matrixMVP = matrixM * matrix_v * matrix_p;
 
                 XMStoreFloat4x4(&cb_model_properties_.data().matrix_m, matrixM);
                 XMStoreFloat4x4(&cb_model_properties_.data().matrix_m_inverse, matrixMInverse);
@@ -660,16 +685,16 @@ void SceneRenderer::RenderModel(nodec_scene::Scene &scene, ShaderBackend *active
                 gfx_->DrawIndexed(screen_quad_mesh_->triangles.size());
             }
 
-            if (savedMask) {
-                materialBackend->set_texture_entry("mask", *savedMask);
+            if (backup_mask) {
+                material_backend->set_texture_entry("mask", *backup_mask);
             }
 
-            if (savedAlbedo) {
-                materialBackend->set_vector4_property("albedo", *savedAlbedo);
+            if (backup_color) {
+                material_backend->set_vector4_property("color", *backup_color);
             }
         });
 
-        mBSDefault.Bind(gfx_);
+        bs_default_.Bind(gfx_);
     }();
 
     unbind_all_shader_resources(used_slot_max);

@@ -10,7 +10,7 @@
 #include <wrl.h>
 
 #include "../Graphics/GeometryBuffer.hpp"
-#include "../Graphics/Graphics.hpp"
+#include "../Graphics/graphics.hpp"
 
 class SceneRenderingContext {
 public:

@@ -7,9 +7,9 @@
 
 #include <DirectXMath.h>
 
+#include <nodec/logging/logging.hpp>
 #include <nodec/resource_management/resource_registry.hpp>
 #include <nodec/vector4.hpp>
-#include <nodec/logging/logging.hpp>
 #include <nodec_rendering/components/camera.hpp>
 #include <nodec_rendering/components/directional_light.hpp>
 #include <nodec_rendering/components/image_renderer.hpp>
@@ -31,9 +31,9 @@
 #include <Graphics/BlendState.hpp>
 #include <Graphics/ConstantBuffer.hpp>
 #include <Graphics/GeometryBuffer.hpp>
-#include <Graphics/graphics.hpp>
 #include <Graphics/RasterizerState.hpp>
 #include <Graphics/SamplerState.hpp>
+#include <Graphics/graphics.hpp>
 #include <Rendering/MaterialBackend.hpp>
 #include <Rendering/MeshBackend.hpp>
 #include <Rendering/ShaderBackend.hpp>
@@ -64,8 +64,8 @@ private:
                 const DirectX::XMMATRIX &matrixP, const DirectX::XMMATRIX &matrixPInverse,
                 ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
 
-    void RenderModel(nodec_scene::Scene &scene, ShaderBackend *activeShader,
-                     const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixP);
+    void render_model(nodec_scene::Scene &scene, ShaderBackend *activeShader,
+                      const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixP);
 
     void set_cull_mode(const nodec_rendering::CullMode &mode) {
         using namespace nodec_rendering;
@@ -131,8 +131,8 @@ private:
     RasterizerState rs_cull_front_;
     RasterizerState rs_cull_back_;
 
-    BlendState mBSDefault;
-    BlendState mBSAlphaBlend;
+    BlendState bs_default_;
+    BlendState bs_alpha_blend_;
 
     Graphics *gfx_;
 
