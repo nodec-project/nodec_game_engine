@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Graphics/Graphics.hpp>
+#include <Graphics/graphics.hpp>
 
 #include <nodec_rendering/resources/texture.hpp>
 

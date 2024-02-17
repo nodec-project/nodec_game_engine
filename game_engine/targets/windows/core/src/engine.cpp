@@ -98,13 +98,18 @@ void Engine::setup() {
 }
 
 void Engine::frame_begin() {
-    window_->graphics().BeginFrame();
+    window_->graphics().begin_frame();
 }
 
 void Engine::frame_end() {
     using namespace nodec::entities;
     using namespace nodec_scene::components;
 
+    // Emplacing the entities then update these transforms. 
+    prefab_load_system_->update();
+    entity_loader_->update();
+
+    // Update transform
     {
         auto root = world_->scene().hierarchy_system().root_hierarchy().first;
         while (root != null_entity) {
@@ -117,8 +122,5 @@ void Engine::frame_end() {
                             window_->graphics().render_target_view(),
                             *scene_rendering_context_);
 
-    window_->graphics().EndFrame();
-
-    prefab_load_system_->update();
-    entity_loader_->update();
+    window_->graphics().end_frame();
 }

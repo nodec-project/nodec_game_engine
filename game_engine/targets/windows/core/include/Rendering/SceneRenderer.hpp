@@ -31,7 +31,7 @@
 #include <Graphics/BlendState.hpp>
 #include <Graphics/ConstantBuffer.hpp>
 #include <Graphics/GeometryBuffer.hpp>
-#include <Graphics/Graphics.hpp>
+#include <Graphics/graphics.hpp>
 #include <Graphics/RasterizerState.hpp>
 #include <Graphics/SamplerState.hpp>
 #include <Rendering/MaterialBackend.hpp>

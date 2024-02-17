@@ -1,10 +1,11 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__GRAPHICS__GRAPHICS_HPP_
+#define NODEC_GAME_ENGINE__GRAPHICS__GRAPHICS_HPP_
 
 #include "DxgiInfoLogger.hpp"
 
 #include <nodec/formatter.hpp>
-#include <nodec/macros.hpp>
 #include <nodec/logging/logging.hpp>
+#include <nodec/macros.hpp>
 
 // Prevent to define min/max macro in windows api.
 #define NOMINMAX
@@ -19,8 +20,9 @@ public:
     Graphics(HWND hWnd, int width, int height);
     ~Graphics();
 
-    void BeginFrame() noexcept;
-    void EndFrame();
+    void begin_frame() noexcept;
+    void end_frame();
+
     void DrawIndexed(UINT count);
 
     ID3D11Device &device() noexcept {
@@ -54,7 +56,7 @@ private:
     Microsoft::WRL::ComPtr<IDXGISwapChain> mpSwap;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
-    //Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDSV;
+    // Microsoft::WRL::ComPtr<ID3D11DepthStencilView> mpDSV;
     std::shared_ptr<nodec::logging::Logger> logger_;
 
 private:
@@ -78,3 +80,5 @@ inline void ThrowIfFailedGfx(const std::string &type, HRESULT hr, Graphics *pGfx
 inline void ThrowIfFailedGfx(HRESULT hr, Graphics *pGfx, const char *file, size_t line) {
     ThrowIfFailedGfx("", hr, pGfx, file, line);
 }
+
+#endif

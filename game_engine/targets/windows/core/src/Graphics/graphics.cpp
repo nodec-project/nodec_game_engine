@@ -1,4 +1,4 @@
-#include <Graphics/Graphics.hpp>
+#include <Graphics/graphics.hpp>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
 
@@ -127,13 +127,13 @@ Graphics::~Graphics() {
     logger_->info(__FILE__, __LINE__) << "End Graphics.";
 }
 
-void Graphics::BeginFrame() noexcept {
+void Graphics::begin_frame() noexcept {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 }
 
-void Graphics::EndFrame() {
+void Graphics::end_frame() {
     ImGui::Render();
 
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

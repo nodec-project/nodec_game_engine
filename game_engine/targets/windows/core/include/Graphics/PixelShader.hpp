@@ -5,7 +5,7 @@
 
 #include <nodec/unicode.hpp>
 
-#include "Graphics.hpp"
+#include "graphics.hpp"
 
 class PixelShader {
 public:

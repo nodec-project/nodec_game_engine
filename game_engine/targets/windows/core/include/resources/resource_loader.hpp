@@ -8,7 +8,7 @@
 
 #include <Font/FontBackend.hpp>
 #include <Font/FontLibrary.hpp>
-#include <Graphics/Graphics.hpp>
+#include <Graphics/graphics.hpp>
 
 class ResourceLoader {
     using ResourceRegistry = nodec::resource_management::ResourceRegistry;
