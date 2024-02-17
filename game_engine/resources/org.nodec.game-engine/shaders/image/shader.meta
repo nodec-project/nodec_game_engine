@@ -3,7 +3,7 @@
     "float_properties": [],
     "vector4_properties": [
       {
-        "name": "albedo",
+        "name": "color",
         "default_value": {
           "x": 1.0,
           "y": 1.0,
@@ -14,7 +14,7 @@
     ],
     "texture_entries": [
       {
-        "name": "albedo"
+        "name": "image"
       },
       {
         "name": "mask"

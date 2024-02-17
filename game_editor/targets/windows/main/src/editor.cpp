@@ -7,6 +7,7 @@
 
 #include "EditorConfig.hpp"
 
+#include "component_editors/animator_editor.hpp"
 #include "component_editors/audio_source_editor.hpp"
 #include "component_editors/camera_editor.hpp"
 #include "component_editors/directional_light_editor.hpp"
@@ -110,30 +111,51 @@ Editor::Editor(Engine *engine)
     {
         using namespace component_editors;
 
-        using namespace nodec_scene::components;
-        using namespace nodec_rendering::components;
-        using namespace nodec_scene_audio::components;
-        using namespace nodec_scene_serialization::components;
-        using namespace nodec_physics::components;
+        {
+            using namespace nodec_rendering::components;
 
-        component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
-        component_registry().register_component<Camera, CameraEditor>("Camera");
-        component_registry().register_component<DirectionalLight, DirectionalLightEditor>("Directional Light");
-        component_registry().register_component<ImageRenderer, ImageRendererEditor>("Image Renderer", *editor_gui_);
-        component_registry().register_component<LocalTransform, LocalTransformEditor>("Local Transform");
-        component_registry().register_component<MeshRenderer, MeshRendererEditor>("Mesh Renderer", *editor_gui_, engine->resources());
-        component_registry().register_component<Name, NameEditor>("Name");
-        component_registry().register_component<NonSerialized>("Non Serialized");
-        component_registry().register_component<NonVisible, NonVisibleEditor>("Non Visible");
-        component_registry().register_component<PhysicsShape, PhysicsShapeEditor>("Physics Shape");
-        component_registry().register_component<PointLight, PointLightEditor>("Point Light");
-        component_registry().register_component<PostProcessing, PostProcessingEditor>("Post Processing", *editor_gui_, engine->resources());
-        component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources(), engine->world_module().scene(), engine->scene_serialization());
-        component_registry().register_component<RigidBody, RigidBodyEditor>("Rigid Body");
-        component_registry().register_component<SceneLighting, SceneLightingEditor>("Scene Lighting", *editor_gui_);
-        component_registry().register_component<StaticRigidBody>("Static Rigid Body");
-        component_registry().register_component<TextRenderer, TextRendererEditor>("Text Renderer", *editor_gui_);
-        component_registry().register_component<TriggerBody>("Trigger Body");
+            component_registry().register_component<Camera, CameraEditor>("Camera");
+            component_registry().register_component<DirectionalLight, DirectionalLightEditor>("Directional Light");
+            component_registry().register_component<ImageRenderer, ImageRendererEditor>("Image Renderer", *editor_gui_);
+            component_registry().register_component<MeshRenderer, MeshRendererEditor>("Mesh Renderer", *editor_gui_, engine->resources());
+            component_registry().register_component<NonVisible, NonVisibleEditor>("Non Visible");
+            component_registry().register_component<PointLight, PointLightEditor>("Point Light");
+            component_registry().register_component<PostProcessing, PostProcessingEditor>("Post Processing", *editor_gui_, engine->resources());
+            component_registry().register_component<SceneLighting, SceneLightingEditor>("Scene Lighting", *editor_gui_);
+            component_registry().register_component<TextRenderer, TextRendererEditor>("Text Renderer", *editor_gui_);
+        }
+
+        {
+            using namespace nodec_scene::components;
+            component_registry().register_component<LocalTransform, LocalTransformEditor>("Local Transform");
+            component_registry().register_component<Name, NameEditor>("Name");
+        }
+
+        {
+            using namespace nodec_animation::components;
+            component_registry().register_component<Animator, AnimatorEditor>("Animator", *editor_gui_);
+            component_registry().register_component<AnimatorStart>("Animator Start");
+            component_registry().register_component<AnimatorStop>("Animator Stop");
+        }
+
+        {
+            using namespace nodec_scene_audio::components;
+            component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
+        }
+
+        {
+            using namespace nodec_physics::components;
+            component_registry().register_component<PhysicsShape, PhysicsShapeEditor>("Physics Shape");
+            component_registry().register_component<RigidBody, RigidBodyEditor>("Rigid Body");
+            component_registry().register_component<StaticRigidBody>("Static Rigid Body");
+            component_registry().register_component<TriggerBody>("Trigger Body");
+        }
+
+        {
+            using namespace nodec_scene_serialization::components;
+            component_registry().register_component<NonSerialized>("Non Serialized");
+            component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources(), engine->world_module().scene(), engine->scene_serialization());
+        }
     }
 
     [=]() {
