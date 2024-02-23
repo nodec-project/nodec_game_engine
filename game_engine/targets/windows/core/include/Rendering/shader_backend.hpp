@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RENDERING__SHADER_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__SHADER_BACKEND_HPP_
 
 #include <Graphics/InputLayout.hpp>
 #include <Graphics/PixelShader.hpp>
@@ -255,3 +256,5 @@ private:
 
     int rendering_priority_{0};
 };
+
+#endif

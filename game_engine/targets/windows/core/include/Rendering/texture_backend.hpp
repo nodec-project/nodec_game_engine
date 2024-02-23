@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RENDERING__TEXTURE_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__TEXTURE_BACKEND_HPP_
 
 #include <Graphics/graphics.hpp>
 
@@ -36,3 +37,5 @@ private:
     int width_{0};
     int height_{0};
 };
+
+#endif

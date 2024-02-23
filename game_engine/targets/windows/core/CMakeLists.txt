@@ -5,7 +5,7 @@ project(nodec_game_engine_core LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC
     src/Graphics/DxgiInfoLogger.cpp
     src/Graphics/graphics.cpp
-    src/Rendering/SceneRenderer.cpp
+    src/rendering/scene_renderer.cpp
     src/SceneAudio/SceneAudioSystem.cpp
     src/engine.cpp
     src/imgui_impl_dx11.cpp

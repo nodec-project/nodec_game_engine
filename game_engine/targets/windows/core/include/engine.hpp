@@ -4,11 +4,11 @@
 #include "Audio/AudioPlatform.hpp"
 #include "Font/FontLibrary.hpp"
 #include "ImguiManager.hpp"
-#include "Rendering/SceneRenderer.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
 #include "input/keyboard_device_system.hpp"
 #include "input/mouse_device_system.hpp"
 #include "physics/physics_system_backend.hpp"
+#include "rendering/scene_renderer.hpp"
 #include "resources/resources_backend.hpp"
 #include "scene_serialization/scene_serialization_backend.hpp"
 #include "screen/screen_backend.hpp"
@@ -43,7 +43,7 @@ public:
 
     void frame_end();
 
-    nodec_screen::Screen& screen() {
+    nodec_screen::Screen &screen() {
         return *screen_;
     }
 

@@ -4,7 +4,7 @@
 
 #include <nodec_scene/components/local_to_world.hpp>
 
-#include <Rendering/MeshBackend.hpp>
+#include <rendering/mesh_backend.hpp>
 
 #include "components/gizmo_wire.hpp"
 

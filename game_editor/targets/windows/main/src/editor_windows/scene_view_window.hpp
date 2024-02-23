@@ -14,7 +14,7 @@
 #include <nodec_scene_editor/component_registry.hpp>
 
 #include <Graphics/graphics.hpp>
-#include <Rendering/SceneRenderer.hpp>
+#include <rendering/scene_renderer.hpp>
 
 #include "../scene_gizmo_impl.hpp"
 #include "../scene_gizmo_renderer.hpp"

@@ -1,5 +1,5 @@
 
-#include <Rendering/SceneRenderer.hpp>
+#include <rendering/scene_renderer.hpp>
 
 #include <DirectXMath.h>
 

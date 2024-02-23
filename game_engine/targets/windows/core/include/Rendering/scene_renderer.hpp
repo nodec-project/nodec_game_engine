@@ -26,7 +26,11 @@
 #include "cb_model_properties.hpp"
 #include "cb_scene_properties.hpp"
 #include "cb_texture_config.hpp"
+#include "material_backend.hpp"
+#include "mesh_backend.hpp"
 #include "scene_rendering_context.hpp"
+#include "shader_backend.hpp"
+#include "texture_backend.hpp"
 #include <Font/FontCharacterDatabase.hpp>
 #include <Graphics/BlendState.hpp>
 #include <Graphics/ConstantBuffer.hpp>
@@ -34,10 +38,15 @@
 #include <Graphics/RasterizerState.hpp>
 #include <Graphics/SamplerState.hpp>
 #include <Graphics/graphics.hpp>
-#include <Rendering/MaterialBackend.hpp>
-#include <Rendering/MeshBackend.hpp>
-#include <Rendering/ShaderBackend.hpp>
-#include <Rendering/TextureBackend.hpp>
+
+// struct ShaderGroup1 {};
+
+// class BaseRendererBackend {};
+
+// class MeshRendererBackend : public BaseRendererBackend {
+// public:
+
+// };
 
 class SceneRenderer {
     using TextureEntry = nodec_rendering::resources::Material::TextureEntry;

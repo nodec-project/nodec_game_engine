@@ -7,13 +7,13 @@
 #include <nodec_resources/resources.hpp>
 #include <nodec_scene/scene.hpp>
 
-#include <Graphics/graphics.hpp>
 #include <Graphics/RasterizerState.hpp>
-#include <Rendering/MaterialBackend.hpp>
-#include <Rendering/cb_model_properties.hpp>
-#include <Rendering/cb_scene_properties.hpp>
-#include <Rendering/cb_texture_config.hpp>
-#include <Rendering/scene_rendering_context.hpp>
+#include <Graphics/graphics.hpp>
+#include <rendering/cb_model_properties.hpp>
+#include <rendering/cb_scene_properties.hpp>
+#include <rendering/cb_texture_config.hpp>
+#include <rendering/material_backend.hpp>
+#include <rendering/scene_rendering_context.hpp>
 
 class SceneGizmoRenderer {
     static constexpr UINT SCENE_PROPERTIES_CB_SLOT = 0;
