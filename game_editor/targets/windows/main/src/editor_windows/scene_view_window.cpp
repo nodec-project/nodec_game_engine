@@ -51,7 +51,7 @@ SceneViewWindow::SceneViewWindow(
             &gfx, __FILE__, __LINE__);
     }
 
-    rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, &gfx));
+    rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, gfx));
     scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
 }
 
@@ -161,7 +161,7 @@ void SceneViewWindow::on_gui() {
             view_inverse_ = math::gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
             view_ = math::inv(view_inverse_);
 
-            renderer_.Render(scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
+            renderer_.render(scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
         }
 
         {

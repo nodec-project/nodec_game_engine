@@ -48,12 +48,10 @@ void import_material(std::shared_ptr<nodec_rendering::resources::Material> &mate
 
     assert(material);
 
-    
     const std::string path = nodec::Formatter() << resources.resource_path() << "/"
                                                 << resources.registry().lookup_name<Material>(material).first;
     std::ifstream file(path, std::ios::binary);
 
-    
     if (!file) {
         nodec::logging::warn(__FILE__, __LINE__)
             << "Failed to open the file.\n"
@@ -70,10 +68,9 @@ void import_material(std::shared_ptr<nodec_rendering::resources::Material> &mate
         archive(ser_material);
 
         ser_material.apply_to(*material, resources.registry());
-        
+
         nodec::logging::info(__FILE__, __LINE__) << "Imported!";
-    }
-    catch (std::exception& e) {
+    } catch (std::exception &e) {
         nodec::logging::warn(__FILE__, __LINE__)
             << "Failed to import material.\n"
                "details:\n"
@@ -132,6 +129,12 @@ void MaterialEditorWindow::on_gui() {
     }
 
     ImGui::Spacing();
+
+    {
+        bool current = target_material_->is_transparent();
+        ImGui::Checkbox("Transparent", &current);
+        target_material_->set_transparent(current);
+    }
 
     // Float properties
     {

@@ -83,13 +83,13 @@ void Engine::setup() {
 
     resources_->setup_on_runtime(window_->graphics(), *font_library_, *scene_serialization_);
 
-    scene_renderer_.reset(new SceneRenderer(&window_->graphics(), resources_->registry()));
+    scene_renderer_.reset(new SceneRenderer(world_->scene(), window_->graphics(), resources_->registry()));
 
     audio_platform_.reset(new AudioPlatform());
 
     scene_audio_system_.reset(new SceneAudioSystem(audio_platform_.get(), &world_->scene().registry()));
 
-    scene_rendering_context_.reset(new SceneRenderingContext(window_->graphics().width(), window_->graphics().height(), &window_->graphics()));
+    scene_rendering_context_.reset(new SceneRenderingContext(window_->graphics().width(), window_->graphics().height(), window_->graphics()));
 
     world_->stepped().connect([&](nodec_world::World &world) {
         scene_audio_system_->UpdateAudio(world_->scene().registry());
@@ -105,7 +105,7 @@ void Engine::frame_end() {
     using namespace nodec::entities;
     using namespace nodec_scene::components;
 
-    // Emplacing the entities then update these transforms. 
+    // Emplacing the entities then update these transforms.
     prefab_load_system_->update();
     entity_loader_->update();
 
@@ -118,7 +118,7 @@ void Engine::frame_end() {
         }
     }
 
-    scene_renderer_->Render(world_->scene(),
+    scene_renderer_->render(world_->scene(),
                             window_->graphics().render_target_view(),
                             *scene_rendering_context_);
 

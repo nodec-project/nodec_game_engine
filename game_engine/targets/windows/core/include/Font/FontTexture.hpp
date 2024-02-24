@@ -1,10 +1,11 @@
-#pragma once
-
-#include "../Rendering/TextureBackend.hpp"
-
-#include "FontFace.hpp"
+#ifndef NODEC_GAME_ENGINE__FONT__FONT_TEXTURE_HPP_
+#define NODEC_GAME_ENGINE__FONT__FONT_TEXTURE_HPP_
 
 #include <cassert>
+
+#include "../rendering/texture_backend.hpp"
+
+#include "FontFace.hpp"
 
 class FontTexture : public TextureBackend {
 public:
@@ -48,3 +49,5 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Texture2D> texture_;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view_;
 };
+
+#endif

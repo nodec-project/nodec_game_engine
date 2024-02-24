@@ -1,13 +1,13 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RENDERING__MATERIAL_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__MATERIAL_BACKEND_HPP_
 
-#include "ShaderBackend.hpp"
-
-#include <Graphics/ConstantBuffer.hpp>
-#include <Graphics/graphics.hpp>
+#include <memory>
 
 #include <nodec_rendering/resources/material.hpp>
 
-#include <memory>
+#include "shader_backend.hpp"
+#include <Graphics/ConstantBuffer.hpp>
+#include <Graphics/graphics.hpp>
 
 class MaterialBackend : public nodec_rendering::resources::Material {
 public:
@@ -126,3 +126,5 @@ private:
     std::vector<TextureEntry> texture_entries_;
     bool dirty_{true};
 };
+
+#endif

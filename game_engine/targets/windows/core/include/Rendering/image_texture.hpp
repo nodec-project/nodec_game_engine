@@ -1,10 +1,11 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RENDERING__IMAGE_TEXTURE_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__IMAGE_TEXTURE_HPP_
 
-#include "TextureBackend.hpp"
+#include <DirectXTex.h>
 
 #include <nodec/unicode.hpp>
 
-#include <DirectXTex.h>
+#include "texture_backend.hpp"
 
 class ImageTexture : public TextureBackend {
 public:
@@ -66,3 +67,5 @@ private:
     DirectX::TexMetadata metadata_;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view_;
 };
+
+#endif
