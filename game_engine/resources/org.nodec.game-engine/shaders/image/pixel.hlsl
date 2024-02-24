@@ -13,7 +13,7 @@ float4 PSMain(V2P input) : SV_Target {
         color.a *= mask;
     }
 
-    if (color.a < 0.1f) {
+    if (color.a < 0.01f) {
         discard;
     }
 
