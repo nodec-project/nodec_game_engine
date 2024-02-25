@@ -4,6 +4,7 @@
     "cull_mode": 0,
     "float_properties": [],
     "vector4_properties": [],
-    "texture_properties": []
+    "texture_properties": [],
+    "is_transparent": false
   }
 }
