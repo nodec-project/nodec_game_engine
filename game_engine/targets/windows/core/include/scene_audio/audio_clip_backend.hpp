@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__SCENE_AUDIO__AUDIO_CLIP_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__SCENE_AUDIO__AUDIO_CLIP_BACKEND_HPP_
 
 #include <nodec_scene_audio/resources/audio_clip.hpp>
 
@@ -98,3 +99,5 @@ private:
     WAVEFORMATEX wfx_{0x00};
     std::vector<uint8_t> samples_;
 };
+
+#endif

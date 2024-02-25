@@ -20,8 +20,6 @@ public:
     void on_inspector_gui(nodec_scene_audio::components::AudioSource &source, const nodec_scene_editor::InspectorGuiContext &context) override {
         source.clip = gui_.resource_field("Clip", source.clip);
 
-        ImGui::Checkbox("Is Playing", &source.is_playing);
-
         {
             int position = source.position.count();
             ImGui::DragInt("Position", &position);
@@ -29,6 +27,10 @@ public:
         }
 
         ImGui::Checkbox("Loop", &source.loop);
+
+        ImGui::DragFloat("Volume", &source.volume, 0.01f);
+
+        ImGui::Checkbox("Is Spatial", &source.is_spatial);
     }
 
 private:

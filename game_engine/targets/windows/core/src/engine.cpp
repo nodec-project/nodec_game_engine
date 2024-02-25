@@ -50,6 +50,10 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     setup_animation_component_registry(*animation_component_registry_);
     animator_system_.reset(new nodec_animation::systems::AnimatorSystem(*animation_component_registry_));
 
+    world_->stepped().connect([=](nodec_world::World &world) {
+        on_stepped(world);
+    });
+
     // --- Export the services to application.
     app.add_service<Screen>(screen_);
     app.add_service<World>(world_);
@@ -87,14 +91,14 @@ void Engine::setup() {
 
     audio_platform_.reset(new AudioPlatform());
 
-    scene_audio_system_.reset(new SceneAudioSystem(audio_platform_.get(), &world_->scene().registry()));
+    scene_audio_system_.reset(new SceneAudioSystem(*audio_platform_, world_->scene().registry()));
 
     scene_rendering_context_.reset(new SceneRenderingContext(window_->graphics().width(), window_->graphics().height(), window_->graphics()));
+}
 
-    world_->stepped().connect([&](nodec_world::World &world) {
-        scene_audio_system_->UpdateAudio(world_->scene().registry());
-        animator_system_->update(world_->scene().registry(), world.clock().delta_time());
-    });
+void Engine::on_stepped(nodec_world::World &world) {
+    scene_audio_system_->update(world_->scene().registry());
+    animator_system_->update(world_->scene().registry(), world.clock().delta_time());
 }
 
 void Engine::frame_begin() {

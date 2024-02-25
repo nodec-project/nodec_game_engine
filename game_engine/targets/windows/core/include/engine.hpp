@@ -71,6 +71,9 @@ public:
     }
 
 private:
+    void on_stepped(nodec_world::World &);
+
+private:
     std::shared_ptr<nodec::logging::Logger> logger_;
 
     // imgui must be destroyed after window.

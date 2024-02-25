@@ -5,6 +5,7 @@
 #include <nodec_resources/impl/resources_impl.hpp>
 #include <nodec_scene_audio/resources/audio_clip.hpp>
 
+#include "../scene_audio/audio_clip_backend.hpp"
 #include "resource_loader.hpp"
 
 class ResourcesBackend : public nodec_resources::impl::ResourcesImpl {

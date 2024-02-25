@@ -45,6 +45,8 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
         using namespace nodec_scene_audio::components;
         serialization.register_component<AudioSource, SerializableAudioSource>();
         serialization.register_component<AudioListener, SerializableAudioListener>();
+        serialization.register_component<AudioPlay, SerializableAudioPlay>();
+        serialization.register_component<AudioStop, SerializableAudioStop>();
     }
 
     {

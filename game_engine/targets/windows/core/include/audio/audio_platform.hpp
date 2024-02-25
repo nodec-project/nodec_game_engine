@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__AUDIO__AUDIO_PLATFORM_HPP_
+#define NODEC_GAME_ENGINE__AUDIO__AUDIO_PLATFORM_HPP_
 
 #include <Exceptions.hpp>
 
@@ -76,3 +77,5 @@ private:
     IXAudio2MasteringVoice *mastering_voice_{nullptr};
     X3DAUDIO_HANDLE x3daudio_handle_;
 };
+
+#endif

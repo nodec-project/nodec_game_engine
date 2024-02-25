@@ -142,6 +142,9 @@ Editor::Editor(Engine *engine)
         {
             using namespace nodec_scene_audio::components;
             component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
+            component_registry().register_component<AudioListener>("Audio Listener");
+            component_registry().register_component<AudioPlay>("Audio Play");
+            component_registry().register_component<AudioStop>("Audio Stop");
         }
 
         {

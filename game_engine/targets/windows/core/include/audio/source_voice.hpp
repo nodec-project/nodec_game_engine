@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__AUDIO__SOURCE_VOICE_HPP_
+#define NODEC_GAME_ENGINE__AUDIO__SOURCE_VOICE_HPP_
 
 #include <atomic>
 #include <chrono>
@@ -144,3 +145,5 @@ private:
     std::atomic<time_point> mBufferStartTime;
     std::atomic<int> mLoopCount{1};
 };
+
+#endif
