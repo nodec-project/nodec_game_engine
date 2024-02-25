@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__AUDIO__SOURCE_VOICE_HPP_
+#define NODEC_GAME_ENGINE__AUDIO__SOURCE_VOICE_HPP_
 
 #include <atomic>
 #include <chrono>
@@ -7,7 +8,7 @@
 #include <nodec/logging/logging.hpp>
 
 #include "../Exceptions.hpp"
-#include "AudioPlatform.hpp"
+#include "audio_platform.hpp"
 
 class SourceVoice : private IXAudio2VoiceCallback {
 public:
@@ -28,8 +29,10 @@ public:
 
         logger_->info(__FILE__, __LINE__) << std::this_thread::get_id();
 
+        mX3DAudioHandle = &pAudioPlatform->x3daudio_handle();
+
         ThrowIfFailed(
-            pAudioPlatform->GetXAudio().CreateSourceVoice(
+            pAudioPlatform->xaudio().CreateSourceVoice(
                 &mpSourceVoice, &wfx,
                 0, 2.0, this),
             __FILE__, __LINE__);
@@ -55,6 +58,27 @@ public:
         using namespace Exceptions;
         mBufferState = BufferState::Submitting;
         ThrowIfFailed(mpSourceVoice->SubmitSourceBuffer(buffer), __FILE__, __LINE__);
+    }
+
+    // setting X3DAudio Method
+    // TODO: state追加必要？要検討
+    X3DAUDIO_HANDLE *GetX3DAudioHandle() noexcept {
+        return mX3DAudioHandle;
+    }
+
+    void SetFrequencyRatio(FLOAT32 dopplerFactor) {
+        using namespace Exceptions;
+        ThrowIfFailed(mpSourceVoice->SetFrequencyRatio(dopplerFactor), __FILE__, __LINE__);
+    }
+
+    void SetOutputMatrix(IXAudio2Voice *pDestinationVoice, UINT32 sourceChannels, UINT32 destinationChannels, const float *pLevelMatrix, UINT32 operationSet = 0U) {
+        using namespace Exceptions;
+        ThrowIfFailed(mpSourceVoice->SetOutputMatrix(pDestinationVoice, sourceChannels, destinationChannels, pLevelMatrix, operationSet), __FILE__, __LINE__);
+    }
+
+    void SetFilterParameters(const XAUDIO2_FILTER_PARAMETERS *pParameters, UINT32 operationSet = 0U) {
+        using namespace Exceptions;
+        ThrowIfFailed(mpSourceVoice->SetFilterParameters(pParameters, operationSet), __FILE__, __LINE__);
     }
 
     BufferState GetBufferState() const {
@@ -113,9 +137,13 @@ private:
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;
     IXAudio2SourceVoice *mpSourceVoice{nullptr};
+    X3DAUDIO_HANDLE *mX3DAudioHandle;
+
     WAVEFORMATEX mWfx;
 
     std::atomic<BufferState> mBufferState;
     std::atomic<time_point> mBufferStartTime;
     std::atomic<int> mLoopCount{1};
 };
+
+#endif

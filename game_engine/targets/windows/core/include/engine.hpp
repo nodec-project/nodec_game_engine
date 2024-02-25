@@ -1,15 +1,15 @@
 #ifndef NODEC_GAME_ENGINE__ENGINE_HPP_
 #define NODEC_GAME_ENGINE__ENGINE_HPP_
 
-#include "Audio/AudioPlatform.hpp"
 #include "Font/FontLibrary.hpp"
 #include "ImguiManager.hpp"
-#include "SceneAudio/SceneAudioSystem.hpp"
+#include "audio/audio_platform.hpp"
 #include "input/keyboard_device_system.hpp"
 #include "input/mouse_device_system.hpp"
 #include "physics/physics_system_backend.hpp"
 #include "rendering/scene_renderer.hpp"
 #include "resources/resources_backend.hpp"
+#include "scene_audio/scene_audio_system.hpp"
 #include "scene_serialization/scene_serialization_backend.hpp"
 #include "screen/screen_backend.hpp"
 #include "window.hpp"
@@ -69,6 +69,9 @@ public:
     SceneRenderer &scene_renderer() {
         return *scene_renderer_;
     }
+
+private:
+    void on_stepped(nodec_world::World &);
 
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;

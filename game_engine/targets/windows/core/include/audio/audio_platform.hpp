@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__AUDIO__AUDIO_PLATFORM_HPP_
+#define NODEC_GAME_ENGINE__AUDIO__AUDIO_PLATFORM_HPP_
 
 #include <Exceptions.hpp>
 
@@ -28,10 +29,11 @@ inline bool operator!=(const WAVEFORMATEX &left, const WAVEFORMATEX &right) {
 
 class AudioPlatform {
 public:
-    AudioPlatform(): logger_(nodec::logging::get_logger("engine.audio-platform")) {
+    AudioPlatform()
+        : logger_(nodec::logging::get_logger("engine.audio-platform")) {
         using namespace Exceptions;
 
-        ThrowIfFailed(XAudio2Create(&mpXAudio2), __FILE__, __LINE__);
+        ThrowIfFailed(XAudio2Create(&xaudio2_), __FILE__, __LINE__);
 
 #if defined(_DEBUG)
         // To see the trace output, you need to view ETW logs for this application:
@@ -42,32 +44,38 @@ public:
         XAUDIO2_DEBUG_CONFIGURATION debug = {};
         debug.TraceMask = XAUDIO2_LOG_ERRORS | XAUDIO2_LOG_WARNINGS;
         debug.BreakMask = XAUDIO2_LOG_ERRORS;
-        mpXAudio2->SetDebugConfiguration(&debug, 0);
+        xaudio2_->SetDebugConfiguration(&debug, 0);
 #endif
 
         // Create a mastering voice
-        ThrowIfFailed(mpXAudio2->CreateMasteringVoice(&mpMasteringVoice), __FILE__, __LINE__);
+        ThrowIfFailed(xaudio2_->CreateMasteringVoice(&mastering_voice_), __FILE__, __LINE__);
 
         DWORD channelMask;
-        ThrowIfFailed(mpMasteringVoice->GetChannelMask(&channelMask), __FILE__, __LINE__);
+        ThrowIfFailed(mastering_voice_->GetChannelMask(&channelMask), __FILE__, __LINE__);
 
-        X3DAudioInitialize(channelMask, X3DAUDIO_SPEED_OF_SOUND, mX3DAudioHandle);
+        X3DAudioInitialize(channelMask, X3DAUDIO_SPEED_OF_SOUND, x3daudio_handle_);
     }
 
     ~AudioPlatform() {
         logger_->info(__FILE__, __LINE__) << "Destructed.";
     }
 
-    IXAudio2 &GetXAudio() noexcept {
-        return *mpXAudio2.Get();
+    IXAudio2 &xaudio() noexcept {
+        return *xaudio2_.Get();
     }
-    X3DAUDIO_HANDLE &GetX3DAudioHandle() noexcept {
-        return mX3DAudioHandle;
+    X3DAUDIO_HANDLE &x3daudio_handle() noexcept {
+        return x3daudio_handle_;
+    }
+
+    IXAudio2MasteringVoice *mastering_voice() noexcept {
+        return mastering_voice_;
     }
 
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;
-    Microsoft::WRL::ComPtr<IXAudio2> mpXAudio2;
-    IXAudio2MasteringVoice *mpMasteringVoice{nullptr};
-    X3DAUDIO_HANDLE mX3DAudioHandle{0x00};
+    Microsoft::WRL::ComPtr<IXAudio2> xaudio2_;
+    IXAudio2MasteringVoice *mastering_voice_{nullptr};
+    X3DAUDIO_HANDLE x3daudio_handle_;
 };
+
+#endif

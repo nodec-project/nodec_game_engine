@@ -9,6 +9,7 @@
 
 #include "component_editors/animator_editor.hpp"
 #include "component_editors/audio_source_editor.hpp"
+#include "component_editors/audio_listener_editor.hpp"
 #include "component_editors/camera_editor.hpp"
 #include "component_editors/directional_light_editor.hpp"
 #include "component_editors/image_renderer_editor.hpp"
@@ -141,6 +142,9 @@ Editor::Editor(Engine *engine)
         {
             using namespace nodec_scene_audio::components;
             component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
+            component_registry().register_component<AudioListener>("Audio Listener");
+            component_registry().register_component<AudioPlay>("Audio Play");
+            component_registry().register_component<AudioStop>("Audio Stop");
         }
 
         {
