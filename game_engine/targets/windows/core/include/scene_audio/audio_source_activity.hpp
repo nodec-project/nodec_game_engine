@@ -1,11 +1,10 @@
 #pragma once
 
-#include "AudioClipBackend.hpp"
-
-#include <Audio/SouceVoice.hpp>
-
 #include <chrono>
 #include <memory>
+
+#include "../audio/source_voice.hpp"
+#include "audio_clip_backend.hpp"
 
 /**
  * ECS Component

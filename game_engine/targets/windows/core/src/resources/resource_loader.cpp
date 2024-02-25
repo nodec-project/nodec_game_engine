@@ -10,12 +10,12 @@
 #include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_scene_serialization/serializable_entity.hpp>
 
-#include <SceneAudio/AudioClipBackend.hpp>
 #include <rendering/image_texture.hpp>
 #include <rendering/material_backend.hpp>
 #include <rendering/mesh_backend.hpp>
 #include <rendering/shader_backend.hpp>
 #include <rendering/texture_backend.hpp>
+#include <scene_audio/audio_clip_backend.hpp>
 
 template<>
 std::shared_ptr<MeshBackend>

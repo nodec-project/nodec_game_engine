@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../Audio/AudioPlatform.hpp"
-#include "AudioSourceActivity.hpp"
+#include "../audio/audio_platform.hpp"
+#include "audio_source_activity.hpp"
 
 #include <nodec/logging/logging.hpp>
 #include <nodec_scene/components/local_transform.hpp>

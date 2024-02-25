@@ -7,7 +7,7 @@
 #include <nodec/logging/logging.hpp>
 
 #include "../Exceptions.hpp"
-#include "AudioPlatform.hpp"
+#include "audio_platform.hpp"
 
 class SourceVoice : private IXAudio2VoiceCallback {
 public:
@@ -66,7 +66,7 @@ public:
     }
 
     void SetFrequencyRatio(FLOAT32 dopplerFactor) {
-        using namespace Exceptions;  
+        using namespace Exceptions;
         ThrowIfFailed(mpSourceVoice->SetFrequencyRatio(dopplerFactor), __FILE__, __LINE__);
     }
 

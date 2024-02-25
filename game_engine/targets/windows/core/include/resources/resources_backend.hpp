@@ -1,10 +1,11 @@
 #ifndef NODEC_GAME_ENGINE__RESOURCES__RESOURCES_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__RESOURCES__RESOURCES_BACKEND_HPP_
 
-#include "resource_loader.hpp"
-
 #include <nodec_animation/resources/animation_clip.hpp>
 #include <nodec_resources/impl/resources_impl.hpp>
+#include <nodec_scene_audio/resources/audio_clip.hpp>
+
+#include "resource_loader.hpp"
 
 class ResourcesBackend : public nodec_resources::impl::ResourcesImpl {
 public:

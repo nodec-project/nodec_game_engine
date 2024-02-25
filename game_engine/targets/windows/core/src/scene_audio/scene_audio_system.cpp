@@ -1,4 +1,5 @@
-#include <SceneAudio/SceneAudioSystem.hpp>
+#include <scene_audio/scene_audio_system.hpp>
+
 #include <nodec_scene/components/local_to_world.hpp>
 
 void SceneAudioSystem::UpdateAudio(nodec_scene::SceneRegistry &registry) {
