@@ -4,18 +4,19 @@
 #include "Audio/AudioPlatform.hpp"
 #include "Font/FontLibrary.hpp"
 #include "ImguiManager.hpp"
-#include "Input/KeyboardDeviceSystem.hpp"
-#include "Input/MouseDeviceSystem.hpp"
-#include "Rendering/SceneRenderer.hpp"
-#include "Resources/ResourceLoader.hpp"
-#include "Resources/ResourcesModuleBackend.hpp"
 #include "SceneAudio/SceneAudioSystem.hpp"
-#include "scene_serialization/scene_serialization_backend.hpp"
-#include "ScreenHandler.hpp"
+#include "input/keyboard_device_system.hpp"
+#include "input/mouse_device_system.hpp"
 #include "physics/physics_system_backend.hpp"
+#include "rendering/scene_renderer.hpp"
+#include "resources/resources_backend.hpp"
+#include "scene_serialization/scene_serialization_backend.hpp"
+#include "screen/screen_backend.hpp"
 #include "window.hpp"
 
 #include <nodec/logging/logging.hpp>
+#include <nodec_animation/component_registry.hpp>
+#include <nodec_animation/systems/animator_system.hpp>
 #include <nodec_application/impl/application_impl.hpp>
 #include <nodec_input/input_devices.hpp>
 #include <nodec_input/keyboard/impl/keyboard_device.hpp>
@@ -28,21 +29,13 @@
 #include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
-#include <nodec_screen/impl/screen_module.hpp>
-#include <nodec_world/impl/world_module.hpp>
+#include <nodec_world/impl/world_impl.hpp>
 
 class Engine final {
 public:
     Engine(nodec_application::impl::ApplicationImpl &app);
 
-    ~Engine() {
-        logger_->info(__FILE__, __LINE__) << "Destructed.";
-
-        // TODO: Consider to unload all modules before backends.
-
-        // unload all scene entities.
-        world_module_->scene().registry().clear();
-    }
+    ~Engine();
 
     void setup();
 
@@ -50,16 +43,16 @@ public:
 
     void frame_end();
 
-    nodec_screen::impl::ScreenModule &screen_module() {
-        return *screen_module_;
+    nodec_screen::Screen &screen() {
+        return *screen_;
     }
 
-    nodec_world::impl::WorldModule &world_module() {
-        return *world_module_;
+    nodec_world::impl::WorldImpl &world_module() {
+        return *world_;
     }
 
-    nodec_resources::impl::ResourcesImpl &resources_module() {
-        return *resources_module_;
+    nodec_resources::impl::ResourcesImpl &resources() {
+        return *resources_;
     }
 
     nodec_scene_serialization::SceneSerialization &scene_serialization() {
@@ -88,8 +81,7 @@ private:
 
     std::unique_ptr<AudioPlatform> audio_platform_;
 
-    std::shared_ptr<nodec_screen::impl::ScreenModule> screen_module_;
-    std::unique_ptr<ScreenHandler> screen_handler_;
+    std::shared_ptr<ScreenBackend> screen_;
 
     std::shared_ptr<nodec_input::InputDevices> input_devices_;
     KeyboardDeviceSystem *keyboard_device_system_;
@@ -97,12 +89,12 @@ private:
 
     std::shared_ptr<nodec_scene_serialization::impl::EntityLoaderImpl> entity_loader_;
 
-    std::shared_ptr<ResourcesModuleBackend> resources_module_;
+    std::shared_ptr<ResourcesBackend> resources_;
 
     std::shared_ptr<nodec_scene_serialization::SceneSerialization> scene_serialization_;
     std::unique_ptr<SceneSerializationBackend> scene_serialization_backend_;
 
-    std::shared_ptr<nodec_world::impl::WorldModule> world_module_;
+    std::shared_ptr<nodec_world::impl::WorldImpl> world_;
 
     std::unique_ptr<SceneRenderer> scene_renderer_;
 
@@ -114,6 +106,9 @@ private:
 
     std::unique_ptr<SceneRenderingContext> scene_rendering_context_;
     std::unique_ptr<nodec_scene_serialization::systems::PrefabLoadSystem> prefab_load_system_;
+
+    std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
+    std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

@@ -1,5 +1,5 @@
 #pragma once
-#include "Graphics.hpp"
+#include "graphics.hpp"
 
 class BlendState {
 public:
@@ -32,7 +32,7 @@ public:
             pGfx, __FILE__, __LINE__);
     }
 
-    void Bind(Graphics *pGfx) {
+    void bind(Graphics *pGfx) {
         pGfx->context().OMSetBlendState(mpBlendState.Get(), nullptr, 0xFFFFFFFFu);
     }
 

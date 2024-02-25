@@ -107,7 +107,7 @@ public:
             }
         } else {
             ImGuiListClipper clipper;
-            clipper.Begin(record_entries_.size());
+            clipper.Begin(static_cast<int>(record_entries_.size()));
             while (clipper.Step()) {
                 for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
                     draw_record_entry(record_entries_[i]);

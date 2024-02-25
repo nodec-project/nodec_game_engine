@@ -1,5 +1,6 @@
 #include <scene_serialization/scene_serialization_backend.hpp>
 
+#include <nodec_animation/serialization/components/animator.hpp>
 #include <nodec_physics/serialization/components/physics_shape.hpp>
 #include <nodec_physics/serialization/components/rigid_body.hpp>
 #include <nodec_physics/serialization/components/static_rigid_body.hpp>
@@ -56,5 +57,12 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
     {
         using namespace nodec_scene_serialization::components;
         serialization.register_component<Prefab>();
+    }
+
+    {
+        using namespace nodec_animation::components;
+        serialization.register_component<Animator, SerializableAnimator>();
+        serialization.register_component<AnimatorStart, SerializableAnimatorStart>();
+        serialization.register_component<AnimatorStop, SerializableAnimatorStop>();
     }
 }

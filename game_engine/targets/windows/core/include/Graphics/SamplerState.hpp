@@ -1,5 +1,5 @@
 #pragma once
-#include "Graphics.hpp"
+#include "graphics.hpp"
 
 #include <nodec_rendering/sampler.hpp>
 

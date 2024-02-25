@@ -1,7 +1,7 @@
 #ifndef NODEC_GAME_ENGINE__GRAPHICS__VERTEX_BUFFER_HPP_
 #define NODEC_GAME_ENGINE__GRAPHICS__VERTEX_BUFFER_HPP_
 
-#include "Graphics.hpp"
+#include "graphics.hpp"
 
 /**
  * vertices in device memory

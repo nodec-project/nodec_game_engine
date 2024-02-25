@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__RENDERING__SHADER_BACKEND_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__SHADER_BACKEND_HPP_
 
 #include <Graphics/InputLayout.hpp>
 #include <Graphics/PixelShader.hpp>
@@ -70,7 +71,7 @@ public:
                 {"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0}};
 
             input_layout_.reset(new InputLayout(
-                *gfx, ied, std::size(ied),
+                *gfx, ied, static_cast<UINT>(std::size(ied)),
                 sub_shaders_[0].vertex_shader->bytecode().GetBufferPointer(),
                 sub_shaders_[0].vertex_shader->bytecode().GetBufferSize()));
         }
@@ -255,3 +256,5 @@ private:
 
     int rendering_priority_{0};
 };
+
+#endif

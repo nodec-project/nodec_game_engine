@@ -20,6 +20,7 @@ public:
                           const nodec_scene_editor::InspectorGuiContext &context) override {
         renderer.image = gui_.resource_field("Image", renderer.image);
         renderer.material = gui_.resource_field("Material", renderer.material);
+        ImGui::ColorEdit4("Color", renderer.color.v, ImGuiColorEditFlags_Float);
         ImGui::DragInt("Pixels Per Unit", &renderer.pixels_per_unit);
     }
 

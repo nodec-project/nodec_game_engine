@@ -32,12 +32,19 @@ public:
 
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
-            if (ImGui::DragFloat3("##Rotation", active_euler_angles_.v, 0.1f, -FLT_MAX, +FLT_MAX, "%.3f")) {
+            if (ImGui::DragFloat3("##Rotation(XYZ)", active_euler_angles_.v, 0.1f, -FLT_MAX, +FLT_MAX, "%.3f")) {
                 trfm.rotation = math::gfx::euler_angles_xyz(active_euler_angles_);
                 trfm.dirty = true;
             }
 
             is_rotation_active_ = ImGui::IsItemActive();
+        }
+        {
+            ImGui::Text("Rotation (Quaternion)");
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            ImGui::BeginDisabled();
+            ImGui::DragFloat4("##Rotation(Quaternion)", trfm.rotation.q, 0.005f, -FLT_MAX, +FLT_MAX, "%.3f");
+            ImGui::EndDisabled();
         }
 
         {

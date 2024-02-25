@@ -4,6 +4,7 @@
 
 #include <imessentials/text_buffer.hpp>
 #include <imgui.h>
+#include <nodec_scene_serialization/archive_context.hpp>
 #include <nodec_scene_serialization/entity_serializer.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 
@@ -30,33 +31,43 @@ void PrefabEditor::on_inspector_gui(nodec_scene_serialization::components::Prefa
             });
 
             if (!serializable) {
-                logger_->warn(__FILE__, __LINE__)
+                logger_->error(__FILE__, __LINE__)
                     << "Failed to save.\n"
                        "details:\n"
                        "Target entity is invalid.";
                 return;
             }
-            std::ofstream out(Formatter() << resources_.resource_path() << "/" << prefab.source, std::ios::binary);
-            if (!out) {
-                logger_->warn(__FILE__, __LINE__)
-                    << "Failed to save.\n"
-                       "details:\n"
-                       "Cannot open the file path. Make sure the directory exists.";
-                return;
+
+            std::ostringstream oss;
+
+            {
+                ArchiveContext context(serialization_, resources_.registry());
+                using Options = cereal::JSONOutputArchive::Options;
+                cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(
+                    context, oss, Options(324, Options::IndentChar::space, 2u));
+
+                try {
+                    archive(cereal::make_nvp("entity", *serializable));
+                } catch (std::exception &e) {
+                    logger_->error(__FILE__, __LINE__)
+                        << "Failed to save.\n"
+                           "details:\n"
+                        << e.what();
+                    return;
+                }
             }
 
-            ArchiveContext context(resources_.registry());
-            using Options = cereal::JSONOutputArchive::Options;
-            cereal::UserDataAdapter<ArchiveContext, cereal::JSONOutputArchive> archive(context, out, Options(324, Options::IndentChar::space, 2u));
-
-            try {
-                archive(cereal::make_nvp("entity", *serializable));
-            } catch (std::exception &e) {
-                logger_->warn(__FILE__, __LINE__)
-                    << "Failed to save.\n"
-                       "details:/n"
-                    << e.what();
-                return;
+            {
+                std::ofstream file(Formatter() << resources_.resource_path() << "/" << prefab.source, std::ios::binary);
+                if (!file) {
+                    logger_->error(__FILE__, __LINE__)
+                        << "Failed to save.\n"
+                           "details:\n"
+                           "Cannot open the file path. Make sure the directory exists.";
+                    return;
+                }
+                const auto str = oss.str();
+                file.write(str.c_str(), str.size());
             }
 
             logger_->info(__FILE__, __LINE__) << "Saved!";
@@ -68,7 +79,6 @@ void PrefabEditor::on_inspector_gui(nodec_scene_serialization::components::Prefa
         scene_.hierarchy_system().remove_all_children(entity);
         registry.remove_component<EntityBuilt>(entity);
         registry.emplace_component<PrefabLoadSystem::PrefabLoadActivity>(entity);
-        // logging::InfoStream(__FILE__, __LINE__) << "Loaded!";
     }
 
     auto &buffer = imessentials::get_text_buffer(1024, prefab.source);

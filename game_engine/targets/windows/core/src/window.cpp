@@ -95,7 +95,7 @@ Window::~Window() {
     logger_->info(__FILE__, __LINE__) << "End Window.";
 }
 
-void Window::SetTitle(const std::string &title) {
+void Window::set_title(const std::string &title) {
     std::wstring titleW = nodec::unicode::utf8to16<std::wstring>(title);
 
     if (SetWindowText(hWnd, titleW.c_str()) == 0) {

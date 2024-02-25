@@ -1,12 +1,13 @@
 #include "editor.hpp"
 
 #include <ImGuizmo.h>
-#include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_physics/components/static_rigid_body.hpp>
 #include <nodec_physics/components/trigger_body.hpp>
+#include <nodec_scene_serialization/components/non_serialized.hpp>
 
 #include "EditorConfig.hpp"
 
+#include "component_editors/animator_editor.hpp"
 #include "component_editors/audio_source_editor.hpp"
 #include "component_editors/audio_listener_editor.hpp"
 #include "component_editors/camera_editor.hpp"
@@ -37,7 +38,7 @@ Editor::Editor(Engine *engine)
     using namespace imessentials;
     using namespace nodec_scene_editor;
 
-    editor_gui_.reset(new EditorGui(engine->resources_module()));
+    editor_gui_.reset(new EditorGui(engine->resources()));
 
     window_manager().register_window<ControlWindow>([=]() {
         return std::make_unique<ControlWindow>(this);
@@ -46,7 +47,7 @@ Editor::Editor(Engine *engine)
     window_manager().register_window<SceneViewWindow>([=]() {
         return std::make_unique<SceneViewWindow>(engine->window().graphics(),
                                                  engine->world_module().scene(), engine->scene_renderer(),
-                                                 engine->resources_module(),
+                                                 engine->resources(),
                                                  *scene_gizmo_, component_registry_impl());
     });
 
@@ -64,13 +65,13 @@ Editor::Editor(Engine *engine)
     });
 
     window_manager().register_window<MaterialEditorWindow>([=]() {
-        return std::make_unique<MaterialEditorWindow>(engine->resources_module());
+        return std::make_unique<MaterialEditorWindow>(engine->resources());
     });
 
     window_manager().register_window<AssetImportWindow>([=]() {
-        return std::make_unique<AssetImportWindow>(engine->resources_module().resource_path(),
+        return std::make_unique<AssetImportWindow>(engine->resources().resource_path(),
                                                    &engine->world_module().scene(),
-                                                   &engine->resources_module().registry());
+                                                   &engine->resources().registry());
     });
 
     register_menu_item("Window/Control", [=]() {
@@ -111,31 +112,51 @@ Editor::Editor(Engine *engine)
     {
         using namespace component_editors;
 
-        using namespace nodec_scene::components;
-        using namespace nodec_rendering::components;
-        using namespace nodec_scene_audio::components;
-        using namespace nodec_scene_serialization::components;
-        using namespace nodec_physics::components;
+        {
+            using namespace nodec_rendering::components;
 
-        component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
-        component_registry().register_component<AudioListener, AudioListenerEditor>("Audio Listener", *editor_gui_);
-        component_registry().register_component<Camera, CameraEditor>("Camera");
-        component_registry().register_component<DirectionalLight, DirectionalLightEditor>("Directional Light");
-        component_registry().register_component<ImageRenderer, ImageRendererEditor>("Image Renderer", *editor_gui_);
-        component_registry().register_component<LocalTransform, LocalTransformEditor>("Local Transform");
-        component_registry().register_component<MeshRenderer, MeshRendererEditor>("Mesh Renderer", *editor_gui_, engine->resources_module());
-        component_registry().register_component<Name, NameEditor>("Name");
-        component_registry().register_component<NonSerialized>("Non Serialized");
-        component_registry().register_component<NonVisible, NonVisibleEditor>("Non Visible");
-        component_registry().register_component<PhysicsShape, PhysicsShapeEditor>("Physics Shape");
-        component_registry().register_component<PointLight, PointLightEditor>("Point Light");
-        component_registry().register_component<PostProcessing, PostProcessingEditor>("Post Processing", *editor_gui_, engine->resources_module());
-        component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources_module(), engine->world_module().scene(), engine->scene_serialization());
-        component_registry().register_component<RigidBody, RigidBodyEditor>("Rigid Body");
-        component_registry().register_component<SceneLighting, SceneLightingEditor>("Scene Lighting", *editor_gui_);
-        component_registry().register_component<StaticRigidBody>("Static Rigid Body");
-        component_registry().register_component<TextRenderer, TextRendererEditor>("Text Renderer", *editor_gui_);
-        component_registry().register_component<TriggerBody>("Trigger Body");
+            component_registry().register_component<Camera, CameraEditor>("Camera");
+            component_registry().register_component<DirectionalLight, DirectionalLightEditor>("Directional Light");
+            component_registry().register_component<ImageRenderer, ImageRendererEditor>("Image Renderer", *editor_gui_);
+            component_registry().register_component<MeshRenderer, MeshRendererEditor>("Mesh Renderer", *editor_gui_, engine->resources());
+            component_registry().register_component<NonVisible, NonVisibleEditor>("Non Visible");
+            component_registry().register_component<PointLight, PointLightEditor>("Point Light");
+            component_registry().register_component<PostProcessing, PostProcessingEditor>("Post Processing", *editor_gui_, engine->resources());
+            component_registry().register_component<SceneLighting, SceneLightingEditor>("Scene Lighting", *editor_gui_);
+            component_registry().register_component<TextRenderer, TextRendererEditor>("Text Renderer", *editor_gui_);
+        }
+
+        {
+            using namespace nodec_scene::components;
+            component_registry().register_component<LocalTransform, LocalTransformEditor>("Local Transform");
+            component_registry().register_component<Name, NameEditor>("Name");
+        }
+
+        {
+            using namespace nodec_animation::components;
+            component_registry().register_component<Animator, AnimatorEditor>("Animator", *editor_gui_);
+            component_registry().register_component<AnimatorStart>("Animator Start");
+            component_registry().register_component<AnimatorStop>("Animator Stop");
+        }
+
+        {
+            using namespace nodec_scene_audio::components;
+            component_registry().register_component<AudioSource, AudioSourceEditor>("Audio Source", *editor_gui_);
+        }
+
+        {
+            using namespace nodec_physics::components;
+            component_registry().register_component<PhysicsShape, PhysicsShapeEditor>("Physics Shape");
+            component_registry().register_component<RigidBody, RigidBodyEditor>("Rigid Body");
+            component_registry().register_component<StaticRigidBody>("Static Rigid Body");
+            component_registry().register_component<TriggerBody>("Trigger Body");
+        }
+
+        {
+            using namespace nodec_scene_serialization::components;
+            component_registry().register_component<NonSerialized>("Non Serialized");
+            component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources(), engine->world_module().scene(), engine->scene_serialization());
+        }
     }
 
     [=]() {
@@ -156,7 +177,7 @@ Editor::Editor(Engine *engine)
         }
 
         if (!config.resource_path.empty()) {
-            engine->resources_module().set_resource_path(config.resource_path);
+            engine->resources().set_resource_path(config.resource_path);
         }
 
         if (!config.font.path.empty()) {
@@ -167,7 +188,7 @@ Editor::Editor(Engine *engine)
 }
 
 void Editor::setup() {
-    scene_gizmo_.reset(new SceneGizmoImpl(engine_->world_module().scene(), engine_->resources_module()));
+    scene_gizmo_.reset(new SceneGizmoImpl(engine_->world_module().scene(), engine_->resources()));
 
     // TODO: Restore the previous workspace.
     //  * Last opened windows.

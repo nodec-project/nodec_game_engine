@@ -8,7 +8,7 @@ struct V2P {
 };
 
 struct MaterialProperties {
-    float4 albedo;
+    float4 color;
 };
 
 cbuffer cbMaterialProperties : register(b3)
@@ -16,8 +16,8 @@ cbuffer cbMaterialProperties : register(b3)
     MaterialProperties materialProperties;
 };
 
-Texture2D texAlbedo : register(t0);
+Texture2D texImage : register(t0);
 Texture2D texMask : register(t1);
 
-SamplerState sampler_texAlbedo : register(s0);
+SamplerState sampler_texImage : register(s0);
 SamplerState sampler_texMask : register(s1);

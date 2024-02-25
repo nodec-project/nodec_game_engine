@@ -1,7 +1,7 @@
 #ifndef NODEC_GAME_ENGINE__GRAPHICS__RASTERIZER_STATE_HPP_
 #define NODEC_GAME_ENGINE__GRAPHICS__RASTERIZER_STATE_HPP_
 
-#include "Graphics.hpp"
+#include "graphics.hpp"
 
 class RasterizerState {
 public:
