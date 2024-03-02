@@ -23,6 +23,7 @@ public:
     }
 
     void operator()(const nodec::logging::LogRecord &record) {
+        if (record.level < nodec::logging::Level::Info) return;
         std::lock_guard<std::mutex> lock(io_mutex_);
         using namespace nodec::logging::formatters;
         using namespace std::chrono;
