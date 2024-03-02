@@ -127,6 +127,8 @@ void SceneAudioSystem::update(nodec_scene::SceneRegistry &scene_registry) {
             emitter_backend.CurveDistanceScaler = 1.0f;
             // emitter_backend.pVolumeCurve = (X3DAUDIO_DISTANCE_CURVE*)&X3DAudioDefault_LinearCurve;
             emitter_backend.pVolumeCurve = nullptr;
+
+            emitter_backend.DopplerScaler = 1.0f;
         });
 
     // Play audio source.
