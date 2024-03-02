@@ -251,7 +251,6 @@ void SceneAudioSystem::update(nodec_scene::SceneRegistry &scene_registry) {
                                       &dsp_settings);
                     activity.voice->SetOutputMatrix(mastering_voice, dsp_settings.SrcChannelCount, dsp_settings.DstChannelCount, dsp_settings.pMatrixCoefficients);
                     activity.voice->SetFrequencyRatio(dsp_settings.DopplerFactor);
-                    logger_->debug(__FILE__, __LINE__) << dsp_settings.DopplerFactor;
                 } catch (...) {
                     handle_exception(logger_, entity);
                 }
