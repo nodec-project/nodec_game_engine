@@ -117,7 +117,7 @@ set_target_properties(${PROJECT_NAME}
 
 if(MSVC)
     function(nodec_add_vertex_shader TARGET FILE)
-        get_target_property(SHADER_COMMON_INCLUDE_DIR ${PROJECT_NAME} SHADER_COMMON_INCLUDE_DIR)
+        get_target_property(SHADER_COMMON_INCLUDE_DIR nodec_game_engine SHADER_COMMON_INCLUDE_DIR)
         get_filename_component(FILE_WE ${FILE} NAME_WE)
         get_filename_component(DIRECTORY ${FILE} DIRECTORY)
         add_custom_command(TARGET ${TARGET}
@@ -130,7 +130,7 @@ if(MSVC)
     endfunction()
 
     function(nodec_add_pixel_shader TARGET FILE)
-        get_target_property(SHADER_COMMON_INCLUDE_DIR ${PROJECT_NAME} SHADER_COMMON_INCLUDE_DIR)
+        get_target_property(SHADER_COMMON_INCLUDE_DIR nodec_game_engine SHADER_COMMON_INCLUDE_DIR)
         get_filename_component(FILE_WE ${FILE} NAME_WE)
         get_filename_component(DIRECTORY ${FILE} DIRECTORY)
         add_custom_command(TARGET ${TARGET}
