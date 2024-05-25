@@ -7,6 +7,9 @@ class MouseDeviceBackend : public nodec_input::mouse::impl::MouseDevice {
 public:
     void warp_cursor_position(const nodec::Vector2f &position) override;
     void set_cursor_visible(bool visible) override;
+
+private:
+    bool is_cursor_visible_{true};
 };
 
 #endif

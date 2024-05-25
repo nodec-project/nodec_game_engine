@@ -10,5 +10,8 @@ void MouseDeviceBackend::warp_cursor_position(const nodec::Vector2f &position) {
 }
 
 void MouseDeviceBackend::set_cursor_visible(bool visible) {
+    if (is_cursor_visible_ == visible) {
+        return;
+    }
     ::ShowCursor(visible);
 }
