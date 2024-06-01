@@ -50,6 +50,11 @@ if(MSVC)
         "resources/org.nodec.game-engine/shaders/post-processings/hdr/hdr_ps.hlsl")
 
     nodec_add_vertex_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/fog/fog_vs.hlsl")
+    nodec_add_pixel_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/fog/fog_ps.hlsl")
+
+    nodec_add_vertex_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_vs.hlsl")
     nodec_add_pixel_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_ps.hlsl")

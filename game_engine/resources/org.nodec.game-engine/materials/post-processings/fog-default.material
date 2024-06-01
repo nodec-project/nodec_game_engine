@@ -1,0 +1,29 @@
+{
+  "material": {
+    "shader": "org.nodec.game-engine/shaders/post-processings/fog",
+    "cull_mode": 2,
+    "float_properties": [],
+    "vector4_properties": [
+      {
+        "key": "color",
+        "value": {
+          "x": 0.7805907130241394,
+          "y": 0.9527853727340698,
+          "z": 1.0,
+          "w": 1.0
+        }
+      },
+      {
+        "key": "near_far",
+        "value": {
+          "x": 0.0,
+          "y": 500.0,
+          "z": 0.0,
+          "w": 0.0
+        }
+      }
+    ],
+    "texture_properties": [],
+    "is_transparent": false
+  }
+}

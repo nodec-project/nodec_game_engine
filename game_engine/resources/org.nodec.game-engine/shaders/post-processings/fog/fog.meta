@@ -1,0 +1,9 @@
+{
+    "meta": {
+        "render_targets": [],
+        "texture_resources": [
+            "screen",
+            "depth"
+        ]
+    }
+}

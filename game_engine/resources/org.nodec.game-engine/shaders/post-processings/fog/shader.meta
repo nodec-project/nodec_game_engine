@@ -1,0 +1,30 @@
+{
+    "meta": {
+        "float_properties": [],
+        "vector4_properties": [
+            {
+                "name": "color",
+                "default_value": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0,
+                    "w": 1.0
+                  }
+            },
+            {
+                "name": "near_far",
+                "default_value": {
+                    "x": 0.0,
+                    "y": 100.0,
+                    "z": 0.0,
+                    "w": 0.0
+                  }
+            }
+        ],
+        "texture_entries": [],
+        "pass": [
+            "fog"
+        ],
+        "rendering_priority": 0
+    }
+}
