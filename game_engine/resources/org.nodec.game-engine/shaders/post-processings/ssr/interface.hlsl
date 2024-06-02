@@ -1,0 +1,1 @@
+#include "../../common/interface_scene.hlsl"

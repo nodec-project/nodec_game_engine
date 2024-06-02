@@ -1,0 +1,14 @@
+{
+    "meta": {
+        "float_properties": [
+
+        ],
+        "vector4_properties": [],
+        "texture_entries": [
+        ],
+        "pass": [
+            "reflection_uv"
+        ],
+        "rendering_priority": 0
+    }
+}

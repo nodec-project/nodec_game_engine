@@ -121,7 +121,8 @@ if(MSVC)
         get_filename_component(FILE_WE ${FILE} NAME_WE)
         get_filename_component(DIRECTORY ${FILE} DIRECTORY)
         add_custom_command(TARGET ${TARGET}
-            COMMAND fxc.exe /nologo /EVSMain /Tvs_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
+            COMMAND fxc.exe /nologo /EVSMain /Tvs_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} /Fo ${DIRECTORY}/${FILE_WE}.cso ${FILE}
+            # COMMAND fxc.exe /nologo /EVSMain /Tvs_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
             MAIN_DEPENDENCY ${FILE}
             COMMENT "HLSL ${FILE}"
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -134,7 +135,8 @@ if(MSVC)
         get_filename_component(FILE_WE ${FILE} NAME_WE)
         get_filename_component(DIRECTORY ${FILE} DIRECTORY)
         add_custom_command(TARGET ${TARGET}
-            COMMAND fxc.exe /nologo /EPSMain /Tps_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
+            COMMAND fxc.exe /nologo /EPSMain /Tps_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} /Fo ${DIRECTORY}/${FILE_WE}.cso ${FILE}
+            # COMMAND fxc.exe /nologo /EPSMain /Tps_4_0 /I ${SHADER_COMMON_INCLUDE_DIR} $<IF:$<CONFIG:DEBUG>,/Od,/O1> /Zi /Fo ${DIRECTORY}/${FILE_WE}.cso /Fd ${DIRECTORY}/${FILE_WE}.pdb ${FILE}
             MAIN_DEPENDENCY ${FILE}
             COMMENT "HLSL ${FILE}"
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
