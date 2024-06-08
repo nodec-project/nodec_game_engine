@@ -1,0 +1,11 @@
+{
+    "material": {
+      "shader": "org.nodec.game-engine/shaders/post-processings/ssr",
+      "cull_mode": 2,
+      "float_properties": [],
+      "vector4_properties": [
+      ],
+      "texture_properties": [],
+      "is_transparent": false
+    }
+  }
