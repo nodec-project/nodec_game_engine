@@ -8,7 +8,8 @@
         ],
         "pass": [
             "reflection_uv",
-            "reflection_color"
+            "reflection_color",
+            "box_blur"
         ],
         "rendering_priority": 0
     }

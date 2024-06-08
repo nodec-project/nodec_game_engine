@@ -1,6 +1,7 @@
 {
     "meta": {
         "render_targets": [
+            "reflection_color"
         ],
         "texture_resources": [
             "reflection_uv",
