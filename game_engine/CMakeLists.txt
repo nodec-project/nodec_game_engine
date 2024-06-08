@@ -63,6 +63,10 @@ if(MSVC)
         "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_uv_vs.hlsl")
     nodec_add_pixel_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_uv_ps.hlsl")
+    nodec_add_vertex_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_color_vs.hlsl")
+    nodec_add_pixel_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_color_ps.hlsl")
 
     nodec_add_vertex_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/skybox/panoramic/vertex.hlsl")

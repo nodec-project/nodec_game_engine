@@ -1,12 +1,10 @@
 {
     "meta": {
         "render_targets": [
-            "reflection_uv"
+            "reflection_color_blur"
         ],
         "texture_resources": [
-            "depth",
-            "normal",
-            "screen"
+            "reflection_color"
         ]
     }
 }

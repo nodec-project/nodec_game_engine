@@ -1,6 +1,12 @@
 #include "reflection_uv_interface.hlsl"
 
-float4 PSMain(V2P input) : SV_TARGET {
+struct PSOut {
+    float4 reflection_uv: SV_TARGET0;
+};
+
+PSOut PSMain(V2P input) : SV_TARGET {
+    PSOut output;
+
     float max_distance = 8;
     float resolution = 0.3;
     int steps = 5;
@@ -13,7 +19,8 @@ float4 PSMain(V2P input) : SV_TARGET {
 
     float non_linear_depth = texDepth.Sample(sampler_tex, input.texcoord).r;
     if (non_linear_depth <= 0) {
-        return out_uv;
+        output.reflection_uv = out_uv;
+        return output;
     }
     const float3 position_from = ViewSpacePosition(non_linear_depth, input.texcoord, sceneProperties.matrixPInverse);
 
@@ -108,10 +115,11 @@ float4 PSMain(V2P input) : SV_TARGET {
         * (1 - clamp(length(position_to - position_from) / max_distance, 0, 1))
         * (out_uv.x < 0 || out_uv.x > 1 ? 0 : 1)
         * (out_uv.y < 0 || out_uv.y > 1 ? 0 : 1);
-    // visibility = clamp(visibility, 0, 1);
+    visibility = clamp(visibility, 0, 1);
     out_uv.b = visibility;
     // out_uv.ba = float2(visibility, visibility);
     // out_uv.a = 1;
 
-    return out_uv;
+    output.reflection_uv = out_uv;
+    return output;
 }

@@ -1,8 +1,7 @@
 #include "interface.hlsl"
 
-Texture2D texDepth : register(t0);
-Texture2D texNormal : register(t1);
-Texture2D texScreen : register(t2);
+Texture2D tex_reflection_uv : register(t0);
+Texture2D tex_screen : register(t1);
 SamplerState sampler_tex : register(s0);
 
 struct V2P {
