@@ -7,7 +7,7 @@ struct PSOut {
 PSOut PSMain(V2P input) : SV_TARGET {
     PSOut output;
 
-    float max_distance = 8;
+    float max_distance = 4;
     float resolution = 0.3;
     int steps = 5;
     float thickness = 0.5;
@@ -37,12 +37,14 @@ PSOut PSMain(V2P input) : SV_TARGET {
     float4 start_frag = start_view;
     start_frag = mul(sceneProperties.matrixP, start_frag);
     start_frag.xyz /= start_frag.w;
+    start_frag.xy *= float2(1.0f, -1.0f);
     start_frag.xy = start_frag.xy * 0.5 + 0.5;
     start_frag.xy *= float2(screen_tex_width, screen_tex_height);
 
     float4 end_frag = end_view;
     end_frag = mul(sceneProperties.matrixP, end_frag);
     end_frag.xyz /= end_frag.w;
+    end_frag.xy *= float2(1.0f, -1.0f);
     end_frag.xy = end_frag.xy * 0.5 + 0.5;
     end_frag.xy *= float2(screen_tex_width, screen_tex_height);
 
@@ -66,6 +68,11 @@ PSOut PSMain(V2P input) : SV_TARGET {
 
     float i = 0;
 
+    // [loop]
+    // if (delta > 64) {
+    //     output.reflection_uv = float4(1, 0, 1, 1);
+    //     return output;
+    // }
     [unroll(64)]
     for (i = 0; i < int(delta); ++i) {
         frag += increment;
@@ -90,6 +97,7 @@ PSOut PSMain(V2P input) : SV_TARGET {
     search1 = search0 + ((search1 - search0) * 0.5);
     steps *= hit0;
 
+    // [loop]
     for (i = 0; i < steps; ++i) {
         frag = lerp(start_frag, end_frag, search1);
         out_uv.xy = frag / float2(screen_tex_width, screen_tex_height);
@@ -109,7 +117,7 @@ PSOut PSMain(V2P input) : SV_TARGET {
         }
     }
 
-    float visibility = hit1 * non_linear_depth
+    float visibility = hit1 
         * (1 - max(dot(-unit_position_from, pivot), 0))
         * (1 - clamp(depth / thickness, 0, 1))
         * (1 - clamp(length(position_to - position_from) / max_distance, 0, 1))
@@ -117,7 +125,9 @@ PSOut PSMain(V2P input) : SV_TARGET {
         * (out_uv.y < 0 || out_uv.y > 1 ? 0 : 1);
     visibility = clamp(visibility, 0, 1);
     out_uv.ba = visibility;
-    // out_uv.ba = float2(visibility, visibility);
+    // out_uv.a = visibility;
+    // out_uv.b = float2(visibility, visibility);
+
     // out_uv.a = 1;
 
     output.reflection_uv = out_uv;

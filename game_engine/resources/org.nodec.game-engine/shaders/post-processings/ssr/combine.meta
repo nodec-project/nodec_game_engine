@@ -4,7 +4,8 @@
         ],
         "texture_resources": [
             "screen",
-            "reflection_color_blur"
+            "reflection_color_blur",
+            "normal"
         ]
     }
 }

@@ -14,4 +14,5 @@ void MouseDeviceBackend::set_cursor_visible(bool visible) {
         return;
     }
     ::ShowCursor(visible);
+    is_cursor_visible_ = visible;
 }
