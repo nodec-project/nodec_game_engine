@@ -343,6 +343,8 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         // --- Post Processing ---
         if (activePostProcessEffects.size() > 0) {
             gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            
+            renderer_context_.bs_default().bind(&gfx_);
 
             for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
                 if (i != activePostProcessEffects.size() - 1) {

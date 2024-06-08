@@ -1,0 +1,10 @@
+{
+    "meta": {
+        "render_targets": [
+        ],
+        "texture_resources": [
+            "screen",
+            "reflection_color_blur"
+        ]
+    }
+}

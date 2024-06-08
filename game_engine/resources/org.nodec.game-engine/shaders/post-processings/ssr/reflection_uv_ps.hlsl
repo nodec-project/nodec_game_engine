@@ -15,7 +15,7 @@ PSOut PSMain(V2P input) : SV_TARGET {
     float screen_tex_width, screen_tex_height;
     texScreen.GetDimensions(screen_tex_width, screen_tex_height);
 
-    float4 out_uv = float4(0, 0, 0, 1);
+    float4 out_uv = float4(0, 0, 0, 0);
 
     float non_linear_depth = texDepth.Sample(sampler_tex, input.texcoord).r;
     if (non_linear_depth <= 0) {
@@ -116,7 +116,7 @@ PSOut PSMain(V2P input) : SV_TARGET {
         * (out_uv.x < 0 || out_uv.x > 1 ? 0 : 1)
         * (out_uv.y < 0 || out_uv.y > 1 ? 0 : 1);
     visibility = clamp(visibility, 0, 1);
-    out_uv.b = visibility;
+    out_uv.ba = visibility;
     // out_uv.ba = float2(visibility, visibility);
     // out_uv.a = 1;
 
