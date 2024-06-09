@@ -5,7 +5,9 @@
         "texture_resources": [
             "screen",
             "reflection_color_blur",
-            "normal"
+            "matProps",
+            "normal",
+            "depth"
         ]
     }
 }
