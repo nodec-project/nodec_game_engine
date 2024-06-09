@@ -9,8 +9,9 @@ float4 PSMain(V2P input) : SV_TARGET {
     float4 mat_props = tex_mat_props.Sample(sampler_tex, input.texcoord);
     float non_linear_depth = tex_depth.Sample(sampler_tex, input.texcoord).r;
     float3 position_in_view = ViewSpacePosition(non_linear_depth, input.texcoord, sceneProperties.matrixPInverse);
-
-    const float3 view_dir = normalize(position_in_view);
+    float3 position_in_world = mul(sceneProperties.matrixVInverse, float4(position_in_view, 1)).xyz;
+    float3 view_dir = normalize(position_in_world - sceneProperties.cameraPos.xyz);
+    // return float4(view_dir, 1);
 
     BRDFSurface surface;
     surface.albedo = base_color.rgb;
