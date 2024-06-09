@@ -15,14 +15,14 @@ PSOut PSMain(V2P input) {
     
     // return color;
     
-    int size = 1;
+    int size = 2;
     if (size <= 0) {
         // return color;
         output.color = color;
         return output;
     }
 
-    int separation = 1;
+    int separation = 2;
     separation = max(separation, 1);
 
     color = float4(0, 0, 0, 0);

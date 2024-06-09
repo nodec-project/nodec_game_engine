@@ -1,5 +1,7 @@
 #include "reflection_uv_interface.hlsl"
 
+#define PI 3.14159265359f
+
 struct PSOut {
     float4 reflection_uv: SV_TARGET0;
 };
@@ -116,17 +118,31 @@ PSOut PSMain(V2P input) : SV_TARGET {
             search0 = temp;
         }
     }
+    if (!hit1) {
+        // レイの最終的な方向をスカイボックスのUVに変換
+        float3 ray_dir = normalize(end_view.xyz - start_view.xyz);
+        
+        float4 clip_space_pos = mul(sceneProperties.matrixP, float4(ray_dir, 1.0));
+        float2 ndc_pos = clip_space_pos.xy / clip_space_pos.w;
 
-    float visibility = hit1 
-        * (1 - max(dot(-unit_position_from, pivot), 0))
-        * (1 - clamp(depth / thickness, 0, 1))
-        * (1 - clamp(length(position_to - position_from) / max_distance, 0, 1))
+        // NDC座標をスクリーン空間のUVにマッピング
+        ndc_pos *= float2(1, -1);
+        out_uv.xy = ndc_pos * 0.5 + 0.5;
+        // float2 skybox_uv = float2(atan2(ray_dir.z, ray_dir.x) / (2.0 * PI), asin(ray_dir.y) / PI);
+        // skybox_uv.y = 1.0 - skybox_uv.y;
+        // skybox_uv.x = 1.0 - skybox_uv.x;
+
+        // out_uv.xy = skybox_uv * 0.5 + 0.5;
+    }
+
+    float visibility = 
+        (1 - max(dot(-unit_position_from, pivot), 0))
+        // * (1 - clamp(depth / thickness, 0, 1))
+        // * (1 - clamp(length(position_to - position_from) / max_distance, 0, 1))
         * (out_uv.x < 0 || out_uv.x > 1 ? 0 : 1)
         * (out_uv.y < 0 || out_uv.y > 1 ? 0 : 1);
     visibility = clamp(visibility, 0, 1);
     out_uv.ba = visibility;
-    // out_uv.a = visibility;
-    // out_uv.b = float2(visibility, visibility);
 
     // out_uv.a = 1;
 
