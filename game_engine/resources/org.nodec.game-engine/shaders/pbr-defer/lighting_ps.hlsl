@@ -76,6 +76,7 @@ float4 PSMain(V2P input) : SV_TARGET {
     float3 outAmbient = EnvironmentBRDF(surface, -viewDir, sceneProperties.lights.ambientColor, sceneProperties.lights.ambientColor);
 
     float3 illumination = outDiffuseSpecular + outAmbient;
+    // float3 illumination = outDiffuseSpecular;
 
     // we need to gamma correct at the end of the shader.
     // details: https://learnopengl.com/PBR/Lighting

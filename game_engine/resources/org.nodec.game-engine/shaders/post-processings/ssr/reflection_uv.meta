@@ -1,0 +1,12 @@
+{
+    "meta": {
+        "render_targets": [
+            "reflection_uv"
+        ],
+        "texture_resources": [
+            "depth",
+            "normal",
+            "screen"
+        ]
+    }
+}

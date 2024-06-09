@@ -8,8 +8,8 @@
 #include "EditorConfig.hpp"
 
 #include "component_editors/animator_editor.hpp"
-#include "component_editors/audio_source_editor.hpp"
 #include "component_editors/audio_listener_editor.hpp"
+#include "component_editors/audio_source_editor.hpp"
 #include "component_editors/camera_editor.hpp"
 #include "component_editors/directional_light_editor.hpp"
 #include "component_editors/image_renderer_editor.hpp"
@@ -27,6 +27,7 @@
 #include "editor_windows/asset_import_window.hpp"
 #include "editor_windows/control_window.hpp"
 #include "editor_windows/entity_inspector_window.hpp"
+#include "editor_windows/geometry_buffer_inspector_window.hpp"
 #include "editor_windows/log_window.hpp"
 #include "editor_windows/material_editor_window.hpp"
 #include "editor_windows/scene_hierarchy_window.hpp"
@@ -74,6 +75,10 @@ Editor::Editor(Engine *engine)
                                                    &engine->resources().registry());
     });
 
+    window_manager().register_window<GeometryBufferInspectorWindow>([=]() {
+        return std::make_unique<GeometryBufferInspectorWindow>(engine->scene_rendering_context());
+    });
+
     register_menu_item("Window/Control", [=]() {
         auto &window = window_manager().get_window<ControlWindow>();
         window.focus();
@@ -106,6 +111,11 @@ Editor::Editor(Engine *engine)
 
     register_menu_item("Window/Asset Importer", [&]() {
         auto &window = window_manager().get_window<AssetImportWindow>();
+        window.focus();
+    });
+
+    register_menu_item("Window/Geometry Buffer Inspector", [&]() {
+        auto &window = window_manager().get_window<GeometryBufferInspectorWindow>();
         window.focus();
     });
 
@@ -199,11 +209,12 @@ void Editor::setup() {
 
     window_manager().get_window<ControlWindow>();
     window_manager().get_window<SceneViewWindow>();
-    window_manager().get_window<SceneHierarchyWindow>();
     window_manager().get_window<LogWindow>();
     window_manager().get_window<MaterialEditorWindow>();
     window_manager().get_window<AssetImportWindow>();
+    window_manager().get_window<GeometryBufferInspectorWindow>();
     window_manager().get_window<EntityInspectorWindow>();
+    window_manager().get_window<SceneHierarchyWindow>();
 }
 
 void Editor::update() {

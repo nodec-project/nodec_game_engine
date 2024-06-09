@@ -344,6 +344,8 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         if (activePostProcessEffects.size() > 0) {
             gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+            renderer_context_.bs_default().bind(&gfx_);
+
             for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
                 if (i != activePostProcessEffects.size() - 1) {
                     pCameraRenderTargetView = &context.geometry_buffer("screen_back").render_target_view();
@@ -591,6 +593,8 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         auto shader_backend = static_cast<ShaderBackend *>(material_backend->shader().get());
         if (!shader_backend) return;
 
+        renderer_context_.bs_default().bind(&gfx_);
+
         gfx_.context().OMSetRenderTargets(1, &render_target, nullptr);
         D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(context.target_width()), static_cast<FLOAT>(context.target_height()));
         gfx_.context().RSSetViewports(1u, &vp);
@@ -609,6 +613,29 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
         norm_cube_mesh.bind(&gfx_);
         gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
+
+        // // --- Render environment map.
+        // {
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, XMMatrixPerspectiveFovLH(XM_PI, 1.0f, 0.1f, 100.0f));
+        //     // XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, XMMatrixIdentity());
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, XMMatrixIdentity());
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, XMMatrixIdentity());
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, XMMatrixIdentity());
+        //     cb_scene_properties.apply();
+
+        //     auto &environment = context.geometry_buffer("environment");
+        //     auto *target = &environment.render_target_view();
+        //     gfx_.context().OMSetRenderTargets(1, &target, nullptr);
+
+        //     gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
+
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, matrix_p);
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, matrix_p_inverse);
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, matrix_v);
+        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, matrix_v_inverse);
+
+        //     cb_scene_properties.apply();
+        // }
     }();
 
     for (auto iter = draw_groups_.begin(); iter != draw_groups_.end();) {

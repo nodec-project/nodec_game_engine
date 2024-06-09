@@ -70,6 +70,10 @@ public:
         return *scene_renderer_;
     }
 
+    SceneRenderingContext &scene_rendering_context() {
+        return *scene_rendering_context_;
+    }
+
 private:
     void on_stepped(nodec_world::World &);
 

@@ -27,5 +27,5 @@ float4 PSMain(V2P input) : SV_TARGET {
     }
 
     //return float4(input.texcoord.y, 0, 0, 1);
-    return color;
+    return float4(color.rgb, 1);
 }

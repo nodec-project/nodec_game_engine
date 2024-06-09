@@ -60,6 +60,23 @@ if(MSVC)
         "resources/org.nodec.game-engine/shaders/post-processings/ssao/occlusion_ps.hlsl")
 
     nodec_add_vertex_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_uv_vs.hlsl")
+    nodec_add_pixel_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_uv_ps.hlsl")
+    nodec_add_vertex_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_color_vs.hlsl")
+    nodec_add_pixel_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/reflection_color_ps.hlsl")
+    nodec_add_vertex_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/box_blur_vs.hlsl")
+    nodec_add_pixel_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/box_blur_ps.hlsl")
+    nodec_add_vertex_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/combine_vs.hlsl")
+    nodec_add_pixel_shader(nodec_game_engine_shaders
+        "resources/org.nodec.game-engine/shaders/post-processings/ssr/combine_ps.hlsl")
+
+    nodec_add_vertex_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/skybox/panoramic/vertex.hlsl")
     nodec_add_pixel_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/skybox/panoramic/pixel.hlsl")

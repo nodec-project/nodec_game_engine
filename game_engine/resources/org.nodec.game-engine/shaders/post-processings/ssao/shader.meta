@@ -7,7 +7,7 @@
             },
             {
                 "name": "bias",
-                "default_value": 0.025
+                "default_value": 0.12
             }
         ],
         "vector4_properties": [],
