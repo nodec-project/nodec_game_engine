@@ -47,6 +47,17 @@ public:
         return *depth_stencil_view_.Get();
     }
 
+    std::size_t geometry_buffer_count() const noexcept {
+        return geometry_buffers_.size();
+    }
+
+    decltype(auto) geometry_buffer_begin() const noexcept {
+        return geometry_buffers_.begin();
+    }
+
+    decltype(auto) geometry_buffer_end() const noexcept {
+        return geometry_buffers_.end();
+    }
 
 private:
     std::uint32_t target_width_;
