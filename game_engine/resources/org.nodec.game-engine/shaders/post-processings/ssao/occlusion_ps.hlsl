@@ -21,10 +21,13 @@ float4 PSMain(V2P input) : SV_TARGET {
     float occlusion = 0.0;
 
     // TODO: Retrieve from texture properties.
-    const int kernelSize = 8;
+    const int kernelSize = 3;
 
     const float radius = materialProperties.radius;
     const float bias = materialProperties.bias;
+    
+    // float magnitude = 1;
+    // float contrast  = 1;
 
     for (int x = 0; x < kernelSize; ++x) {
         for (int y = 0; y < kernelSize; ++y) {
@@ -32,7 +35,7 @@ float4 PSMain(V2P input) : SV_TARGET {
             samplePos = samplePos * 2.0 - 1.0; // [-1, 1]
             samplePos = position + mul(samplePos, matrixTBN) * radius;
             float4 offset = float4(samplePos, 1.0f);
-            offset      = mul(sceneProperties.matrixP, offset);    // from view to clip-space
+            offset = mul(sceneProperties.matrixP, offset);    // from view to clip-space
             // Flip y axis?
             offset.xy = ((offset.xy / offset.w) * float2(1.0f, -1.0f)) * 0.5f + 0.5f; // [0, 1]
 
@@ -41,10 +44,11 @@ float4 PSMain(V2P input) : SV_TARGET {
             // http://dev.theomader.com/linear-depth/
             // https://www.mvps.org/directx/articles/linear_z/linearz.htm
             // http://www.humus.name/index.php?ID=255
-            const float a = sceneProperties.matrixP[2][3];
-            const float b = sceneProperties.matrixP[2][2];
-            const float d = texDepth.Sample(sampler_tex, offset.xy).r;
-            const float sampleDepth = a / (d - b);
+            // const float a = sceneProperties.matrixP[2][3];
+            // const float b = sceneProperties.matrixP[2][2];
+            // const float d = texDepth.Sample(sampler_tex, offset.xy).r;
+            // const float sampleDepth = a / (d - b);
+            float3 offset_position = ViewSpacePosition(texDepth.Sample(sampler_tex, offset.xy).r, offset.xy, sceneProperties.matrixPInverse);
 
             // const float sampleDepth = ViewSpacePosition(
             //     texDepth.Sample(sampler_tex, offset.xy).r, offset.xy, sceneProperties.matrixPInverse).z;
@@ -55,13 +59,16 @@ float4 PSMain(V2P input) : SV_TARGET {
             //        occlusion += 1.0f;
             //    }
             //}
-            float rangeCheck = smoothstep(0.0, 1.0, radius / abs(position.z - sampleDepth));
-            occlusion += (sampleDepth < samplePos.z - bias ? 1.0 : 0.0) * rangeCheck;
+            float intensity = smoothstep(0.0, 1.0, radius / abs(position.z - offset_position.z));
+            occlusion += (offset_position.z < samplePos.z - bias ? 1.0 : 0.0) * intensity;
             //occlusion += (sampleDepth >= samplePos.z + bias ? 1.0 : 0.0);  
         }
     }
 
     occlusion = 1.0 - (occlusion / (kernelSize * kernelSize));
+
+    // occlusion  = pow(occlusion, magnitude);
+    // occlusion  = contrast * (occlusion - 0.5) + 0.5;
 
     float3 illumination = texScreen.Sample(sampler_tex, input.texcoord) * occlusion;
     return float4(illumination, 1.0f);
