@@ -4,7 +4,7 @@
             "reflection_uv"
         ],
         "texture_resources": [
-            "$depth",
+            "depth",
             "normal",
             "screen"
         ]
