@@ -7,7 +7,7 @@
             "reflection_color_blur",
             "matProps",
             "normal",
-            "depth"
+            "$depth"
         ]
     }
 }

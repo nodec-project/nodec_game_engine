@@ -34,5 +34,7 @@ SceneRenderingContext::SceneRenderingContext(
         ThrowIfFailedGfx(
             gfx.device().CreateShaderResourceView(depth_stencil_texture_.Get(), &depth_stencil_srv_desc, &depth_stencil_srv_),
             &gfx, __FILE__, __LINE__);
+
+        shader_resource_views_["$depth"] = depth_stencil_srv_.Get();
     }
 }

@@ -27,12 +27,14 @@ public:
         auto &buffer = geometry_buffers_[name];
         if (!buffer) {
             buffer.reset(new GeometryBuffer(&gfx_, width, height));
+            shader_resource_views_[name] = &buffer->shader_resource_view();
         }
         return *buffer;
     }
 
     void swap_geometry_buffers(const std::string &lhs, const std::string &rhs) {
         std::swap(geometry_buffers_[lhs], geometry_buffers_[rhs]);
+        std::swap(shader_resource_views_[lhs], shader_resource_views_[rhs]);
     }
 
     /**
@@ -42,17 +44,11 @@ public:
      * @return ID3D11ShaderResourceView*
      */
     ID3D11ShaderResourceView *shader_resource_view(const std::string &name) {
-        if (name == "$depth") {
-            return depth_stencil_srv_.Get();
+        auto it = shader_resource_views_.find(name);
+        if (it == shader_resource_views_.end()) {
+            return nullptr;
         }
-
-        {
-            auto iter = geometry_buffers_.find(name);
-            if (iter == geometry_buffers_.end()) {
-                return nullptr;
-            }
-            return &iter->second->shader_resource_view();
-        }
+        return it->second;
     }
 
     std::uint32_t target_width() const noexcept {
@@ -79,6 +75,18 @@ public:
         return geometry_buffers_.end();
     }
 
+    std::size_t shader_resource_view_count() const noexcept {
+        return shader_resource_views_.size();
+    }
+
+    decltype(auto) shader_resource_view_begin() const noexcept {
+        return shader_resource_views_.begin();
+    }
+
+    decltype(auto) shader_resource_view_end() const noexcept {
+        return shader_resource_views_.end();
+    }
+
 private:
     std::uint32_t target_width_;
     std::uint32_t target_height_;
@@ -88,6 +96,8 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Texture2D> depth_stencil_texture_;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilView> depth_stencil_view_;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> depth_stencil_srv_;
+
+    std::unordered_map<std::string, ID3D11ShaderResourceView *> shader_resource_views_;
 };
 
 #endif
