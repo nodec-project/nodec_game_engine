@@ -1,5 +1,5 @@
-#include "Graphics/DxgiInfoLogger.hpp"
-#include "Graphics/Graphics.hpp"
+#include "graphics/DxgiInfoLogger.hpp"
+#include "graphics/graphics.hpp"
 #include <Exceptions.hpp>
 
 #include <nodec/formatter.hpp>

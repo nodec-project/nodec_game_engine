@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__GRAPHICS__GEOMETRY_BUFFER_HPP_
+#define NODEC_GAME_ENGINE__GRAPHICS__GEOMETRY_BUFFER_HPP_
 
 #include "graphics.hpp"
 
@@ -68,3 +69,5 @@ private:
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view_;
 };
+
+#endif

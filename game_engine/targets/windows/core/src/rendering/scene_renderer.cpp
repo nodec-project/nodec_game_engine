@@ -676,7 +676,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
                 gfx_.context().OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), renderTargets.data(), &context.depth_stencil_view());
                 gfx_.context().RSSetViewports(vps.size(), vps.data());
-                gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+                // gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
                 gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                 shader->bind(0);

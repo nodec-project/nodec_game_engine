@@ -11,9 +11,9 @@
 
 #include <nodec_rendering/cull_mode.hpp>
 
-#include "../Graphics/GeometryBuffer.hpp"
-#include "../Graphics/RasterizerState.hpp"
-#include "../Graphics/graphics.hpp"
+#include "../graphics/RasterizerState.hpp"
+#include "../graphics/geometry_buffer.hpp"
+#include "../graphics/graphics.hpp"
 
 class SceneRenderingContext {
 public:
@@ -33,6 +33,26 @@ public:
 
     void swap_geometry_buffers(const std::string &lhs, const std::string &rhs) {
         std::swap(geometry_buffers_[lhs], geometry_buffers_[rhs]);
+    }
+
+    /**
+     * @brief Get shader resource view from managed buffers(including geometry buffers or depth stencil buffer).
+     *
+     * @param name
+     * @return ID3D11ShaderResourceView*
+     */
+    ID3D11ShaderResourceView *shader_resource_view(const std::string &name) {
+        if (name == "$depth") {
+            return depth_stencil_srv_.Get();
+        }
+
+        {
+            auto iter = geometry_buffers_.find(name);
+            if (iter == geometry_buffers_.end()) {
+                return nullptr;
+            }
+            return &iter->second->shader_resource_view();
+        }
     }
 
     std::uint32_t target_width() const noexcept {
@@ -65,7 +85,9 @@ private:
     Graphics &gfx_;
     std::unordered_map<std::string, std::unique_ptr<GeometryBuffer>> geometry_buffers_;
 
+    Microsoft::WRL::ComPtr<ID3D11Texture2D> depth_stencil_texture_;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilView> depth_stencil_view_;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> depth_stencil_srv_;
 };
 
 #endif

@@ -1,4 +1,4 @@
-#include <Graphics/graphics.hpp>
+#include <graphics/graphics.hpp>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
 

@@ -1,9 +1,9 @@
 #include "Application.hpp"
 
-#include "Graphics/GraphicsResources.hpp"
-#include "Graphics/RenderingHandlers.hpp"
-#include "Graphics/RenderingUtils.hpp"
-#include "Graphics/GraphicsRenderer.hpp"
+#include "graphics/GraphicsResources.hpp"
+#include "graphics/RenderingHandlers.hpp"
+#include "graphics/RenderingUtils.hpp"
+#include "graphics/GraphicsRenderer.hpp"
 #include "Logging.hpp"
 #include "Utils.hpp"
 #include "Window.hpp"
