@@ -1,6 +1,15 @@
 #include "interface.hlsl"
 
-float4 PSMain(V2P input) : SV_Target {
+
+ struct PSOut {
+    float4 color : SV_TARGET0;
+    float4 normal : SV_TARGET1;
+    float4 depth : SV_TARGET3;
+ };
+
+PSOut PSMain(V2P input) : SV_Target {
+    PSOut output;
+
     float4 color = materialProperties.color;
 
     if (textureConfig.texHasFlag & 0x01) {
@@ -17,5 +26,13 @@ float4 PSMain(V2P input) : SV_Target {
         discard;
     }
 
-    return color;
+    output.color = color;
+    
+    float3 normal_world = normalize(input.normal_world);
+    output.normal = float4(normal_world, 1);
+
+    float depth = input.depth.z / input.depth.w;
+    output.depth = float4(depth.xxxx);
+
+    return output;
 }

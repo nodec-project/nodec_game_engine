@@ -9,9 +9,9 @@ add_custom_target(nodec_game_engine_shaders)
 
 if(MSVC)
     nodec_add_vertex_shader(nodec_game_engine_shaders
-        "resources/org.nodec.game-engine/shaders/image/vertex.hlsl")
+        "resources/org.nodec.game-engine/shaders/image/main_vs.hlsl")
     nodec_add_pixel_shader(nodec_game_engine_shaders
-        "resources/org.nodec.game-engine/shaders/image/pixel.hlsl")
+        "resources/org.nodec.game-engine/shaders/image/main_ps.hlsl")
 
     nodec_add_vertex_shader(nodec_game_engine_shaders
         "resources/org.nodec.game-engine/shaders/pbr/vertex.hlsl")

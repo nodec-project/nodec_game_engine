@@ -59,6 +59,7 @@ public:
               SceneRendererContext &renderer_context, Graphics &gfx) override {
         using namespace DirectX;
         renderer_context.bs_alpha_blend().bind(&gfx);
+        // renderer_context.bs_default().bind(&gfx);
 
         auto matrix_m_inverse = DirectX::XMMatrixInverse(nullptr, matrix_m);
         auto matrix_mvp = matrix_m * matrix_v * matrix_p;
@@ -386,7 +387,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                         for (size_t i = 0; i < targets.size(); ++i) {
                             auto &buffer = context.geometry_buffer(targets[i]);
                             renderTargets[i] = &buffer.render_target_view();
-                            gfx_.context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+                            // gfx_.context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
 
                             vps[i] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(buffer.width()), static_cast<FLOAT>(buffer.height()));
                         }
@@ -528,8 +529,12 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
     // Clear render target view with solid color.
     {
-        const float color[] = {0.1f, 0.1f, 0.1f, 1.0f};
-        gfx_.context().ClearRenderTargetView(render_target, color);
+        gfx_.context().ClearRenderTargetView(render_target, Vector4f::zero.v);
+        for (auto iter = context.geometry_buffer_begin(); iter != context.geometry_buffer_end(); ++iter) {
+            auto &buffer = iter->second;
+            if (!buffer) continue;
+            gfx_.context().ClearRenderTargetView(&buffer->render_target_view(), Vector4f::zero.v);
+        }
     }
 
     auto &cb_scene_properties = renderer_context_.cb_scene_properties();
@@ -638,6 +643,8 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         // }
     }();
 
+    renderer_context_.cb_model_properties().buffer().bind(SceneRenderingConstants::MODEL_PROPERTIES_CB_SLOT);
+
     for (auto iter = draw_groups_.begin(); iter != draw_groups_.end();) {
         auto &draw_group = iter->second;
         auto shader = draw_group->shader.lock();
@@ -646,77 +653,61 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
             continue;
         }
 
-        if (shader->pass_count() == 1) {
-            // One pass shader.
-            gfx_.context().OMSetRenderTargets(1, &render_target, &context.depth_stencil_view());
-            D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
-            gfx_.context().RSSetViewports(1u, &vp);
-            gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            shader->bind();
+        gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-            // now lets draw the mesh.
-            renderer_context_.cb_model_properties().buffer().bind(SceneRenderingConstants::MODEL_PROPERTIES_CB_SLOT);
-            draw_group->draw_all(matrix_v, matrix_p, renderer_context_, gfx_);
-        } else {
-            // Multi pass shader.
-            const auto passCount = shader->pass_count();
-            // first pass
-            {
-                const auto &targets = shader->render_targets(0);
+        for (int pass_num = 0; pass_num < shader->pass_count(); ++pass_num) {
+            // --- Set render target and view port --- //
+            auto &render_targets_name = shader->render_targets(pass_num);
 
-                std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
-                std::vector<D3D11_VIEWPORT> vps(targets.size());
-                for (size_t i = 0; i < targets.size(); ++i) {
-                    auto &buffer = context.geometry_buffer(targets[i]);
-                    renderTargets[i] = &buffer.render_target_view();
-                    gfx_.context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+            std::vector<ID3D11RenderTargetView *> render_targets;
+            std::vector<D3D11_VIEWPORT> vps;
 
-                    vps[i] = CD3D11_VIEWPORT(0.f, 0.f, buffer.width(), buffer.height());
+            if (render_targets_name.size() == 0) {
+                render_targets.resize(1);
+                vps.resize(1);
+                render_targets[0] = render_target;
+                vps[0] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(context.target_width()), static_cast<FLOAT>(context.target_height()));
+            } else {
+                render_targets.resize(render_targets_name.size());
+                vps.resize(render_targets_name.size());
+                for (int i = 0; i < render_targets_name.size(); ++i) {
+                    auto &name = render_targets_name[i];
+                    if (name == "$target") {
+                        render_targets[i] = render_target;
+                        vps[i] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(context.target_width()), static_cast<FLOAT>(context.target_height()));
+                        continue;
+                    }
+                    auto &buffer = context.geometry_buffer(name);
+                    render_targets[i] = &buffer.render_target_view();
+                    // gfx_.context().ClearRenderTargetView(render_targets[i], Vector4f::zero.v);
+                    vps[i] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(buffer.width()), static_cast<FLOAT>(buffer.height()));
                 }
+            }
 
-                gfx_.context().OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), renderTargets.data(), &context.depth_stencil_view());
-                gfx_.context().RSSetViewports(vps.size(), vps.data());
-                // gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+            ID3D11DepthStencilView *dsv = pass_num == 0 ? &context.depth_stencil_view() : nullptr;
 
-                gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                shader->bind(0);
+            gfx_.context().OMSetRenderTargets(static_cast<UINT>(render_targets.size()), render_targets.data(), dsv);
+            gfx_.context().RSSetViewports(static_cast<UINT>(vps.size()), vps.data());
 
-                renderer_context_.cb_model_properties().buffer().bind(SceneRenderingConstants::MODEL_PROPERTIES_CB_SLOT);
+            // END Set render target and view port --- //
+
+            const auto &texture_resources_name = shader->texture_resources(pass_num);
+            for (int i = 0; i < texture_resources_name.size(); ++i) {
+                auto &buffer = context.geometry_buffer(texture_resources_name[i]);
+                auto *view = &buffer.shader_resource_view();
+                gfx_.context().PSSetShaderResources(i, 1u, &view);
+            }
+
+            shader->bind(pass_num);
+
+            if (pass_num == 0) {
                 draw_group->draw_all(matrix_v, matrix_p, renderer_context_, gfx_);
-            }
-
-            // medium pass
-            // NOTE: This pass maybe not necessary.
-            //  Alternatively, we can use the another shader pass.
-            {
-            }
-
-            // final pass
-            {
-                const auto passNum = passCount - 1;
-
-                gfx_.context().OMSetRenderTargets(1, &render_target, nullptr);
-                D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
-                gfx_.context().RSSetViewports(1u, &vp);
-                gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-                const auto &textureResources = shader->texture_resources(passNum);
-                for (size_t i = 0; i < textureResources.size(); ++i) {
-                    auto &buffer = context.geometry_buffer(textureResources[i]);
-                    auto *view = &buffer.shader_resource_view();
-                    gfx_.context().PSSetShaderResources(static_cast<UINT>(i), 1u, &view);
-                }
-
-                shader->bind(passNum);
-
-                renderer_context_.sampler_state({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(&gfx_, 0);
-
+            } else {
                 auto &screen_quad_mesh = renderer_context_.screen_quad_mesh();
                 screen_quad_mesh.bind(&gfx_);
                 gfx_.DrawIndexed(static_cast<UINT>(screen_quad_mesh.triangles.size()));
-
-                renderer_context_.unbind_all_shader_resources(static_cast<UINT>(textureResources.size()));
             }
+            renderer_context_.unbind_all_shader_resources(static_cast<UINT>(texture_resources_name.size()));
         }
 
         draw_group->clear_draw_commands();
