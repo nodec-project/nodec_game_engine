@@ -19,7 +19,7 @@ public:
     void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
               SceneRendererContext &renderer_context, Graphics &gfx) override {
         using namespace DirectX;
-        renderer_context.bs_default().bind(&gfx);
+        renderer_context.bs_default().bind();
         auto matrix_m_inverse = DirectX::XMMatrixInverse(nullptr, matrix_m);
         auto matrix_mvp = matrix_m * matrix_v * matrix_p;
 
@@ -58,7 +58,7 @@ public:
     void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
               SceneRendererContext &renderer_context, Graphics &gfx) override {
         using namespace DirectX;
-        renderer_context.bs_alpha_blend().bind(&gfx);
+        renderer_context.bs_alpha_blend().bind();
         // renderer_context.bs_default().bind(&gfx);
 
         auto matrix_m_inverse = DirectX::XMMatrixInverse(nullptr, matrix_m);
@@ -113,7 +113,8 @@ public:
     void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
               SceneRendererContext &renderer_context, Graphics &gfx) override {
         using namespace DirectX;
-        renderer_context.bs_alpha_blend().bind(&gfx);
+        renderer_context.bs_alpha_blend().bind();
+        // renderer_context.bs_default().bind(&gfx);
 
         auto material = static_cast<MaterialBackend *>(text_renderer.material.get());
         assert(material);
@@ -345,7 +346,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         if (activePostProcessEffects.size() > 0) {
             gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-            renderer_context_.bs_default().bind(&gfx_);
+            renderer_context_.bs_default().bind();
 
             for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
                 if (i != activePostProcessEffects.size() - 1) {
@@ -598,7 +599,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         auto shader_backend = static_cast<ShaderBackend *>(material_backend->shader().get());
         if (!shader_backend) return;
 
-        renderer_context_.bs_default().bind(&gfx_);
+        renderer_context_.bs_default().bind();
 
         gfx_.context().OMSetRenderTargets(1, &render_target, nullptr);
         D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(context.target_width()), static_cast<FLOAT>(context.target_height()));

@@ -7,7 +7,7 @@ V2P VSMain(VSIn input) {
     output.position = mul(modelProperties.matrixMVP, pos);
     output.position_world = mul(modelProperties.matrixM, pos).xyz;
 
-    output.normal_world = ModelToWorldNormal(input.normal);
+    output.normal_world = ModelToWorldNormal(-input.normal);
 
     output.texcoord = input.texcoord;
 

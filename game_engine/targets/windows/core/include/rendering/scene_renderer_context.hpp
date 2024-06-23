@@ -3,7 +3,7 @@
 #include <nodec_rendering/resources/material.hpp>
 
 #include "../Font/FontCharacterDatabase.hpp"
-#include "../graphics/BlendState.hpp"
+#include "../graphics/blend_state.hpp"
 #include "../graphics/ConstantBuffer.hpp"
 #include "../graphics/RasterizerState.hpp"
 #include "../graphics/SamplerState.hpp"

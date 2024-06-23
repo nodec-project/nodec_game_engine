@@ -9,8 +9,8 @@ SceneRendererContext::SceneRendererContext(std::shared_ptr<nodec::logging::Logge
       cb_texture_config_(gfx), rs_cull_none_(gfx, D3D11_CULL_NONE),
       rs_cull_front_(gfx, D3D11_CULL_FRONT),
       rs_cull_back_(gfx, D3D11_CULL_BACK),
-      bs_default_(BlendState::CreateDefaultBlend(&gfx)),
-      bs_alpha_blend_(BlendState::CreateAlphaBlend(&gfx)) {
+      bs_default_(BlendState::CreateDefaultBlend(gfx)),
+      bs_alpha_blend_(BlendState::CreateAlphaBlend(gfx)) {
     using namespace nodec_rendering::resources;
     using namespace nodec::resource_management;
     using namespace nodec;
