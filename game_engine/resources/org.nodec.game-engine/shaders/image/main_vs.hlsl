@@ -7,7 +7,14 @@ V2P VSMain(VSIn input) {
     output.position = mul(modelProperties.matrixMVP, pos);
     output.position_world = mul(modelProperties.matrixM, pos).xyz;
 
-    output.normal_world = ModelToWorldNormal(-input.normal);
+
+    float3 normal_world = ModelToWorldNormal(input.normal);
+    float3 forward_camera = normalize(sceneProperties.cameraPos.xyz - output.position_world);
+
+    if (dot(normal_world, forward_camera) < 0) {
+        normal_world = -normal_world;
+    }
+    output.normal_world = normal_world;
 
     output.texcoord = input.texcoord;
 
