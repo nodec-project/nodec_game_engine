@@ -1,7 +1,7 @@
 #ifndef NODEC_GAME_ENGINE__RENDERING__TEXTURE_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__RENDERING__TEXTURE_BACKEND_HPP_
 
-#include <Graphics/graphics.hpp>
+#include <graphics/graphics.hpp>
 
 #include <nodec_rendering/resources/texture.hpp>
 

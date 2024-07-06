@@ -3,8 +3,8 @@
 
 #include <DirectXMath.h>
 
-#include "../Graphics/ConstantBuffer.hpp"
-#include "../Graphics/Graphics.hpp"
+#include "../graphics/ConstantBuffer.hpp"
+#include "../graphics/graphics.hpp"
 
 class CBModelProperties {
 public:

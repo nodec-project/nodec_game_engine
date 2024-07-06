@@ -1,4 +1,4 @@
-#include <Graphics/graphics.hpp>
+#include <graphics/graphics.hpp>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
 
@@ -17,6 +17,12 @@ namespace wrl = Microsoft::WRL;
 
 Graphics::Graphics(HWND hWnd, int width, int height)
     : width_(width), height_(height), logger_(nodec::logging::get_logger("engine.graphics")) {
+    // ThrowIfFailedGfx(
+    //     D3D11CreateDevice(
+    //         nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_DEBUG, nullptr, 0, D3D11_SDK_VERSION,
+    //         &device_, nullptr, &context_),
+    //     this, __FILE__, __LINE__);
+
     DXGI_SWAP_CHAIN_DESC sd = {};
     sd.BufferDesc.Width = width;
     sd.BufferDesc.Height = height;
@@ -28,17 +34,35 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     sd.SampleDesc.Count = 1;
     sd.SampleDesc.Quality = 0;
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.BufferCount = 1;
+    sd.BufferCount = 2; // フリップモデルではBufferCountを2以上に設定
     sd.OutputWindow = hWnd;
     sd.Windowed = TRUE;
-    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-    sd.Flags = 0;
+    sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // フリップモデルのスワップエフェクトに変更
+    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     UINT swapCreateFlags = 0u;
     swapCreateFlags |= D3D11_CREATE_DEVICE_DEBUG;
 
     // // for checking results of d3d functions.
     // mInfoLogger.SetLatest();
+
+    // Create swap chain.
+
+    // wrl::ComPtr<IDXGIDevice> dxgiDevice = nullptr;
+    // ThrowIfFailedGfx(device_.As(&dxgiDevice), this, __FILE__, __LINE__);
+
+    // wrl::ComPtr<IDXGIAdapter> dxgiAdapter = nullptr;
+    // ThrowIfFailedGfx(dxgiDevice->GetParent(__uuidof(IDXGIAdapter), &dxgiAdapter), this, __FILE__, __LINE__);
+
+    // wrl::ComPtr<IDXGIFactory> dxgiFactory = nullptr;
+    // ThrowIfFailedGfx(dxgiAdapter->GetParent(__uuidof(IDXGIFactory), &dxgiFactory), this, __FILE__, __LINE__);
+
+    // wrl::ComPtr<IDXGISwapChain> swapChain = nullptr;
+    // ThrowIfFailedGfx(dxgiFactory->CreateSwapChain(
+    //                      device_.Get(), // Direct3Dデバイス
+    //                      &sd,           // DXGI_SWAP_CHAIN_DESCへのポインタ
+    //                      &swapChain),   // 作成されたスワップチェーンへのポインタ
+    //                  this, __FILE__, __LINE__);
 
     // create device and front/back buffers, and swap chain and rendering context.
     ThrowIfFailedGfx(D3D11CreateDeviceAndSwapChain(
@@ -55,6 +79,14 @@ Graphics::Graphics(HWND hWnd, int width, int height)
                          nullptr,
                          &context_),
                      this, __FILE__, __LINE__);
+
+    // UINT msaa_quality;
+    // device_->CheckMultisampleQualityLevels(DXGI_FORMAT_B8G8R8A8_UNORM, 4, &msaa_quality); // 4xMSAAを想定
+
+    // if (msaa_quality < 0) {
+    //     logger_->error(__FILE__, __LINE__) << "4x MSAA not supported.";
+    //     throw std::runtime_error("4x MSAA not supported.");
+    // } //
 
     // gain access to texture subresource in swap chain (back buffer)
     wrl::ComPtr<ID3D11Texture2D> pBackBuffer;
@@ -85,18 +117,6 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     descDepth.Usage = D3D11_USAGE_DEFAULT;
     descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     ThrowIfFailedGfx(device_->CreateTexture2D(&descDepth, nullptr, &pDepthStencil), this, __FILE__, __LINE__);
-
-    //// create view of depth stensil texture
-    // D3D11_DEPTH_STENCIL_VIEW_DESC descDSV = {};
-    // descDSV.Format = DXGI_FORMAT_D32_FLOAT;
-    // descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-    // descDSV.Texture2D.MipSlice = 0u;
-    // ThrowIfFailedGfx(
-    //     device_->CreateDepthStencilView(pDepthStencil.Get(), &descDSV, &mpDSV),
-    //     this, __FILE__, __LINE__);
-
-    //// bind depth stencil view to OM
-    // context_->OMSetRenderTargets(1u, mpTarget.GetAddressOf(), mpDSV.Get());
 
     // configure viewport
     D3D11_VIEWPORT vp;

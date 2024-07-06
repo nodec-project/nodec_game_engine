@@ -15,7 +15,7 @@
 #include <nodec/macros.hpp>
 #include <nodec/signals/signal.hpp>
 
-#include "Graphics/Graphics.hpp"
+#include "graphics/graphics.hpp"
 
 class Window {
 public:

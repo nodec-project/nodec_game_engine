@@ -1,8 +1,8 @@
 #ifndef NODEC_GAME_ENGINE__RENDERING__MESH_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__RENDERING__MESH_BACKEND_HPP_
 
-#include <Graphics/IndexBuffer.hpp>
-#include <Graphics/VertexBuffer.hpp>
+#include <graphics/IndexBuffer.hpp>
+#include <graphics/VertexBuffer.hpp>
 
 #include <nodec_rendering/resources/mesh.hpp>
 

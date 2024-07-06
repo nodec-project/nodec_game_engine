@@ -3,11 +3,11 @@
 #include <nodec_rendering/resources/material.hpp>
 
 #include "../Font/FontCharacterDatabase.hpp"
-#include "../Graphics/BlendState.hpp"
-#include "../Graphics/ConstantBuffer.hpp"
-#include "../Graphics/RasterizerState.hpp"
-#include "../Graphics/SamplerState.hpp"
-#include "../Graphics/graphics.hpp"
+#include "../graphics/blend_state.hpp"
+#include "../graphics/ConstantBuffer.hpp"
+#include "../graphics/RasterizerState.hpp"
+#include "../graphics/SamplerState.hpp"
+#include "../graphics/graphics.hpp"
 #include "cb_model_properties.hpp"
 #include "cb_scene_properties.hpp"
 #include "cb_texture_config.hpp"

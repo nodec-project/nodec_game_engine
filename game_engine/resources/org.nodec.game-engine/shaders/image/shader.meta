@@ -20,7 +20,9 @@
         "name": "mask"
       }
     ],
-    "pass": [],
+    "pass": [
+      "main"
+    ],
     "rendering_priority": 0
   }
 }

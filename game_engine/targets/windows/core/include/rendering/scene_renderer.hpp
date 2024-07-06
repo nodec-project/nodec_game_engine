@@ -29,11 +29,11 @@
 #include "scene_rendering_context.hpp"
 #include "shader_backend.hpp"
 #include "texture_backend.hpp"
-#include <Graphics/ConstantBuffer.hpp>
-#include <Graphics/GeometryBuffer.hpp>
-#include <Graphics/RasterizerState.hpp>
-#include <Graphics/SamplerState.hpp>
-#include <Graphics/graphics.hpp>
+#include <graphics/ConstantBuffer.hpp>
+#include <graphics/geometry_buffer.hpp>
+#include <graphics/RasterizerState.hpp>
+#include <graphics/SamplerState.hpp>
+#include <graphics/graphics.hpp>
 
 class DrawCommand {
 public:

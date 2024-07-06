@@ -6,8 +6,8 @@
 #include <nodec_rendering/resources/material.hpp>
 
 #include "shader_backend.hpp"
-#include <Graphics/ConstantBuffer.hpp>
-#include <Graphics/graphics.hpp>
+#include <graphics/ConstantBuffer.hpp>
+#include <graphics/graphics.hpp>
 
 class MaterialBackend : public nodec_rendering::resources::Material {
 public:

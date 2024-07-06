@@ -7,8 +7,8 @@
 #include <nodec_resources/resources.hpp>
 #include <nodec_scene/scene.hpp>
 
-#include <Graphics/RasterizerState.hpp>
-#include <Graphics/graphics.hpp>
+#include <graphics/RasterizerState.hpp>
+#include <graphics/graphics.hpp>
 #include <rendering/cb_model_properties.hpp>
 #include <rendering/cb_scene_properties.hpp>
 #include <rendering/cb_texture_config.hpp>

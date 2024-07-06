@@ -38,9 +38,13 @@
     const float2 texcoord = input.texcoord * materialProperties.tiling;
 
     // t0: albedo
-    float3 outAlbedo = (textureConfig.texHasFlag & 0x01) 
-                        ? texAlbedo.Sample(sampler_texAlbedo, texcoord).xyz 
-                        : materialProperties.albedo.xyz;
+    float4 outAlbedo = (textureConfig.texHasFlag & 0x01) 
+                        ? texAlbedo.Sample(sampler_texAlbedo, texcoord)
+                        : materialProperties.albedo;
+
+   if (outAlbedo.a < 0.90f) {
+        discard;
+    }
     
     float3 outNormal = worldNormal;
 
@@ -63,7 +67,7 @@
                         ? texRoughness.Sample(sampler_texRoughness, texcoord).x
                         : materialProperties.roughness;
 
-    output.albedo = float4(outAlbedo, 1);
+    output.albedo = float4(outAlbedo.xyz, 1);
     output.normal = float4(outNormal, 1);
     output.matProps = float4(outRoughness, outMetallic, 0, 1);
 

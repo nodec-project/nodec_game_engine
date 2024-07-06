@@ -1,9 +1,9 @@
 #ifndef NODEC_GAME_ENGINE__RENDERING__SHADER_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__RENDERING__SHADER_BACKEND_HPP_
 
-#include <Graphics/InputLayout.hpp>
-#include <Graphics/PixelShader.hpp>
-#include <Graphics/VertexShader.hpp>
+#include <graphics/InputLayout.hpp>
+#include <graphics/PixelShader.hpp>
+#include <graphics/VertexShader.hpp>
 
 #include <nodec_rendering/resources/shader.hpp>
 
