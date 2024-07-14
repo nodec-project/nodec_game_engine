@@ -28,15 +28,9 @@ public:
         XMStoreFloat4x4(&cb_model_properties.data().matrix_m, matrix_m);
         XMStoreFloat4x4(&cb_model_properties.data().matrix_m_inverse, matrix_m_inverse);
         XMStoreFloat4x4(&cb_model_properties.data().matrix_mvp, matrix_mvp);
-
         cb_model_properties.apply();
-        material->bind_constant_buffer(&gfx, SceneRenderingConstants::MATERIAL_PROPERTIES_CB_SLOT);
-        renderer_context.set_cull_mode(material->cull_mode());
 
-        auto &cb_texture_config = renderer_context.cb_texture_config();
-        cb_texture_config.data().tex_has_flag = 0;
-        auto tex_slot = renderer_context.bind_texture_entries(material->texture_entries(), cb_texture_config.data().tex_has_flag);
-        cb_texture_config.apply();
+        renderer_context.bind_material(material.get());
 
         mesh->bind(&gfx);
         gfx.DrawIndexed(static_cast<UINT>(mesh->triangles.size()));
@@ -69,9 +63,7 @@ public:
         XMStoreFloat4x4(&cb_model_properties.data().matrix_m, matrix_m);
         XMStoreFloat4x4(&cb_model_properties.data().matrix_m_inverse, matrix_m_inverse);
         XMStoreFloat4x4(&cb_model_properties.data().matrix_mvp, matrix_mvp);
-
         cb_model_properties.apply();
-        renderer_context.set_cull_mode(material->cull_mode());
 
         auto backup_image = material->get_texture_entry("image");
         auto backup_color = material->get_vector4_property("color");
@@ -79,12 +71,8 @@ public:
         material->set_texture_entry(
             "image", {image, {nodec_rendering::Sampler::FilterMode::Bilinear, nodec_rendering::Sampler::WrapMode::Clamp}});
         material->set_vector4_property("color", color);
-        material->bind_constant_buffer(&gfx, SceneRenderingConstants::MATERIAL_PROPERTIES_CB_SLOT);
 
-        auto &cb_texture_config = renderer_context.cb_texture_config();
-        cb_texture_config.data().tex_has_flag = 0;
-        auto tex_slot = renderer_context.bind_texture_entries(material->texture_entries(), cb_texture_config.data().tex_has_flag);
-        cb_texture_config.apply();
+        renderer_context.bind_material(material.get(), true);
 
         auto &mesh = renderer_context.quad_mesh();
         mesh.bind(&gfx);
@@ -157,14 +145,8 @@ public:
             material->set_texture_entry("mask",
                                         {character.pFontTexture, {nodec_rendering::Sampler::FilterMode::Bilinear, nodec_rendering::Sampler::WrapMode::Clamp}});
             material->set_vector4_property("color", text_renderer.color);
-            material->bind_constant_buffer(&gfx, SceneRenderingConstants::MATERIAL_PROPERTIES_CB_SLOT);
 
-            renderer_context.set_cull_mode(material->cull_mode());
-
-            auto &cb_texture_config = renderer_context.cb_texture_config();
-            cb_texture_config.data().tex_has_flag = 0x00;
-            auto tex_slot = renderer_context.bind_texture_entries(material->texture_entries(), cb_texture_config.data().tex_has_flag);
-            cb_texture_config.apply();
+            renderer_context.bind_material(material, true);
 
             XMMATRIX matrix_m_ch{matrix_m};
             matrix_m_ch = XMMatrixScaling(w / 2, h / 2, 1.0f) * XMMatrixTranslation(pos_x + w / 2, pos_y + h / 2, 0.0f) * matrix_m_ch;
@@ -210,7 +192,9 @@ SceneRenderer::SceneRenderer(nodec_scene::Scene &scene,
       renderer_context_(logger_, gfx, resource_registry) {
 }
 
-void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent, std::unique_ptr<DrawCommand> command,
+void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
+                                      const std::shared_ptr<MaterialBackend> &material_backend,
+                                      std::unique_ptr<DrawCommand> command,
                                       const DirectX::XMMATRIX &matrix_m, const DirectX::XMMATRIX &matrix_v_inverse) {
     using namespace DirectX;
     auto key = DrawGroupPriorityKey(shader, is_transparent);
@@ -245,7 +229,11 @@ void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, boo
             depth, std::move(command));
     } else {
         auto *opaque_group = static_cast<OpaqueDrawGroup *>(group.get());
-        opaque_group->draw_commands.push_back(std::move(command));
+        opaque_group->append_draw_command(
+            material_backend, std::move(command));
+
+        // auto material_id = reinterpret_cast<std::intptr_t>(material_backend.get());
+        // opaque_group->draw_commands.emplace(material_id, std::move(command));
     }
 }
 void SceneRenderer::setup_scene_lighting(nodec_scene::Scene &scene) {
@@ -284,8 +272,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
     using namespace nodec_rendering::resources;
     using namespace DirectX;
 
-    renderer_context_.cb_scene_properties().buffer().bind(SceneRenderingConstants::SCENE_PROPERTIES_CB_SLOT);
-    renderer_context_.cb_texture_config().buffer().bind(SceneRenderingConstants::TEXTURE_CONFIG_CB_SLOT);
+    renderer_context_.begin_render();
 
     setup_scene_lighting(scene);
 
@@ -358,19 +345,14 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
                 // It is assured that material and shader are exists.
                 // It is checked at the beginning of rendering pass of camera.
-                auto materialBackend = std::static_pointer_cast<MaterialBackend>(activePostProcessEffects[i]->material);
-                auto shaderBackend = std::static_pointer_cast<ShaderBackend>(materialBackend->shader());
+                auto material_backend = std::static_pointer_cast<MaterialBackend>(activePostProcessEffects[i]->material);
+                auto shader_backend = std::static_pointer_cast<ShaderBackend>(material_backend->shader());
 
-                renderer_context_.set_cull_mode(materialBackend->cull_mode());
-                materialBackend->bind_constant_buffer(&gfx_, SceneRenderingConstants::MATERIAL_PROPERTIES_CB_SLOT);
+                renderer_context_.bind_material(material_backend.get());
+                const UINT slot_offset = material_backend->texture_entries().size();
 
-                auto &cb_texture_config = renderer_context_.cb_texture_config();
-                cb_texture_config.data().tex_has_flag = 0x00;
-                const auto slot_offset = renderer_context_.bind_texture_entries(materialBackend->texture_entries(), cb_texture_config.data().tex_has_flag);
-                cb_texture_config.apply();
-
-                for (int passNum = 0; passNum < shaderBackend->pass_count(); ++passNum) {
-                    if (passNum == shaderBackend->pass_count() - 1) {
+                for (int passNum = 0; passNum < shader_backend->pass_count(); ++passNum) {
+                    if (passNum == shader_backend->pass_count() - 1) {
                         // If last pass.
                         // The render target must be one final target.
                         D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
@@ -381,7 +363,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                         // If halfway pass.
                         // Support the multiple render targets.
 
-                        const auto &targets = shaderBackend->render_targets(passNum);
+                        const auto &targets = shader_backend->render_targets(passNum);
 
                         std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
                         std::vector<D3D11_VIEWPORT> vps(targets.size());
@@ -401,13 +383,13 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                     // Bind sampler for textures.
 
                     renderer_context_.sampler_state({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(&gfx_, slot_offset);
-                    const auto &texture_resources = shaderBackend->texture_resources(passNum);
+                    const auto &texture_resources = shader_backend->texture_resources(passNum);
                     for (std::size_t i = 0; i < texture_resources.size(); ++i) {
                         auto &buffer = context.geometry_buffer(texture_resources[i]);
                         auto *view = &buffer.shader_resource_view();
                         gfx_.context().PSSetShaderResources(slot_offset + i, 1u, &view);
                     }
-                    shaderBackend->bind(passNum);
+                    shader_backend->bind(passNum);
 
                     auto &screen_quad_mesh = renderer_context_.screen_quad_mesh();
 
@@ -428,8 +410,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, n
     using namespace DirectX;
     using namespace nodec;
 
-    renderer_context_.cb_scene_properties().buffer().bind(SceneRenderingConstants::SCENE_PROPERTIES_CB_SLOT);
-    renderer_context_.cb_texture_config().buffer().bind(SceneRenderingConstants::TEXTURE_CONFIG_CB_SLOT);
+    renderer_context_.begin_render();
 
     setup_scene_lighting(scene);
 
@@ -479,7 +460,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                     mesh_backend,
                     material_backend);
 
-                push_draw_command(shader_backend, is_transparent, std::move(command), matrix_m, matrix_v_inverse);
+                push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, matrix_v_inverse);
             } // End foreach mesh
         });
         scene.registry().view<const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
@@ -505,7 +486,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 material_backend,
                 renderer.color);
 
-            push_draw_command(shader_backend, is_transparent, std::move(command), matrix_m, matrix_v_inverse);
+            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, matrix_v_inverse);
         });
 
         scene.registry().view<const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const TextRenderer &renderer, const LocalToWorld &local_to_world) {
@@ -524,7 +505,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 XMMATRIX(local_to_world.value.m),
                 renderer);
 
-            push_draw_command(shader_backend, is_transparent, std::move(command), matrix_m, matrix_v_inverse);
+            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, matrix_v_inverse);
         });
     }
 
@@ -607,15 +588,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
         gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         shader_backend->bind();
 
-        material_backend->bind_constant_buffer(&gfx_, SceneRenderingConstants::MATERIAL_PROPERTIES_CB_SLOT);
-        renderer_context_.set_cull_mode(material_backend->cull_mode());
-
-        auto &cb_texture_config = renderer_context_.cb_texture_config();
-        cb_texture_config.data().tex_has_flag = 0x00;
-        renderer_context_.bind_texture_entries(material_backend->texture_entries(), cb_texture_config.data().tex_has_flag);
-        cb_texture_config.apply();
-
-        // set_cull_mode(nodec_rendering::CullMode::Back);
+        renderer_context_.bind_material(material_backend);
 
         norm_cube_mesh.bind(&gfx_);
         gfx_.DrawIndexed(norm_cube_mesh.triangles.size());

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <unordered_set>
+#include <unordered_map>
 
 #include <DirectXMath.h>
 
@@ -30,9 +31,9 @@
 #include "shader_backend.hpp"
 #include "texture_backend.hpp"
 #include <graphics/ConstantBuffer.hpp>
-#include <graphics/geometry_buffer.hpp>
 #include <graphics/RasterizerState.hpp>
 #include <graphics/SamplerState.hpp>
+#include <graphics/geometry_buffer.hpp>
 #include <graphics/graphics.hpp>
 
 class DrawCommand {
@@ -56,16 +57,34 @@ public:
 
 class OpaqueDrawGroup : public DrawGroup {
 public:
-    std::vector<std::unique_ptr<DrawCommand>> draw_commands;
+    std::unordered_map<std::intptr_t, std::vector<std::unique_ptr<DrawCommand>>> draw_commands;
+
     void draw_all(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
                   SceneRendererContext &context, Graphics &gfx) override {
-        for (auto &command : draw_commands) {
-            command->draw(matrix_v, matrix_p, context, gfx);
+        for (auto &material_group : draw_commands) {
+            for (auto &command : material_group.second) {
+                command->draw(matrix_v, matrix_p, context, gfx);
+            }
         }
+        // for (auto iter = draw_commands.begin(); iter != draw_commands.end(); ++iter) {
+        //     iter->second->draw(matrix_v, matrix_p, context, gfx);
+        // }
+        // for (auto &command : draw_commands) {
+        //     command.second->draw(matrix_v, matrix_p, context, gfx);
+        // }
+    }
+
+    void append_draw_command(const std::shared_ptr<MaterialBackend> &material_backend, std::unique_ptr<DrawCommand> command) {
+        auto material_id = reinterpret_cast<std::intptr_t>(material_backend.get());
+        auto &material_group = draw_commands[material_id];
+        material_group.push_back(std::move(command));
     }
 
     void clear_draw_commands() override {
-        draw_commands.clear();
+        // draw_commands.clear();
+        for (auto &material_group : draw_commands) {
+            material_group.second.clear();
+        }
     }
 };
 
@@ -126,7 +145,9 @@ private:
                 const DirectX::XMMATRIX &matrixP, const DirectX::XMMATRIX &matrixPInverse,
                 ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
 
-    void push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent, std::unique_ptr<DrawCommand> command,
+    void push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
+                           const std::shared_ptr<MaterialBackend> &material_backend,
+                           std::unique_ptr<DrawCommand> command,
                            const DirectX::XMMATRIX &matrix_m, const DirectX::XMMATRIX &matrix_v_inverse);
 
 private:
