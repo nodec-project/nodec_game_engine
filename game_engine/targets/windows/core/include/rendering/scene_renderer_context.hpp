@@ -3,11 +3,12 @@
 #include <nodec_rendering/resources/material.hpp>
 
 #include "../Font/FontCharacterDatabase.hpp"
-#include "../graphics/blend_state.hpp"
 #include "../graphics/ConstantBuffer.hpp"
 #include "../graphics/RasterizerState.hpp"
 #include "../graphics/SamplerState.hpp"
+#include "../graphics/blend_state.hpp"
 #include "../graphics/graphics.hpp"
+#include "../rendering/material_backend.hpp"
 #include "cb_model_properties.hpp"
 #include "cb_scene_properties.hpp"
 #include "cb_texture_config.hpp"
@@ -98,6 +99,12 @@ public:
         return slot;
     }
 
+    void begin_render() {
+        cb_scene_properties_.buffer().bind(SceneRenderingConstants::SCENE_PROPERTIES_CB_SLOT);
+        cb_texture_config_.buffer().bind(SceneRenderingConstants::TEXTURE_CONFIG_CB_SLOT);
+        last_bound_material_id_ = 0x00;
+    }
+
     void unbind_all_shader_resources(UINT start, UINT count) {
         assert(count <= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
 
@@ -109,6 +116,26 @@ public:
 
     void unbind_all_shader_resources(UINT count) {
         unbind_all_shader_resources(0, count);
+    }
+
+    void bind_material(MaterialBackend *material, bool force = false) {
+        if (!force && last_bound_material_id_ == reinterpret_cast<std::intptr_t>(material)) {
+            return;
+        }
+
+        last_bound_material_id_ = reinterpret_cast<std::intptr_t>(material);
+
+        if (!material) {
+            return;
+        }
+
+        set_cull_mode(material->cull_mode());
+
+        material->bind_constant_buffer(&gfx_, SceneRenderingConstants::MATERIAL_PROPERTIES_CB_SLOT);
+
+        cb_texture_config_.data().tex_has_flag = 0;
+        bind_texture_entries(material->texture_entries(), cb_texture_config_.data().tex_has_flag);
+        cb_texture_config_.apply();
     }
 
     /**
@@ -172,4 +199,6 @@ private:
 
     BlendState bs_default_;
     BlendState bs_alpha_blend_;
+
+    std::intptr_t last_bound_material_id_ = 0x00;
 };
