@@ -58,7 +58,8 @@ Editor::Editor(Engine *engine)
 
     window_manager().register_window<EntityInspectorWindow>([=]() {
         return std::make_unique<EntityInspectorWindow>(engine->world_module().scene().registry(),
-                                                       component_registry_impl());
+                                                       component_registry_impl(),
+                                                       engine->scene_serialization());
     });
 
     window_manager().register_window<LogWindow>([=]() {

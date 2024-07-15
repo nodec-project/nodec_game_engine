@@ -61,7 +61,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
     auto &scene_registry = world.scene().registry();
 
-    // Sync entity -> bullet rigid body.
+    // --- Sync transform of entity -> bullet rigid body --- //
     scene_registry.view<RigidBody, CollisionObjectActivity, LocalToWorld>().each(
         [&](SceneEntity entity, RigidBody &, CollisionObjectActivity &activity, LocalToWorld &local_to_world) {
             auto rigid_body_backend = collision_object_cast<RigidBodyBackend>(activity.collision_object_backend.get());
@@ -84,6 +84,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             ghost_body_backend->update_transform_if_different(world_trs.translation, world_trs.rotation);
         });
 
+    // END Sync transform of entity -> bullet rigid body --- //
+    
     scene_registry.view<TriggerBody, PhysicsShape, LocalToWorld>(type_list<CollisionObjectActivity>{})
         .each([&](SceneEntity entity, TriggerBody &, PhysicsShape &shape, LocalToWorld &local_to_world) {
             auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entity).first;
