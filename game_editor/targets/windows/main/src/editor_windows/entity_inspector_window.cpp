@@ -66,6 +66,21 @@ void EntityInspectorWindow::on_gui() {
                 handler->remove_component(entity_registry_, selected_entity);
             }
 
+            ImGui::Separator();
+            {
+                bool enabled = true;
+                if (!copied_component_type_info_ || !copied_component_) {
+                    enabled = false;
+                }
+                if (copied_component_type_info_ != &type_info) {
+                    enabled = false;
+                }
+                if (ImGui::MenuItem("Paste Properties", nullptr, false, enabled)) {
+                    scene_serialization_.assign_component(
+                        copied_component_.get(), type_info, component);
+                }
+            }
+
             ImGui::EndPopup();
         }
 
@@ -76,11 +91,11 @@ void EntityInspectorWindow::on_gui() {
 
     ImGui::Separator();
 
-    if (ImGui::Button("Add component")) {
+    if (ImGui::Button("Add Component")) {
         ImGui::OpenPopup("add-component-popup");
     }
     if (ImGui::BeginPopupContextItem()) {
-        [&]() {
+        {
             bool enabled = true;
             if (!copied_component_type_info_ || !copied_component_) {
                 enabled = false;
@@ -90,7 +105,7 @@ void EntityInspectorWindow::on_gui() {
                 scene_serialization_.emplace_or_replace_component(
                     copied_component_.get(), selected_entity, entity_registry_);
             }
-        }();
+        }
         ImGui::EndPopup();
     }
 
