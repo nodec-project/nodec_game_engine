@@ -25,28 +25,29 @@ public:
 
         if (ImGui::TreeNode("Constrains")) {
             ImGui::PushID("Freeze Position");
+            auto constraints = rigid_body.constraints;
             {
                 ImGui::Text("Freeze Position");
 
                 bool flag;
-                flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezePositionX);
+                flag = static_cast<bool>(constraints & RigidBodyConstraints::FreezePositionX);
                 ImGui::Checkbox("X", &flag);
-                flag ? rigid_body.constraints |= RigidBodyConstraints::FreezePositionX
-                     : rigid_body.constraints &= ~RigidBodyConstraints::FreezePositionX;
+                flag ? constraints |= RigidBodyConstraints::FreezePositionX
+                     : constraints &= ~RigidBodyConstraints::FreezePositionX;
 
                 ImGui::SameLine();
 
-                flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezePositionY);
+                flag = static_cast<bool>(constraints & RigidBodyConstraints::FreezePositionY);
                 ImGui::Checkbox("Y", &flag);
-                flag ? rigid_body.constraints |= RigidBodyConstraints::FreezePositionY
-                     : rigid_body.constraints &= ~RigidBodyConstraints::FreezePositionY;
+                flag ? constraints |= RigidBodyConstraints::FreezePositionY
+                     : constraints &= ~RigidBodyConstraints::FreezePositionY;
 
                 ImGui::SameLine();
 
-                flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezePositionZ);
+                flag = static_cast<bool>(constraints & RigidBodyConstraints::FreezePositionZ);
                 ImGui::Checkbox("Z", &flag);
-                flag ? rigid_body.constraints |= RigidBodyConstraints::FreezePositionZ
-                     : rigid_body.constraints &= ~RigidBodyConstraints::FreezePositionZ;
+                flag ? constraints |= RigidBodyConstraints::FreezePositionZ
+                     : constraints &= ~RigidBodyConstraints::FreezePositionZ;
 
                 ImGui::PopID();
             }
@@ -55,26 +56,31 @@ public:
             {
                 ImGui::Text("Freeze Rotation");
                 bool flag;
-                flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezeRotationX);
+                flag = static_cast<bool>(constraints & RigidBodyConstraints::FreezeRotationX);
                 ImGui::Checkbox("X", &flag);
-                flag ? rigid_body.constraints |= RigidBodyConstraints::FreezeRotationX
-                     : rigid_body.constraints &= ~RigidBodyConstraints::FreezeRotationX;
+                flag ? constraints |= RigidBodyConstraints::FreezeRotationX
+                     : constraints &= ~RigidBodyConstraints::FreezeRotationX;
 
                 ImGui::SameLine();
 
-                flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezeRotationY);
+                flag = static_cast<bool>(constraints & RigidBodyConstraints::FreezeRotationY);
                 ImGui::Checkbox("Y", &flag);
-                flag ? rigid_body.constraints |= RigidBodyConstraints::FreezeRotationY
-                     : rigid_body.constraints &= ~RigidBodyConstraints::FreezeRotationY;
+                flag ? constraints |= RigidBodyConstraints::FreezeRotationY
+                     : constraints &= ~RigidBodyConstraints::FreezeRotationY;
 
                 ImGui::SameLine();
 
-                flag = static_cast<bool>(rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ);
+                flag = static_cast<bool>(constraints & RigidBodyConstraints::FreezeRotationZ);
                 ImGui::Checkbox("Z", &flag);
-                flag ? rigid_body.constraints |= RigidBodyConstraints::FreezeRotationZ
-                     : rigid_body.constraints &= ~RigidBodyConstraints::FreezeRotationZ;
+                flag ? constraints |= RigidBodyConstraints::FreezeRotationZ
+                     : constraints &= ~RigidBodyConstraints::FreezeRotationZ;
 
                 ImGui::PopID();
+            }
+            if (constraints != rigid_body.constraints) {
+                rigid_body.constraints = constraints;
+                auto &dirty = context.registry.emplace_component<RigidBodyDirty>(context.entity).first;
+                dirty.flags |= RigidBodyDirtyFlag::Constraints;
             }
 
             ImGui::TreePop();

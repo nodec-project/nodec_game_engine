@@ -141,19 +141,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
                                                                          world_trs.translation, world_trs.rotation);
 
             rigid_body_backend->bind_world(*dynamics_world_);
-
-            btVector3 linear_factor(
-                (rigid_body.constraints & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
-                (rigid_body.constraints & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
-                (rigid_body.constraints & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
-
-            rigid_body_backend->native().setLinearFactor(linear_factor);
-
-            btVector3 angular_factor(
-                (rigid_body.constraints & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
-                (rigid_body.constraints & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
-                (rigid_body.constraints & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
-            rigid_body_backend->native().setAngularFactor(angular_factor);
+            rigid_body_backend->set_constraints(rigid_body.constraints);
 
             activity.collision_object_backend = std::move(rigid_body_backend);
         });
@@ -163,7 +151,20 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         scene_registry.remove_components<CollisionObjectActivity>(view.begin(), view.end());
     }
 
-    // --- Apply forces ---
+    {
+        auto view = scene_registry.view<RigidBody, CollisionObjectActivity, RigidBodyDirty>();
+        view.each([&](SceneEntity, RigidBody &rigid_body, CollisionObjectActivity &activity, RigidBodyDirty &dirty) {
+            auto rigid_body_backend = collision_object_cast<RigidBodyBackend>(activity.collision_object_backend.get());
+            assert(rigid_body_backend);
+
+            if (dirty.flags & RigidBodyDirtyFlag::Constraints) {
+                rigid_body_backend->set_constraints(rigid_body.constraints);
+            }
+        });
+        scene_registry.remove_components<RigidBodyDirty>(view.begin(), view.end());
+    }
+
+    // --- Apply forces --- //
     // ImpulseForce
     {
         auto view = scene_registry.view<RigidBody, CollisionObjectActivity, ImpulseForce>();
@@ -171,7 +172,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         view.each([&](SceneEntity, RigidBody &, CollisionObjectActivity &activity, ImpulseForce &force) {
             auto rigid_body_backend = collision_object_cast<RigidBodyBackend>(activity.collision_object_backend.get());
             assert(rigid_body_backend);
-            rigid_body_backend->native().applyCentralImpulse(to_bt_vector3(force.force));
+            rigid_body_backend->native().applyCentralImpulse(to_bt_vector3(force.value));
             rigid_body_backend->native().activate();
         });
 
@@ -184,7 +185,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         view.each([&](SceneEntity, RigidBody &, CollisionObjectActivity &activity, CentralForce &force) {
             auto rigid_body_backend = collision_object_cast<RigidBodyBackend>(activity.collision_object_backend.get());
             assert(rigid_body_backend);
-            rigid_body_backend->native().applyCentralForce(to_bt_vector3(force.force));
+            rigid_body_backend->native().applyCentralForce(to_bt_vector3(force.value));
             rigid_body_backend->native().activate();
         });
 
@@ -203,7 +204,7 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         });
         scene_registry.remove_components<VelocityForce>(view.begin(), view.end());
     }
-    // END Apply forces ---
+    // END Apply forces --- //
 
     // Step simulation.
     {

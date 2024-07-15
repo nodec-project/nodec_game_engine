@@ -74,7 +74,7 @@ public:
         return *native_;
     }
 
-    btCollisionObject& native_collision_object() const override {
+    btCollisionObject &native_collision_object() const override {
         return *native_;
     }
 
@@ -113,6 +113,23 @@ public:
         motion_state_->setWorldTransform(rb_trfm_updated);
 
         native_->activate();
+    }
+
+    void set_constraints(nodec::Flags<nodec_physics::components::RigidBodyConstraints> constraints) {
+        using namespace nodec_physics::components;
+
+        const btVector3 linear_factor(
+            (constraints & RigidBodyConstraints::FreezePositionX) ? 0.f : 1.f,
+            (constraints & RigidBodyConstraints::FreezePositionY) ? 0.f : 1.f,
+            (constraints & RigidBodyConstraints::FreezePositionZ) ? 0.f : 1.f);
+
+        native_->setLinearFactor(linear_factor);
+
+        const btVector3 angular_factor(
+            (constraints & RigidBodyConstraints::FreezeRotationX) ? 0.f : 1.f,
+            (constraints & RigidBodyConstraints::FreezeRotationY) ? 0.f : 1.f,
+            (constraints & RigidBodyConstraints::FreezeRotationZ) ? 0.f : 1.f);
+        native_->setAngularFactor(angular_factor);
     }
 
 private:
