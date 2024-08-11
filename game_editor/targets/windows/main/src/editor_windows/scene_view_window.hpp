@@ -46,6 +46,7 @@ private:
 
     nodec::Matrix4x4f projection_;
     nodec::Matrix4x4f view_;
+    CameraState camera_state_;
     std::unique_ptr<SceneRenderingContext> rendering_context_;
 
     ImGuizmo::OPERATION gizmo_operation_{ImGuizmo::TRANSLATE};

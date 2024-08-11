@@ -53,6 +53,25 @@ SceneViewWindow::SceneViewWindow(
 
     rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, gfx));
     scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
+
+    {
+        using namespace nodec_rendering::components;
+        using namespace DirectX;
+
+        const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
+        Camera camera;
+        camera.projection = Camera::Projection::Perspective;
+        camera.far_clip_plane = 10000.0f;
+        camera.near_clip_plane = 0.01f;
+        camera.fov_angle = 45.0f;
+
+        camera_state_.update_projection(camera, view_aspect);
+
+        XMFLOAT4X4 matrix;
+        XMStoreFloat4x4(&matrix, camera_state_.matrix_p());
+
+        projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
+    }
 }
 
 void SceneViewWindow::on_gui() {
@@ -88,6 +107,13 @@ void SceneViewWindow::on_gui() {
         const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
 
         {
+            using namespace nodec_rendering::components;
+            Camera camera;
+            camera.projection = Camera::Projection::Perspective;
+            camera.far_clip_plane = 10000.0f;
+            camera.near_clip_plane = 0.01f;
+            camera.fov_angle = 45.0f;
+
             XMFLOAT4X4 matrix;
             XMStoreFloat4x4(&matrix, XMMatrixPerspectiveFovLH(
                                          XMConvertToRadians(45),
@@ -161,7 +187,9 @@ void SceneViewWindow::on_gui() {
             view_inverse_ = math::gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
             view_ = math::inv(view_inverse_);
 
-            renderer_.render(scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
+            camera_state_.update_transform(view_inverse_);
+
+            renderer_.render(scene_, camera_state_, render_target_view_.Get(), *rendering_context_);
         }
 
         {

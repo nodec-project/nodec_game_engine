@@ -208,6 +208,7 @@ void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, boo
         group->shader = shader;
     }
     if (is_transparent) {
+        using namespace DirectX;
         auto *transparent_group = static_cast<TransparentDrawGroup *>(group.get());
         // Calculate the depth from the camera.
         auto model_position = matrix_m.r[3];
@@ -217,7 +218,7 @@ void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, boo
         auto camera_direction = matrix_v_inverse.r[2]; // Assuming the camera looks along the -Z axis
 
         // Compute the vector from the camera to the object
-        auto camera_to_object = model_position - camera_position;
+        XMVECTOR camera_to_object = XMVectorSubtract(model_position, camera_position);
 
         // Project this vector onto the camera's view direction
         auto projected_length = XMVectorGetX(XMVector3Dot(camera_to_object, camera_direction)) / XMVectorGetX(XMVector3LengthSq(camera_direction));
@@ -272,139 +273,132 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
     using namespace nodec_rendering::resources;
     using namespace DirectX;
 
+    auto &scene_registry = scene.registry();
+
     renderer_context_.begin_render();
 
     setup_scene_lighting(scene);
 
     // Render the scene per each camera.
-    scene.registry().view<const Camera, const LocalToWorld>().each([&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &camera_local_to_world) {
-        ID3D11RenderTargetView *pCameraRenderTargetView = &render_target;
+    scene.registry().view<const Camera, const LocalToWorld>().each(
+        [&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &camera_local_to_world) {
+            ID3D11RenderTargetView *camera_render_target_view = &render_target;
 
-        // --- Get active post process effects. ---
-        std::vector<const PostProcessing::Effect *> activePostProcessEffects;
-        {
-            const auto *postProcessing = scene.registry().try_get_component<const PostProcessing>(camera_entity);
+            // --- Get active post process effects. ---
+            std::vector<const PostProcessing::Effect *> activePostProcessEffects;
+            {
+                const auto *postProcessing = scene.registry().try_get_component<const PostProcessing>(camera_entity);
 
-            if (postProcessing) {
-                for (const auto &effect : postProcessing->effects) {
-                    if (effect.enabled && effect.material && effect.material->shader()) {
-                        activePostProcessEffects.push_back(&effect);
+                if (postProcessing) {
+                    for (const auto &effect : postProcessing->effects) {
+                        if (effect.enabled && effect.material && effect.material->shader()) {
+                            activePostProcessEffects.push_back(&effect);
+                        }
                     }
                 }
-            }
 
-            // If some effects, the off-screen buffer is needed.
-            if (activePostProcessEffects.size() > 0) {
-                auto &buffer = context.geometry_buffer("screen");
+                // If some effects, the off-screen buffer is needed.
+                if (activePostProcessEffects.size() > 0) {
+                    auto &buffer = context.geometry_buffer("screen");
 
-                // Set the render target.
-                pCameraRenderTargetView = &buffer.render_target_view();
-            }
-        }
-
-        auto matrix_p = XMMatrixIdentity();
-
-        const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
-        switch (camera.projection) {
-        case Camera::Projection::Perspective:
-            matrix_p = XMMatrixPerspectiveFovLH(
-                XMConvertToRadians(camera.fov_angle),
-                aspect,
-                camera.near_clip_plane, camera.far_clip_plane);
-            break;
-        case Camera::Projection::Orthographic:
-            matrix_p = XMMatrixOrthographicLH(
-                camera.ortho_width, camera.ortho_width / aspect,
-                camera.near_clip_plane, camera.far_clip_plane);
-            break;
-        default:
-            break;
-        }
-        const auto matrix_p_inverse = XMMatrixInverse(nullptr, matrix_p);
-
-        XMMATRIX matrix_v_inverse{camera_local_to_world.value.m};
-
-        auto matrix_v = XMMatrixInverse(nullptr, matrix_v_inverse);
-
-        render(scene, matrix_v, matrix_v_inverse, matrix_p, matrix_p_inverse,
-               pCameraRenderTargetView, context);
-
-        // --- Post Processing ---
-        if (activePostProcessEffects.size() > 0) {
-            gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-            renderer_context_.bs_default().bind();
-
-            for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
-                if (i != activePostProcessEffects.size() - 1) {
-                    pCameraRenderTargetView = &context.geometry_buffer("screen_back").render_target_view();
-                } else {
-                    // if last, render target is frame buffer.
-                    pCameraRenderTargetView = &render_target;
+                    // Set the render target.
+                    camera_render_target_view = &buffer.render_target_view();
                 }
+            }
 
-                // It is assured that material and shader are exists.
-                // It is checked at the beginning of rendering pass of camera.
-                auto material_backend = std::static_pointer_cast<MaterialBackend>(activePostProcessEffects[i]->material);
-                auto shader_backend = std::static_pointer_cast<ShaderBackend>(material_backend->shader());
+            auto camera_activity_result = scene_registry.emplace_component<CameraActivity>(camera_entity);
+            auto &camera_activity = camera_activity_result.first;
+            auto *camera_dirty = scene_registry.try_get_component<CameraDirty>(camera_entity);
+            if (camera_activity_result.second) {
+                camera_activity.state = std::make_unique<CameraState>();
+            }
 
-                renderer_context_.bind_material(material_backend.get());
-                const UINT slot_offset = material_backend->texture_entries().size();
+            if (camera_activity_result.second || (camera_dirty && camera_dirty->flags & CameraDirtyFlag::Projection)) {
+                const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
+                camera_activity.state->update_projection(camera, aspect);
+            }
 
-                for (int passNum = 0; passNum < shader_backend->pass_count(); ++passNum) {
-                    if (passNum == shader_backend->pass_count() - 1) {
-                        // If last pass.
-                        // The render target must be one final target.
-                        D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
-                        gfx_.context().RSSetViewports(1u, &vp);
-                        gfx_.context().OMSetRenderTargets(1, &pCameraRenderTargetView, nullptr);
+            camera_activity.state->update_transform(camera_local_to_world.value);
 
+            render_internal(scene, *camera_activity.state,
+                            camera_render_target_view, context);
+
+            // --- Post Processing ---
+            if (activePostProcessEffects.size() > 0) {
+                gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+                renderer_context_.bs_default().bind();
+
+                for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
+                    if (i != activePostProcessEffects.size() - 1) {
+                        camera_render_target_view = &context.geometry_buffer("screen_back").render_target_view();
                     } else {
-                        // If halfway pass.
-                        // Support the multiple render targets.
+                        // if last, render target is frame buffer.
+                        camera_render_target_view = &render_target;
+                    }
 
-                        const auto &targets = shader_backend->render_targets(passNum);
+                    // It is assured that material and shader are exists.
+                    // It is checked at the beginning of rendering pass of camera.
+                    auto material_backend = std::static_pointer_cast<MaterialBackend>(activePostProcessEffects[i]->material);
+                    auto shader_backend = std::static_pointer_cast<ShaderBackend>(material_backend->shader());
 
-                        std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
-                        std::vector<D3D11_VIEWPORT> vps(targets.size());
-                        for (size_t i = 0; i < targets.size(); ++i) {
-                            auto &buffer = context.geometry_buffer(targets[i]);
-                            renderTargets[i] = &buffer.render_target_view();
-                            // gfx_.context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+                    renderer_context_.bind_material(material_backend.get());
+                    const UINT slot_offset = material_backend->texture_entries().size();
 
-                            vps[i] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(buffer.width()), static_cast<FLOAT>(buffer.height()));
+                    for (int passNum = 0; passNum < shader_backend->pass_count(); ++passNum) {
+                        if (passNum == shader_backend->pass_count() - 1) {
+                            // If last pass.
+                            // The render target must be one final target.
+                            D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
+                            gfx_.context().RSSetViewports(1u, &vp);
+                            gfx_.context().OMSetRenderTargets(1, &camera_render_target_view, nullptr);
+
+                        } else {
+                            // If halfway pass.
+                            // Support the multiple render targets.
+
+                            const auto &targets = shader_backend->render_targets(passNum);
+
+                            std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
+                            std::vector<D3D11_VIEWPORT> vps(targets.size());
+                            for (size_t i = 0; i < targets.size(); ++i) {
+                                auto &buffer = context.geometry_buffer(targets[i]);
+                                renderTargets[i] = &buffer.render_target_view();
+                                // gfx_.context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
+
+                                vps[i] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(buffer.width()), static_cast<FLOAT>(buffer.height()));
+                            }
+
+                            gfx_.context().OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), renderTargets.data(), nullptr);
+                            gfx_.context().RSSetViewports(static_cast<UINT>(vps.size()), vps.data());
                         }
 
-                        gfx_.context().OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), renderTargets.data(), nullptr);
-                        gfx_.context().RSSetViewports(static_cast<UINT>(vps.size()), vps.data());
-                    }
+                        // --- Bind texture resources.
+                        // Bind sampler for textures.
 
-                    // --- Bind texture resources.
-                    // Bind sampler for textures.
+                        renderer_context_.sampler_state({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(&gfx_, slot_offset);
+                        const auto &texture_resources = shader_backend->texture_resources(passNum);
+                        for (std::size_t i = 0; i < texture_resources.size(); ++i) {
+                            auto &buffer = context.geometry_buffer(texture_resources[i]);
+                            auto *view = &buffer.shader_resource_view();
+                            gfx_.context().PSSetShaderResources(slot_offset + i, 1u, &view);
+                        }
+                        shader_backend->bind(passNum);
 
-                    renderer_context_.sampler_state({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(&gfx_, slot_offset);
-                    const auto &texture_resources = shader_backend->texture_resources(passNum);
-                    for (std::size_t i = 0; i < texture_resources.size(); ++i) {
-                        auto &buffer = context.geometry_buffer(texture_resources[i]);
-                        auto *view = &buffer.shader_resource_view();
-                        gfx_.context().PSSetShaderResources(slot_offset + i, 1u, &view);
-                    }
-                    shader_backend->bind(passNum);
+                        auto &screen_quad_mesh = renderer_context_.screen_quad_mesh();
 
-                    auto &screen_quad_mesh = renderer_context_.screen_quad_mesh();
-
-                    screen_quad_mesh.bind(&gfx_);
-                    gfx_.DrawIndexed(screen_quad_mesh.triangles.size());
-                    renderer_context_.unbind_all_shader_resources(slot_offset, static_cast<UINT>(texture_resources.size()));
-                } // End foreach pass.
-                renderer_context_.unbind_all_shader_resources(slot_offset);
-                context.swap_geometry_buffers("screen", "screen_back");
-            } // End foreach effect.
-        }
-    }); // End foreach camera
+                        screen_quad_mesh.bind(&gfx_);
+                        gfx_.DrawIndexed(screen_quad_mesh.triangles.size());
+                        renderer_context_.unbind_all_shader_resources(slot_offset, static_cast<UINT>(texture_resources.size()));
+                    } // End foreach pass.
+                    renderer_context_.unbind_all_shader_resources(slot_offset);
+                    context.swap_geometry_buffers("screen", "screen_back");
+                } // End foreach effect.
+            }
+        }); // End foreach camera
 }
 
-void SceneRenderer::render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, nodec::Matrix4x4f &projection, ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
+void SceneRenderer::render(nodec_scene::Scene &scene, const CameraState &camera_state, ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
     assert(render_target != nullptr);
 
     using namespace DirectX;
@@ -414,20 +408,13 @@ void SceneRenderer::render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, n
 
     setup_scene_lighting(scene);
 
-    XMMATRIX matrix_v{view.m};
-    auto matrix_v_inverse = XMMatrixInverse(nullptr, matrix_v);
-
-    XMMATRIX matrix_p{projection.m};
-    auto matrix_p_inverse = XMMatrixInverse(nullptr, matrix_p);
-
-    render(scene, matrix_v, matrix_v_inverse, matrix_p, matrix_p_inverse,
-           render_target, context);
+    render_internal(scene, camera_state,
+                    render_target, context);
 }
 
-void SceneRenderer::render(nodec_scene::Scene &scene,
-                           const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_v_inverse,
-                           const DirectX::XMMATRIX &matrix_p, const DirectX::XMMATRIX &matrix_p_inverse,
-                           ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
+void SceneRenderer::render_internal(nodec_scene::Scene &scene,
+                                    const CameraState &camera_state,
+                                    ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
     assert(render_target != nullptr);
     using namespace nodec;
     using namespace nodec_scene;
@@ -436,33 +423,112 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
     using namespace nodec_rendering;
     using namespace DirectX;
 
-    // TODO: Culling.
+    auto &scene_registry = scene.registry();
+
+    struct IsInCameraFrustum {};
+
+    // Update bounds.
+    {
+        scene_registry.view<const MeshRenderer, const LocalToWorld>().each(
+            [&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
+                auto activity_result = scene_registry.emplace_component<RenderableObjectActivity>(entity);
+                auto &activity = activity_result.first;
+                if (activity.object == nullptr) {
+                    activity_result.first.object = std::make_unique<RenderableObject>(entity);
+                }
+
+                Vector3f bounds_min = {(std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)()};
+                Vector3f bounds_max = {(std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)()};
+
+                bool has_renderable = false;
+                if (renderer.meshes.size() == renderer.materials.size()) {
+                    for (int i = 0; i < renderer.meshes.size(); ++i) {
+                        auto &mesh = renderer.meshes[i];
+                        auto &material = renderer.materials[i];
+                        if (!mesh || !material) continue;
+
+                        auto mesh_backend = std::static_pointer_cast<MeshBackend>(mesh);
+                        auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
+                        auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
+                        if (!shader_backend) continue;
+
+                        auto &bounds = mesh_backend->bounds;
+                        bounds_min.x = (std::min)(bounds_min.x, (bounds.min)().x);
+                        bounds_min.y = (std::min)(bounds_min.y, (bounds.min)().y);
+                        bounds_min.z = (std::min)(bounds_min.z, (bounds.min)().z);
+                        bounds_max.x = (std::max)(bounds_max.x, (bounds.max)().x);
+                        bounds_max.y = (std::max)(bounds_max.y, (bounds.max)().y);
+                        bounds_max.z = (std::max)(bounds_max.z, (bounds.max)().z);
+
+                        has_renderable = true;
+                    }
+                }
+
+                if (has_renderable) {
+                    activity.object->update_bounds_if_needed(BoundingBox::from_minmax(bounds_min, bounds_max), local_to_world.value);
+                    activity.object->bind_world(renderable_world_.collision_world());
+                } else {
+                    activity.object->reset_bounds();
+                }
+            });
+    }
+
+    {
+        // renderable_world_.collision_world().performDiscreteCollisionDetection();
+
+        struct FrustumCallback : public btCollisionWorld::ContactResultCallback {
+            FrustumCallback(nodec_scene::SceneRegistry &scene_registry)
+                : scene_registry_(scene_registry) {}
+
+            btScalar addSingleResult(btManifoldPoint &cp,
+                                     const btCollisionObjectWrapper *col0_wrap, int part_id0, int index0,
+                                     const btCollisionObjectWrapper *col1_wrap, int part_id1, int index1) override {
+                auto *obj0 = static_cast<RenderableObject *>(col0_wrap->getCollisionObject()->getUserPointer());
+                auto *obj1 = static_cast<RenderableObject *>(col1_wrap->getCollisionObject()->getUserPointer());
+
+                if (obj1 == nullptr) {
+                    return 0;
+                }
+                auto entity = obj1->entity();
+                scene_registry_.emplace_component<IsInCameraFrustum>(entity);
+                return 0;
+            }
+
+        private:
+            nodec_scene::SceneRegistry &scene_registry_;
+        };
+
+        FrustumCallback frustum_callback(scene_registry);
+        renderable_world_.collision_world().contactTest(camera_state.frustum_object(), frustum_callback);
+    }
 
     // Group the draw-command by the shader.
     {
-        scene.registry().view<const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
-            if (renderer.meshes.size() != renderer.materials.size()) return;
-            for (int i = 0; i < renderer.meshes.size(); ++i) {
-                auto &mesh = renderer.meshes[i];
-                auto &material = renderer.materials[i];
-                if (!mesh || !material) continue;
+        scene_registry.view<const MeshRenderer, const LocalToWorld, const IsInCameraFrustum>(type_list<NonVisible>{})
+            .each([&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world, const IsInCameraFrustum &) {
+                if (renderer.meshes.size() != renderer.materials.size()) return;
 
-                auto mesh_backend = std::static_pointer_cast<MeshBackend>(mesh);
-                auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
-                auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
-                if (!shader_backend) continue;
+                for (int i = 0; i < renderer.meshes.size(); ++i) {
+                    auto &mesh = renderer.meshes[i];
+                    auto &material = renderer.materials[i];
+                    if (!mesh || !material) continue;
 
-                auto matrix_m = XMMATRIX(local_to_world.value.m);
-                const bool is_transparent = material_backend->is_transparent();
+                    auto mesh_backend = std::static_pointer_cast<MeshBackend>(mesh);
+                    auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
+                    auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
+                    if (!shader_backend) continue;
 
-                auto command = std::make_unique<MeshDrawCommand>(
-                    matrix_m,
-                    mesh_backend,
-                    material_backend);
+                    auto matrix_m = XMMATRIX(local_to_world.value.m);
+                    const bool is_transparent = material_backend->is_transparent();
 
-                push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, matrix_v_inverse);
-            } // End foreach mesh
-        });
+                    auto command = std::make_unique<MeshDrawCommand>(
+                        matrix_m,
+                        mesh_backend,
+                        material_backend);
+
+                    push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
+                } // End foreach mesh
+            });
         scene.registry().view<const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
             auto &image = renderer.image;
             auto &material = renderer.material;
@@ -486,7 +552,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 material_backend,
                 renderer.color);
 
-            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, matrix_v_inverse);
+            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
         });
 
         scene.registry().view<const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const TextRenderer &renderer, const LocalToWorld &local_to_world) {
@@ -505,8 +571,13 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 XMMATRIX(local_to_world.value.m),
                 renderer);
 
-            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, matrix_v_inverse);
+            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
         });
+    }
+
+    {
+        auto view = scene_registry.view<IsInCameraFrustum>();
+        scene_registry.remove_components<IsInCameraFrustum>(view.begin(), view.end());
     }
 
     // Clear render target view with solid color.
@@ -521,14 +592,14 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
     auto &cb_scene_properties = renderer_context_.cb_scene_properties();
 
-    XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, matrix_p);
-    XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, matrix_p_inverse);
+    XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, camera_state.matrix_p());
+    XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, camera_state.matrix_p_inverse());
 
-    XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, matrix_v);
-    XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, matrix_v_inverse);
+    XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, camera_state.matrix_v());
+    XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, camera_state.matrix_v_inverse());
 
     XMVECTOR scale, rotQuat, trans;
-    XMMatrixDecompose(&scale, &rotQuat, &trans, matrix_v_inverse);
+    XMMatrixDecompose(&scale, &rotQuat, &trans, camera_state.matrix_v_inverse());
 
     cb_scene_properties.data().camera_position.set(
         XMVectorGetByIndex(trans, 0),
@@ -675,7 +746,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
             shader->bind(pass_num);
 
             if (pass_num == 0) {
-                draw_group->draw_all(matrix_v, matrix_p, renderer_context_, gfx_);
+                draw_group->draw_all(camera_state.matrix_v(), camera_state.matrix_p(), renderer_context_, gfx_);
             } else {
                 auto &screen_quad_mesh = renderer_context_.screen_quad_mesh();
                 screen_quad_mesh.bind(&gfx_);

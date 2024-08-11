@@ -1,6 +1,7 @@
 #include <resources/resource_loader.hpp>
 
 #include <fstream>
+#include <limits>
 
 #include <nodec_animation/serialization/resources/animation_clip.hpp>
 #include <nodec_rendering/serialization/resources/material.hpp>
@@ -42,12 +43,26 @@ ResourceLoader::load_backend<MeshBackend>(const std::string &path) const noexcep
     }
 
     auto mesh = std::make_shared<MeshBackend>();
+    BoundingBox bounds;
+    nodec::Vector3f min = {(std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)()};
+    nodec::Vector3f max = {(std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)()};
+    
     mesh->vertices.reserve(source.vertices.size());
+
     for (auto &&src : source.vertices) {
         mesh->vertices.push_back({src.position, src.normal, src.uv, src.tangent});
+        if (src.position.x < min.x) min.x = src.position.x;
+        if (src.position.y < min.y) min.y = src.position.y;
+        if (src.position.z < min.z) min.z = src.position.z;
+        if (src.position.x > max.x) max.x = src.position.x;
+        if (src.position.y > max.y) max.y = src.position.y;
+        if (src.position.z > max.z) max.z = src.position.z;
     }
-
     mesh->triangles = source.triangles;
+
+    bounds.center = (min + max) / 2.0f;
+    bounds.extents = (max - min) / 2.0f;
+    mesh->bounds = bounds;
 
     try {
         mesh->update_device_memory(&gfx_);
