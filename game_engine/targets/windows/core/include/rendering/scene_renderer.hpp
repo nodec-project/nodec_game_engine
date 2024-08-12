@@ -31,7 +31,7 @@
 #include "../graphics/graphics.hpp"
 #include "material_backend.hpp"
 #include "mesh_backend.hpp"
-#include "renderable_world.hpp"
+#include "camera_state.hpp"
 #include "scene_renderer_context.hpp"
 #include "scene_rendering_context.hpp"
 #include "shader_backend.hpp"
@@ -157,8 +157,6 @@ private:
     SceneRendererContext renderer_context_;
 
     std::map<DrawGroupPriorityKey, std::unique_ptr<DrawGroup>> draw_groups_;
-
-    RenderableWorld renderable_world_;
 };
 
 #endif
