@@ -466,12 +466,16 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
             auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
             if (!shader_backend) return;
 
-            const bool is_transparent = material_backend->is_transparent();
-
-            auto matrix_m = XMMATRIX(local_to_world.value.m);
             const auto width = image_backend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
             const auto height = image_backend->height() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
-            matrix_m = XMMatrixScaling(width, height, 1.0f) * matrix_m;
+
+            // auto local_to_world_matrix = local_to_world.value * gfx::scale_matrix(width, height, 1.0f);
+            const gfx::BoundingBox bounds(Vector3f::zero, Vector3f(width, height, 0.0f));
+            if (!nodec::gfx::intersects(camera_state.frustum(), bounds, local_to_world.value)) {
+                return;
+            }
+            
+            auto matrix_m = XMMatrixScaling(width, height, 1.f) * XMMATRIX(local_to_world.value.m);
 
             auto command = std::make_unique<ImageDrawCommand>(
                 matrix_m,
@@ -479,6 +483,7 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                 material_backend,
                 renderer.color);
 
+            const bool is_transparent = material_backend->is_transparent();
             push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
         });
 
@@ -501,11 +506,6 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
             push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
         });
     }
-
-    //{
-    //    auto view = scene_registry.view<IsInCameraFrustum>();
-    //    scene_registry.remove_components<IsInCameraFrustum>(view.begin(), view.end());
-    //}
 
     // Clear render target view with solid color.
     {

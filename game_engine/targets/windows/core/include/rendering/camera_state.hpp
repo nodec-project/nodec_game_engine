@@ -19,21 +19,16 @@ public:
 
     void update_projection(const nodec_rendering::components::Camera &camera, float aspect) {
         using namespace DirectX;
-        
+
         camera_ = camera;
         switch (camera.projection) {
         case nodec_rendering::components::Camera::Projection::Perspective:
-            // frustum_shape_ = bt_make_frustum_shape(btVector3(0, 0, 0), btVector3(0, 0, 1), btVector3(0, 1, 0),
-            //                                        camera.fov_angle, aspect, camera.near_clip_plane, camera.far_clip_plane);
-
             matrix_p_ = XMMatrixPerspectiveFovLH(
                 XMConvertToRadians(camera.fov_angle),
                 aspect,
                 camera.near_clip_plane, camera.far_clip_plane);
             break;
         case nodec_rendering::components::Camera::Projection::Orthographic:
-            // frustum_shape_ = std::make_unique<btBoxShape>(btVector3(camera.ortho_width / 2, camera.ortho_width / 2, camera.far_clip_plane));
-
             matrix_p_ = XMMatrixOrthographicLH(
                 camera.ortho_width, camera.ortho_width / aspect,
                 camera.near_clip_plane, camera.far_clip_plane);
@@ -46,8 +41,6 @@ public:
         matrix_p_inverse_ = XMMatrixInverse(nullptr, matrix_p_);
 
         aspect_ = aspect;
-
-        // frustum_object_->setCollisionShape(frustum_shape_.get());
     }
 
     void update_transform(const nodec::Matrix4x4f &camera_local_to_world) {
@@ -55,10 +48,6 @@ public:
         using namespace nodec;
         matrix_v_inverse_ = XMMATRIX(camera_local_to_world.m);
         matrix_v_ = XMMatrixInverse(nullptr, matrix_v_inverse_);
-
-        // btTransform transform;
-        // transform.setFromOpenGLMatrix(camera_local_to_world.m);
-        // frustum_object_->setWorldTransform(transform);
 
         nodec::gfx::TRSComponents trs;
         nodec::gfx::decompose_trs(camera_local_to_world, trs);
@@ -69,8 +58,12 @@ public:
 
         switch (camera_.projection) {
         case nodec_rendering::components::Camera::Projection::Perspective:
-            nodec::gfx::set_frustum_from_camera_lh(trs.translation, forward, up, right,
-                                                   aspect_, camera_.fov_angle, camera_.near_clip_plane, camera_.far_clip_plane, frustum_);
+            nodec::gfx::set_frustum_from_projection_lh(trs.translation, forward, up, right,
+                                                       aspect_, camera_.fov_angle, camera_.near_clip_plane, camera_.far_clip_plane, frustum_);
+            break;
+        case nodec_rendering::components::Camera::Projection::Orthographic:
+            nodec::gfx::set_frustum_from_orthographic(trs.translation, forward, up, right,
+                                                      camera_.ortho_width, camera_.ortho_width / aspect_, camera_.near_clip_plane, camera_.far_clip_plane, frustum_);
             break;
         default:
             break;
