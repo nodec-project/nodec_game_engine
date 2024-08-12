@@ -1,7 +1,7 @@
 #ifndef NODEC_GAME_EDITOR__SCENE_GIZMO_IMPL_HPP_
 #define NODEC_GAME_EDITOR__SCENE_GIZMO_IMPL_HPP_
 
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 
 #include <nodec_rendering/components/mesh_renderer.hpp>
 #include <nodec_resources/resources.hpp>
@@ -28,7 +28,7 @@ public:
         auto &gizmo_wire = scene_.registry().emplace_component<components::GizmoWire>(gizmo_entity).first;
         gizmo_wire.mesh = wire_cube_mesh_;
         auto &local_to_world = scene_.registry().emplace_component<LocalToWorld>(gizmo_entity).first;
-        local_to_world.value = nodec::math::gfx::trs(center, rotation, size);
+        local_to_world.value = nodec::gfx::trs(center, rotation, size);
         local_to_world.dirty = true;
     }
 
@@ -39,7 +39,7 @@ public:
         auto &gizmo_wire = scene_.registry().emplace_component<components::GizmoWire>(gizmo_entity).first;
         gizmo_wire.mesh = wire_sphere_mesh_;
         auto &local_to_world = scene_.registry().emplace_component<LocalToWorld>(gizmo_entity).first;
-        local_to_world.value = nodec::math::gfx::trs(center, nodec::Quaternionf::identity, nodec::Vector3f::ones * radius);
+        local_to_world.value = nodec::gfx::trs(center, nodec::Quaternionf::identity, nodec::Vector3f::ones * radius);
         local_to_world.dirty = true;
     }
 

@@ -3,8 +3,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <DirectXMath.h>
 
@@ -24,17 +24,18 @@
 #include <nodec_scene/components/local_transform.hpp>
 #include <nodec_scene/scene.hpp>
 
+#include "../graphics/ConstantBuffer.hpp"
+#include "../graphics/RasterizerState.hpp"
+#include "../graphics/SamplerState.hpp"
+#include "../graphics/geometry_buffer.hpp"
+#include "../graphics/graphics.hpp"
 #include "material_backend.hpp"
 #include "mesh_backend.hpp"
+#include "camera_state.hpp"
 #include "scene_renderer_context.hpp"
 #include "scene_rendering_context.hpp"
 #include "shader_backend.hpp"
 #include "texture_backend.hpp"
-#include <graphics/ConstantBuffer.hpp>
-#include <graphics/RasterizerState.hpp>
-#include <graphics/SamplerState.hpp>
-#include <graphics/geometry_buffer.hpp>
-#include <graphics/graphics.hpp>
 
 class DrawCommand {
 public:
@@ -134,16 +135,14 @@ public:
 
     void render(nodec_scene::Scene &scene, ID3D11RenderTargetView &render_target, SceneRenderingContext &context);
 
-    void render(nodec_scene::Scene &scene, nodec::Matrix4x4f &view, nodec::Matrix4x4f &projection,
-                ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
+    void render(nodec_scene::Scene &scene, const CameraState &camera_state, ID3D11RenderTargetView *render_target, SceneRenderingContext &context);
 
 private:
     void setup_scene_lighting(nodec_scene::Scene &scene);
 
-    void render(nodec_scene::Scene &scene,
-                const DirectX::XMMATRIX &matrixV, const DirectX::XMMATRIX &matrixVInverse,
-                const DirectX::XMMATRIX &matrixP, const DirectX::XMMATRIX &matrixPInverse,
-                ID3D11RenderTargetView *pTarget, SceneRenderingContext &context);
+    void render_internal(nodec_scene::Scene &scene,
+                         const CameraState &camera_state,
+                         ID3D11RenderTargetView *target, SceneRenderingContext &context);
 
     void push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
                            const std::shared_ptr<MaterialBackend> &material_backend,

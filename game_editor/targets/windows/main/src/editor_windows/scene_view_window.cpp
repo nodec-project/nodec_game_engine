@@ -2,7 +2,7 @@
 
 #include <imgui_internal.h>
 
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 #include <nodec_scene_editor/components/selected.hpp>
 
 #include <DirectXMath.h>
@@ -53,6 +53,25 @@ SceneViewWindow::SceneViewWindow(
 
     rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, gfx));
     scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
+
+    {
+        using namespace nodec_rendering::components;
+        using namespace DirectX;
+
+        const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
+        Camera camera;
+        camera.projection = Camera::Projection::Perspective;
+        camera.far_clip_plane = 10000.0f;
+        camera.near_clip_plane = 0.01f;
+        camera.fov_angle = 45.0f;
+
+        camera_state_.update_projection(camera, view_aspect);
+
+        XMFLOAT4X4 matrix;
+        XMStoreFloat4x4(&matrix, camera_state_.matrix_p());
+
+        projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
+    }
 }
 
 void SceneViewWindow::on_gui() {
@@ -88,6 +107,13 @@ void SceneViewWindow::on_gui() {
         const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
 
         {
+            using namespace nodec_rendering::components;
+            Camera camera;
+            camera.projection = Camera::Projection::Perspective;
+            camera.far_clip_plane = 10000.0f;
+            camera.near_clip_plane = 0.01f;
+            camera.fov_angle = 45.0f;
+
             XMFLOAT4X4 matrix;
             XMStoreFloat4x4(&matrix, XMMatrixPerspectiveFovLH(
                                          XMConvertToRadians(45),
@@ -99,12 +125,12 @@ void SceneViewWindow::on_gui() {
 
         auto &io = ImGui::GetIO();
         auto view_inverse_ = math::inv(view_);
-        math::gfx::TRSComponents camera_trs;
-        math::gfx::decompose_trs(view_inverse_, camera_trs);
+        gfx::TRSComponents camera_trs;
+        gfx::decompose_trs(view_inverse_, camera_trs);
 
-        const auto forward = math::gfx::rotate(Vector3f(0.f, 0.f, 1.f), camera_trs.rotation);
-        const auto right = math::gfx::rotate(Vector3f(1.f, 0.f, 0.f), camera_trs.rotation);
-        const auto up = math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), camera_trs.rotation);
+        const auto forward = gfx::rotate(Vector3f(0.f, 0.f, 1.f), camera_trs.rotation);
+        const auto right = gfx::rotate(Vector3f(1.f, 0.f, 0.f), camera_trs.rotation);
+        const auto up = gfx::rotate(Vector3f(0.f, 1.f, 0.f), camera_trs.rotation);
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
             scene_view_dragging_ = true;
@@ -126,10 +152,10 @@ void SceneViewWindow::on_gui() {
                 const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
 
                 // Apply rotation around the local right vector after current rotation.
-                camera_trs.rotation = math::gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
+                camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
 
                 // And apply rotation around the world up vector.
-                camera_trs.rotation = math::gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
+                camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
 
                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
             }
@@ -158,10 +184,12 @@ void SceneViewWindow::on_gui() {
         }
 
         {
-            view_inverse_ = math::gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
+            view_inverse_ = gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
             view_ = math::inv(view_inverse_);
 
-            renderer_.render(scene_, view_, projection_, render_target_view_.Get(), *rendering_context_);
+            camera_state_.update_transform(view_inverse_);
+
+            renderer_.render(scene_, camera_state_, render_target_view_.Get(), *rendering_context_);
         }
 
         {

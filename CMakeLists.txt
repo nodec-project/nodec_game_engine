@@ -10,7 +10,7 @@ if(MSVC)
     add_compile_options(/bigobj)
 endif()
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 option(NODEC_GAME_EDITOR_ENABLED ON)
 

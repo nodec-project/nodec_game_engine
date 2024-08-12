@@ -2,7 +2,7 @@
 
 #include <imessentials/text_buffer.hpp>
 #include <imgui.h>
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 #include <nodec_scene_editor/components/selected.hpp>
 
 namespace component_editors {
@@ -48,7 +48,7 @@ void PhysicsShapeEditor::on_scene_gui(nodec_scene_editor::SceneGizmo &gizmo,
             auto &local_to_world = scene_registry.get_component<LocalToWorld>(entity);
             Vector3f world_position, world_scale;
             Quaternionf world_rotation;
-            math::gfx::decompose_trs(local_to_world.value, world_position, world_rotation, world_scale);
+            gfx::decompose_trs(local_to_world.value, world_position, world_rotation, world_scale);
 
             const auto scale = std::max({world_scale.x, world_scale.y, world_scale.z});
 
@@ -65,7 +65,7 @@ void PhysicsShapeEditor::on_scene_gui(nodec_scene_editor::SceneGizmo &gizmo,
             case PhysicsShape::ShapeType::Capsule: {
                 const auto radius = shape.radius * scale;
                 const auto height = shape.height * scale;
-                const auto half_extent_up = math::gfx::rotate(Vector3f(0.0f, height / 2.0f, 0.0f), world_rotation);
+                const auto half_extent_up = gfx::rotate(Vector3f(0.0f, height / 2.0f, 0.0f), world_rotation);
                 
                 gizmo.draw_wire_sphere(world_position + half_extent_up, radius);
                 gizmo.draw_wire_sphere(world_position - half_extent_up, radius);

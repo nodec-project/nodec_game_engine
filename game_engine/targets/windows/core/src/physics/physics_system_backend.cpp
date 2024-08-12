@@ -1,7 +1,7 @@
 #include <physics/physics_system_backend.hpp>
 
 #include <nodec/logging/logging.hpp>
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 #include <nodec_physics/components/central_force.hpp>
@@ -68,8 +68,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             assert(rigid_body_backend);
             using namespace nodec;
 
-            math::gfx::TRSComponents world_trs;
-            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            gfx::TRSComponents world_trs;
+            gfx::decompose_trs(local_to_world.value, world_trs);
             rigid_body_backend->update_transform_if_different(world_trs.translation, world_trs.rotation);
         });
 
@@ -79,8 +79,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
             assert(ghost_body_backend);
             using namespace nodec;
 
-            math::gfx::TRSComponents world_trs;
-            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            gfx::TRSComponents world_trs;
+            gfx::decompose_trs(local_to_world.value, world_trs);
             ghost_body_backend->update_transform_if_different(world_trs.translation, world_trs.rotation);
         });
 
@@ -90,8 +90,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         .each([&](SceneEntity entity, TriggerBody &, PhysicsShape &shape, LocalToWorld &local_to_world) {
             auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entity).first;
 
-            math::gfx::TRSComponents world_trs;
-            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            gfx::TRSComponents world_trs;
+            gfx::decompose_trs(local_to_world.value, world_trs);
 
             auto shape_backend = make_collision_shape(shape, world_trs.scale);
 
@@ -105,8 +105,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         .each([&](SceneEntity entity, StaticRigidBody &, PhysicsShape &shape, LocalToWorld &local_to_world) {
             auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entity).first;
 
-            math::gfx::TRSComponents world_trs;
-            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            gfx::TRSComponents world_trs;
+            gfx::decompose_trs(local_to_world.value, world_trs);
 
             auto shape_backend = make_collision_shape(shape, world_trs.scale);
 
@@ -122,8 +122,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         .each([&](SceneEntity entt, RigidBody &rigid_body, PhysicsShape &shape, LocalToWorld &local_to_world) {
             auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entt).first;
 
-            math::gfx::TRSComponents world_trs;
-            math::gfx::decompose_trs(local_to_world.value, world_trs);
+            gfx::TRSComponents world_trs;
+            gfx::decompose_trs(local_to_world.value, world_trs);
 
             RigidBodyBackend::BodyType body_type{RigidBodyBackend::BodyType::Dynamic};
             switch (rigid_body.body_type) {
