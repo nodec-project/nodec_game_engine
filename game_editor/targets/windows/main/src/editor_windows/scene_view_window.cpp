@@ -2,7 +2,7 @@
 
 #include <imgui_internal.h>
 
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 #include <nodec_scene_editor/components/selected.hpp>
 
 #include <DirectXMath.h>
@@ -125,12 +125,12 @@ void SceneViewWindow::on_gui() {
 
         auto &io = ImGui::GetIO();
         auto view_inverse_ = math::inv(view_);
-        math::gfx::TRSComponents camera_trs;
-        math::gfx::decompose_trs(view_inverse_, camera_trs);
+        gfx::TRSComponents camera_trs;
+        gfx::decompose_trs(view_inverse_, camera_trs);
 
-        const auto forward = math::gfx::rotate(Vector3f(0.f, 0.f, 1.f), camera_trs.rotation);
-        const auto right = math::gfx::rotate(Vector3f(1.f, 0.f, 0.f), camera_trs.rotation);
-        const auto up = math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), camera_trs.rotation);
+        const auto forward = gfx::rotate(Vector3f(0.f, 0.f, 1.f), camera_trs.rotation);
+        const auto right = gfx::rotate(Vector3f(1.f, 0.f, 0.f), camera_trs.rotation);
+        const auto up = gfx::rotate(Vector3f(0.f, 1.f, 0.f), camera_trs.rotation);
 
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
             scene_view_dragging_ = true;
@@ -152,10 +152,10 @@ void SceneViewWindow::on_gui() {
                 const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
 
                 // Apply rotation around the local right vector after current rotation.
-                camera_trs.rotation = math::gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
+                camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
 
                 // And apply rotation around the world up vector.
-                camera_trs.rotation = math::gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
+                camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
 
                 ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
             }
@@ -184,7 +184,7 @@ void SceneViewWindow::on_gui() {
         }
 
         {
-            view_inverse_ = math::gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
+            view_inverse_ = gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
             view_ = math::inv(view_inverse_);
 
             camera_state_.update_transform(view_inverse_);

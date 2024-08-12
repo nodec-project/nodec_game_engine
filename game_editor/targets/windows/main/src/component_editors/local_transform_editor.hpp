@@ -2,7 +2,7 @@
 #define COMPONENT_EDITORS__LOCAL_TRANSFORM_EDITOR_HPP_
 
 #include <imgui.h>
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 #include <nodec_scene_editor/component_editor.hpp>
 
 #include <nodec_scene/components/local_transform.hpp>
@@ -25,7 +25,7 @@ public:
 
         {
             if (!is_rotation_active_) {
-                active_euler_angles_ = math::gfx::euler_angles_xyz(trfm.rotation);
+                active_euler_angles_ = gfx::euler_angles_xyz(trfm.rotation);
             }
 
             ImGui::Text("Rotation (XYZ Euler)");
@@ -33,7 +33,7 @@ public:
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
 
             if (ImGui::DragFloat3("##Rotation(XYZ)", active_euler_angles_.v, 0.1f, -FLT_MAX, +FLT_MAX, "%.3f")) {
-                trfm.rotation = math::gfx::euler_angles_xyz(active_euler_angles_);
+                trfm.rotation = gfx::euler_angles_xyz(active_euler_angles_);
                 trfm.dirty = true;
             }
 

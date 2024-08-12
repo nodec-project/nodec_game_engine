@@ -5,7 +5,7 @@
 
 #include <ImGuizmo.h>
 #include <imessentials/window.hpp>
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 #include <nodec/matrix4x4.hpp>
 #include <nodec_rendering/components/camera.hpp>
 #include <nodec_resources/resources.hpp>

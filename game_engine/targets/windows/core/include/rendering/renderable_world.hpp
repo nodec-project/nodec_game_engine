@@ -8,7 +8,7 @@
 #include <btBulletCollisionCommon.h>
 
 #include <nodec/gfx/frustum.hpp>
-#include <nodec/math/gfx.hpp>
+#include <nodec/gfx/gfx.hpp>
 #include <nodec_rendering/components/camera.hpp>
 
 #include "mesh_backend.hpp"
@@ -119,12 +119,12 @@ public:
         // transform.setFromOpenGLMatrix(camera_local_to_world.m);
         // frustum_object_->setWorldTransform(transform);
 
-        nodec::math::gfx::TRSComponents trs;
-        nodec::math::gfx::decompose_trs(camera_local_to_world, trs);
+        nodec::gfx::TRSComponents trs;
+        nodec::gfx::decompose_trs(camera_local_to_world, trs);
 
-        const auto up = nodec::math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), trs.rotation);
-        const auto right = nodec::math::gfx::rotate(Vector3f(1.f, 0.f, 0.f), trs.rotation);
-        const auto forward = nodec::math::gfx::rotate(Vector3f(0.f, 0.f, 1.f), trs.rotation);
+        const auto up = nodec::gfx::rotate(Vector3f(0.f, 1.f, 0.f), trs.rotation);
+        const auto right = nodec::gfx::rotate(Vector3f(1.f, 0.f, 0.f), trs.rotation);
+        const auto forward = nodec::gfx::rotate(Vector3f(0.f, 0.f, 1.f), trs.rotation);
         
         switch (camera_.projection) {
         case nodec_rendering::components::Camera::Projection::Perspective:
