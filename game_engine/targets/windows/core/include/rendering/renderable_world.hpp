@@ -7,6 +7,7 @@
 #include <DirectXMath.h>
 #include <btBulletCollisionCommon.h>
 
+#include <nodec/gfx/frustum.hpp>
 #include <nodec/math/gfx.hpp>
 #include <nodec_rendering/components/camera.hpp>
 
@@ -73,15 +74,16 @@ public:
     CameraState()
         : aspect_(1.f), matrix_p_(DirectX::XMMatrixIdentity()), matrix_p_inverse_(DirectX::XMMatrixIdentity()),
           matrix_v_(DirectX::XMMatrixIdentity()), matrix_v_inverse_(DirectX::XMMatrixIdentity()) {
-        frustum_object_ = std::make_unique<btCollisionObject>();
+        // frustum_object_ = std::make_unique<btCollisionObject>();
     }
 
     void update_projection(const nodec_rendering::components::Camera &camera, float aspect) {
+        camera_ = camera;
         using namespace DirectX;
         switch (camera.projection) {
         case nodec_rendering::components::Camera::Projection::Perspective:
-            frustum_shape_ = bt_make_frustum_shape(btVector3(0, 0, 0), btVector3(0, 0, 1), btVector3(0, 1, 0),
-                                                   camera.fov_angle, aspect, camera.near_clip_plane, camera.far_clip_plane);
+            // frustum_shape_ = bt_make_frustum_shape(btVector3(0, 0, 0), btVector3(0, 0, 1), btVector3(0, 1, 0),
+            //                                        camera.fov_angle, aspect, camera.near_clip_plane, camera.far_clip_plane);
 
             matrix_p_ = XMMatrixPerspectiveFovLH(
                 XMConvertToRadians(camera.fov_angle),
@@ -89,7 +91,7 @@ public:
                 camera.near_clip_plane, camera.far_clip_plane);
             break;
         case nodec_rendering::components::Camera::Projection::Orthographic:
-            frustum_shape_ = std::make_unique<btBoxShape>(btVector3(camera.ortho_width / 2, camera.ortho_width / 2, camera.far_clip_plane));
+            // frustum_shape_ = std::make_unique<btBoxShape>(btVector3(camera.ortho_width / 2, camera.ortho_width / 2, camera.far_clip_plane));
 
             matrix_p_ = XMMatrixOrthographicLH(
                 camera.ortho_width, camera.ortho_width / aspect,
@@ -97,23 +99,41 @@ public:
             break;
 
         default:
+            matrix_p_ = XMMatrixIdentity();
             break;
         }
         matrix_p_inverse_ = XMMatrixInverse(nullptr, matrix_p_);
 
         aspect_ = aspect;
 
-        frustum_object_->setCollisionShape(frustum_shape_.get());
+        // frustum_object_->setCollisionShape(frustum_shape_.get());
     }
 
     void update_transform(const nodec::Matrix4x4f &camera_local_to_world) {
         using namespace DirectX;
+        using namespace nodec;
         matrix_v_inverse_ = XMMATRIX(camera_local_to_world.m);
         matrix_v_ = XMMatrixInverse(nullptr, matrix_v_inverse_);
 
-        btTransform transform;
-        transform.setFromOpenGLMatrix(camera_local_to_world.m);
-        frustum_object_->setWorldTransform(transform);
+        // btTransform transform;
+        // transform.setFromOpenGLMatrix(camera_local_to_world.m);
+        // frustum_object_->setWorldTransform(transform);
+
+        nodec::math::gfx::TRSComponents trs;
+        nodec::math::gfx::decompose_trs(camera_local_to_world, trs);
+
+        const auto up = nodec::math::gfx::rotate(Vector3f(0.f, 1.f, 0.f), trs.rotation);
+        const auto right = nodec::math::gfx::rotate(Vector3f(1.f, 0.f, 0.f), trs.rotation);
+        const auto forward = nodec::math::gfx::rotate(Vector3f(0.f, 0.f, 1.f), trs.rotation);
+        
+        switch (camera_.projection) {
+        case nodec_rendering::components::Camera::Projection::Perspective:
+            nodec::gfx::set_frustum_from_camera_lh(trs.translation, forward, up, right,
+                                                   aspect_, camera_.fov_angle, camera_.near_clip_plane, camera_.far_clip_plane, frustum_);
+            break;
+        default:
+            break;
+        }
     }
 
     const DirectX::XMMATRIX &matrix_p() const {
@@ -132,14 +152,18 @@ public:
         return matrix_v_inverse_;
     }
 
-    btCollisionObject *frustum_object() const {
-        return frustum_object_.get();
+    const nodec::gfx::Frustum &frustum() const {
+        return frustum_;
     }
+
+    // btCollisionObject *frustum_object() const {
+    //     return frustum_object_.get();
+    // }
 
 private:
     float aspect_;
-    std::unique_ptr<btCollisionShape> frustum_shape_;
-    std::unique_ptr<btCollisionObject> frustum_object_;
+    nodec::gfx::Frustum frustum_;
+    nodec_rendering::components::Camera camera_;
     DirectX::XMMATRIX matrix_p_;
     DirectX::XMMATRIX matrix_p_inverse_;
     DirectX::XMMATRIX matrix_v_;
@@ -149,69 +173,68 @@ private:
 struct CameraActivity {
     std::unique_ptr<CameraState> state;
 };
-
-
-class RenderableObject {
-public:
-    RenderableObject(nodec_scene::SceneEntity entity)
-        : collision_world_(nullptr), entity_(entity) {
-        collision_object_ = std::make_unique<btCollisionObject>();
-        collision_object_->setUserPointer(this);
-    }
-
-    ~RenderableObject() {
-        if (collision_world_) {
-            collision_world_->removeCollisionObject(collision_object_.get());
-        }
-    }
-
-    void update_bounds_if_needed(const nodec::BoundingBox &bounds,
-                                 const nodec::Matrix4x4f &local_to_world) {
-        if (bounds_ != bounds || !collision_shape_) {
-            bounds_ = bounds;
-            auto collision_shape = std::make_unique<btBoxShape>(btVector3(bounds.extents.x, bounds.extents.y, bounds.extents.z));
-            collision_object_->setCollisionShape(collision_shape.get());
-            collision_shape_ = std::move(collision_shape);
-        }
-        auto local_to_world_new = local_to_world * nodec::math::gfx::translation_matrix(bounds.center);
-        if (local_to_world_ != local_to_world_new) {
-            local_to_world_ = local_to_world_new;
-            btTransform transform;
-            transform.setFromOpenGLMatrix(local_to_world_.m);
-            collision_object_->setWorldTransform(transform);
-        }
-    }
-
-    void bind_world(btCollisionWorld &world) {
-        if (collision_world_) {
-            return;
-        }
-        collision_world_ = &world;
-        world.addCollisionObject(collision_object_.get());
-    }
-
-    void reset_bounds() {
-        if (collision_world_) {
-            collision_world_->removeCollisionObject(collision_object_.get());
-            collision_world_ = nullptr;
-        }
-    }
-
-    nodec_scene::SceneEntity entity() const {
-        return entity_;
-    }
-
-private:
-    nodec::BoundingBox bounds_;
-    btCollisionWorld *collision_world_;
-    std::unique_ptr<btBoxShape> collision_shape_;
-    std::unique_ptr<btCollisionObject> collision_object_;
-    nodec::Matrix4x4f local_to_world_;
-    nodec_scene::SceneEntity entity_;
-};
-
-struct RenderableObjectActivity {
-    std::unique_ptr<RenderableObject> object;
-};
+//
+//class RenderableObject {
+//public:
+//    RenderableObject(nodec_scene::SceneEntity entity)
+//        : collision_world_(nullptr), entity_(entity) {
+//        collision_object_ = std::make_unique<btCollisionObject>();
+//        collision_object_->setUserPointer(this);
+//    }
+//
+//    ~RenderableObject() {
+//        if (collision_world_) {
+//            collision_world_->removeCollisionObject(collision_object_.get());
+//        }
+//    }
+//
+//    void update_bounds_if_needed(const nodec::BoundingBox &bounds,
+//                                 const nodec::Matrix4x4f &local_to_world) {
+//        if (bounds_ != bounds || !collision_shape_) {
+//            bounds_ = bounds;
+//            auto collision_shape = std::make_unique<btBoxShape>(btVector3(bounds.extents.x, bounds.extents.y, bounds.extents.z));
+//            collision_object_->setCollisionShape(collision_shape.get());
+//            collision_shape_ = std::move(collision_shape);
+//        }
+//        auto local_to_world_new = local_to_world * nodec::math::gfx::translation_matrix(bounds.center);
+//        if (local_to_world_ != local_to_world_new) {
+//            local_to_world_ = local_to_world_new;
+//            btTransform transform;
+//            transform.setFromOpenGLMatrix(local_to_world_.m);
+//            collision_object_->setWorldTransform(transform);
+//        }
+//    }
+//
+//    void bind_world(btCollisionWorld &world) {
+//        if (collision_world_) {
+//            return;
+//        }
+//        collision_world_ = &world;
+//        world.addCollisionObject(collision_object_.get());
+//    }
+//
+//    void reset_bounds() {
+//        if (collision_world_) {
+//            collision_world_->removeCollisionObject(collision_object_.get());
+//            collision_world_ = nullptr;
+//        }
+//    }
+//
+//    nodec_scene::SceneEntity entity() const {
+//        return entity_;
+//    }
+//
+//private:
+//    nodec::BoundingBox bounds_;
+//    btCollisionWorld *collision_world_;
+//    std::unique_ptr<btBoxShape> collision_shape_;
+//    std::unique_ptr<btCollisionObject> collision_object_;
+//    nodec::Matrix4x4f local_to_world_;
+//    nodec_scene::SceneEntity entity_;
+//};
+//
+//struct RenderableObjectActivity {
+//    std::unique_ptr<RenderableObject> object;
+//};
 
 #endif

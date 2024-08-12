@@ -313,10 +313,10 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 camera_activity.state = std::make_unique<CameraState>();
             }
 
-            if (camera_activity_result.second || (camera_dirty && camera_dirty->flags & CameraDirtyFlag::Projection)) {
-                const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
-                camera_activity.state->update_projection(camera, aspect);
-            }
+            //if (camera_activity_result.second || (camera_dirty && camera_dirty->flags & CameraDirtyFlag::Projection)) {
+            //}
+            const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
+            camera_activity.state->update_projection(camera, aspect);
 
             camera_activity.state->update_transform(camera_local_to_world.value);
 
@@ -425,87 +425,87 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
     auto &scene_registry = scene.registry();
 
-    struct IsInCameraFrustum {};
+    // struct IsInCameraFrustum {};
 
-    // Update bounds.
-    {
-        scene_registry.view<const MeshRenderer, const LocalToWorld>().each(
-            [&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
-                auto activity_result = scene_registry.emplace_component<RenderableObjectActivity>(entity);
-                auto &activity = activity_result.first;
-                if (activity.object == nullptr) {
-                    activity_result.first.object = std::make_unique<RenderableObject>(entity);
-                }
+    // // Update bounds.
+    // {
+    //     scene_registry.view<const MeshRenderer, const LocalToWorld>().each(
+    //         [&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
+    //             auto activity_result = scene_registry.emplace_component<RenderableObjectActivity>(entity);
+    //             auto &activity = activity_result.first;
+    //             if (activity.object == nullptr) {
+    //                 activity_result.first.object = std::make_unique<RenderableObject>(entity);
+    //             }
 
-                Vector3f bounds_min = {(std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)()};
-                Vector3f bounds_max = {(std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)()};
+    //             Vector3f bounds_min = {(std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)()};
+    //             Vector3f bounds_max = {(std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)()};
 
-                bool has_renderable = false;
-                if (renderer.meshes.size() == renderer.materials.size()) {
-                    for (int i = 0; i < renderer.meshes.size(); ++i) {
-                        auto &mesh = renderer.meshes[i];
-                        auto &material = renderer.materials[i];
-                        if (!mesh || !material) continue;
+    //             bool has_renderable = false;
+    //             if (renderer.meshes.size() == renderer.materials.size()) {
+    //                 for (int i = 0; i < renderer.meshes.size(); ++i) {
+    //                     auto &mesh = renderer.meshes[i];
+    //                     auto &material = renderer.materials[i];
+    //                     if (!mesh || !material) continue;
 
-                        auto mesh_backend = std::static_pointer_cast<MeshBackend>(mesh);
-                        auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
-                        auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
-                        if (!shader_backend) continue;
+    //                     auto mesh_backend = std::static_pointer_cast<MeshBackend>(mesh);
+    //                     auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
+    //                     auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
+    //                     if (!shader_backend) continue;
 
-                        auto &bounds = mesh_backend->bounds;
-                        bounds_min.x = (std::min)(bounds_min.x, (bounds.min)().x);
-                        bounds_min.y = (std::min)(bounds_min.y, (bounds.min)().y);
-                        bounds_min.z = (std::min)(bounds_min.z, (bounds.min)().z);
-                        bounds_max.x = (std::max)(bounds_max.x, (bounds.max)().x);
-                        bounds_max.y = (std::max)(bounds_max.y, (bounds.max)().y);
-                        bounds_max.z = (std::max)(bounds_max.z, (bounds.max)().z);
+    //                     auto &bounds = mesh_backend->bounds;
+    //                     bounds_min.x = (std::min)(bounds_min.x, (bounds.min)().x);
+    //                     bounds_min.y = (std::min)(bounds_min.y, (bounds.min)().y);
+    //                     bounds_min.z = (std::min)(bounds_min.z, (bounds.min)().z);
+    //                     bounds_max.x = (std::max)(bounds_max.x, (bounds.max)().x);
+    //                     bounds_max.y = (std::max)(bounds_max.y, (bounds.max)().y);
+    //                     bounds_max.z = (std::max)(bounds_max.z, (bounds.max)().z);
 
-                        has_renderable = true;
-                    }
-                }
+    //                     has_renderable = true;
+    //                 }
+    //             }
 
-                if (has_renderable) {
-                    activity.object->update_bounds_if_needed(BoundingBox::from_minmax(bounds_min, bounds_max), local_to_world.value);
-                    activity.object->bind_world(renderable_world_.collision_world());
-                } else {
-                    activity.object->reset_bounds();
-                }
-            });
-    }
+    //             if (has_renderable) {
+    //                 activity.object->update_bounds_if_needed(BoundingBox::from_minmax(bounds_min, bounds_max), local_to_world.value);
+    //                 activity.object->bind_world(renderable_world_.collision_world());
+    //             } else {
+    //                 activity.object->reset_bounds();
+    //             }
+    //         });
+    // }
 
-    {
-        // renderable_world_.collision_world().performDiscreteCollisionDetection();
+    // {
+    //     // renderable_world_.collision_world().performDiscreteCollisionDetection();
 
-        struct FrustumCallback : public btCollisionWorld::ContactResultCallback {
-            FrustumCallback(nodec_scene::SceneRegistry &scene_registry)
-                : scene_registry_(scene_registry) {}
+    //     struct FrustumCallback : public btCollisionWorld::ContactResultCallback {
+    //         FrustumCallback(nodec_scene::SceneRegistry &scene_registry)
+    //             : scene_registry_(scene_registry) {}
 
-            btScalar addSingleResult(btManifoldPoint &cp,
-                                     const btCollisionObjectWrapper *col0_wrap, int part_id0, int index0,
-                                     const btCollisionObjectWrapper *col1_wrap, int part_id1, int index1) override {
-                auto *obj0 = static_cast<RenderableObject *>(col0_wrap->getCollisionObject()->getUserPointer());
-                auto *obj1 = static_cast<RenderableObject *>(col1_wrap->getCollisionObject()->getUserPointer());
+    //         btScalar addSingleResult(btManifoldPoint &cp,
+    //                                  const btCollisionObjectWrapper *col0_wrap, int part_id0, int index0,
+    //                                  const btCollisionObjectWrapper *col1_wrap, int part_id1, int index1) override {
+    //             auto *obj0 = static_cast<RenderableObject *>(col0_wrap->getCollisionObject()->getUserPointer());
+    //             auto *obj1 = static_cast<RenderableObject *>(col1_wrap->getCollisionObject()->getUserPointer());
 
-                if (obj1 == nullptr) {
-                    return 0;
-                }
-                auto entity = obj1->entity();
-                scene_registry_.emplace_component<IsInCameraFrustum>(entity);
-                return 0;
-            }
+    //             if (obj1 == nullptr) {
+    //                 return 0;
+    //             }
+    //             auto entity = obj1->entity();
+    //             scene_registry_.emplace_component<IsInCameraFrustum>(entity);
+    //             return 0;
+    //         }
 
-        private:
-            nodec_scene::SceneRegistry &scene_registry_;
-        };
+    //     private:
+    //         nodec_scene::SceneRegistry &scene_registry_;
+    //     };
 
-        FrustumCallback frustum_callback(scene_registry);
-        renderable_world_.collision_world().contactTest(camera_state.frustum_object(), frustum_callback);
-    }
+    //     FrustumCallback frustum_callback(scene_registry);
+    //     renderable_world_.collision_world().contactTest(camera_state.frustum_object(), frustum_callback);
+    // }
 
     // Group the draw-command by the shader.
     {
-        scene_registry.view<const MeshRenderer, const LocalToWorld, const IsInCameraFrustum>(type_list<NonVisible>{})
-            .each([&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world, const IsInCameraFrustum &) {
+        scene_registry.view<const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{})
+            .each([&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
                 if (renderer.meshes.size() != renderer.materials.size()) return;
 
                 for (int i = 0; i < renderer.meshes.size(); ++i) {
@@ -517,6 +517,10 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                     auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
                     auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
                     if (!shader_backend) continue;
+
+                    if (!nodec::gfx::intersects(camera_state.frustum(), mesh_backend->bounds, local_to_world.value)) {
+                        return;
+                    }
 
                     auto matrix_m = XMMATRIX(local_to_world.value.m);
                     const bool is_transparent = material_backend->is_transparent();
@@ -575,10 +579,10 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
         });
     }
 
-    {
-        auto view = scene_registry.view<IsInCameraFrustum>();
-        scene_registry.remove_components<IsInCameraFrustum>(view.begin(), view.end());
-    }
+    //{
+    //    auto view = scene_registry.view<IsInCameraFrustum>();
+    //    scene_registry.remove_components<IsInCameraFrustum>(view.begin(), view.end());
+    //}
 
     // Clear render target view with solid color.
     {

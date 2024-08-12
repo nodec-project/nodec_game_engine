@@ -43,7 +43,7 @@ ResourceLoader::load_backend<MeshBackend>(const std::string &path) const noexcep
     }
 
     auto mesh = std::make_shared<MeshBackend>();
-    BoundingBox bounds;
+    nodec::gfx::BoundingBox bounds;
     nodec::Vector3f min = {(std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)()};
     nodec::Vector3f max = {(std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)(), (std::numeric_limits<float>::min)()};
     

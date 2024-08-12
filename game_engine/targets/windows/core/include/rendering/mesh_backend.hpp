@@ -1,7 +1,7 @@
 #ifndef NODEC_GAME_ENGINE__RENDERING__MESH_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__RENDERING__MESH_BACKEND_HPP_
 
-#include <nodec/bounding_volume.hpp>
+#include <nodec/gfx/bouding_box.hpp>
 #include <nodec/vector2.hpp>
 #include <nodec/vector3.hpp>
 #include <nodec_rendering/resources/mesh.hpp>
@@ -20,7 +20,7 @@ public:
 
     std::vector<Vertex> vertices;
     std::vector<uint16_t> triangles;
-    nodec::BoundingBox bounds;
+    nodec::gfx::BoundingBox bounds;
 
     void update_device_memory(Graphics *graphics) {
         vertex_buffer_.reset();
