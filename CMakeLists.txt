@@ -40,6 +40,8 @@ add_subdirectory(modules/nodec_animation)
 set(NODEC_PHYSICS_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_physics)
 
+add_subdirectory(modules/imgui)
+
 if(NODEC_GAME_EDITOR_ENABLED)
     set(BUILD_SHARED_LIBS ON)
     set(ASSIMP_BUILD_ZLIB ON)
@@ -47,7 +49,6 @@ if(NODEC_GAME_EDITOR_ENABLED)
     set(ASSIMP_BUILD_ASSIMP_VIEW OFF)
     add_subdirectory(modules/assimp)
 
-    add_subdirectory(modules/imgui)
     add_subdirectory(modules/imessentials)
     add_subdirectory(modules/imguizmo)
     add_subdirectory(modules/nodec_scene_editor)
@@ -156,5 +157,8 @@ if(NODEC_GAME_EDITOR_ENABLED)
         nodec_game_editor_main
     )
 else()
-    # TODO: link engine main library
+    target_link_libraries(${PROJECT_NAME}
+        INTERFACE
+        nodec_game_engine_main
+    )
 endif()

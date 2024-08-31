@@ -1,5 +1,6 @@
 if(WIN32)
     add_subdirectory(targets/windows/core)
+    add_subdirectory(targets/windows/main)
 else()
     message(FATAL_MESSAGE "This platform does not supported.")
 endif()
