@@ -41,8 +41,10 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     UINT swapCreateFlags = 0u;
-    swapCreateFlags |= D3D11_CREATE_DEVICE_DEBUG;
 
+#ifdef _DEBUG
+    swapCreateFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
     // // for checking results of d3d functions.
     // mInfoLogger.SetLatest();
 
