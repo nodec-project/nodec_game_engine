@@ -1,7 +1,7 @@
 #ifndef NODEC_GAME_ENGINE__GRAPHICS__GRAPHICS_HPP_
 #define NODEC_GAME_ENGINE__GRAPHICS__GRAPHICS_HPP_
 
-#include "DxgiInfoLogger.hpp"
+// #include "DxgiInfoLogger.hpp"
 
 #include <nodec/formatter.hpp>
 #include <nodec/logging/logging.hpp>
@@ -32,9 +32,9 @@ public:
         return *context_.Get();
     }
 
-    DxgiInfoLogger &info_logger() noexcept {
-        return mInfoLogger;
-    };
+    // DxgiInfoLogger &info_logger() noexcept {
+    //     return mInfoLogger;
+    // };
 
     ID3D11RenderTargetView &render_target_view() noexcept {
         return *render_target_view_.Get();
@@ -51,7 +51,7 @@ private:
     UINT width_;
     UINT height_;
 
-    DxgiInfoLogger mInfoLogger;
+    // DxgiInfoLogger mInfoLogger;
     Microsoft::WRL::ComPtr<ID3D11Device> device_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> mpSwap;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
@@ -66,14 +66,15 @@ private:
 inline void ThrowIfFailedGfx(const std::string &type, HRESULT hr, Graphics *pGfx, const char *file, size_t line) {
     using namespace nodec;
     if (FAILED(hr)) {
-        const auto logs = pGfx->info_logger().Dump();
+        // const auto logs = pGfx->info_logger().Dump();
 
         throw std::runtime_error(
             ErrorFormatter<std::runtime_error>(file, line)
             << "GraphicsError::" << type << " [Error Code] 0x" << std::hex << std::uppercase << hr << std::dec
-            << " (" << (unsigned long)hr << ")\n"
-            << "Last Dxgi Debug Logs:\n"
-            << logs);
+            << " (" << (unsigned long)hr << ")"
+            // << "Last Dxgi Debug Logs:\n"
+            // << logs
+        );
     }
 }
 

@@ -131,9 +131,9 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     // init imgui d3d impl
     ImGui_ImplDX11_Init(device_.Get(), context_.Get());
 
-    logger_->info(__FILE__, __LINE__)
-        << "DXGI Debug Logs:\n"
-        << mInfoLogger.Dump();
+    // logger_->info(__FILE__, __LINE__)
+    //     << "DXGI Debug Logs:\n"
+    //     << mInfoLogger.Dump();
 
     logger_->info(__FILE__, __LINE__) << "Successfully initialized.";
 }
@@ -141,9 +141,9 @@ Graphics::Graphics(HWND hWnd, int width, int height)
 Graphics::~Graphics() {
     ImGui_ImplDX11_Shutdown();
 
-    logger_->info(__FILE__, __LINE__)
-        << "DXGI Debug Logs:\n"
-        << mInfoLogger.Dump();
+    // logger_->info(__FILE__, __LINE__)
+    //     << "DXGI Debug Logs:\n"
+    //     << mInfoLogger.Dump();
     logger_->info(__FILE__, __LINE__) << "End Graphics.";
 }
 
