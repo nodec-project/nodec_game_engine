@@ -1,10 +1,11 @@
 #include <physics/physics_system_backend.hpp>
 
-#include <nodec/logging/logging.hpp>
 #include <nodec/gfx/gfx.hpp>
+#include <nodec/logging/logging.hpp>
 
 #include <nodec_bullet3_compat/nodec_bullet3_compat.hpp>
 #include <nodec_physics/components/central_force.hpp>
+#include <nodec_physics/components/collision_filter.hpp>
 #include <nodec_physics/components/impluse_force.hpp>
 #include <nodec_physics/components/physics_shape.hpp>
 #include <nodec_physics/components/rigid_body.hpp>
@@ -85,7 +86,8 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         });
 
     // END Sync transform of entity -> bullet rigid body --- //
-    
+
+    // --- Create new collision objects --- //
     scene_registry.view<TriggerBody, PhysicsShape, LocalToWorld>(type_list<CollisionObjectActivity>{})
         .each([&](SceneEntity entity, TriggerBody &, PhysicsShape &shape, LocalToWorld &local_to_world) {
             auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entity).first;
@@ -112,15 +114,23 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
             auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entity, RigidBodyBackend::BodyType::Static, 0.f, std::move(shape_backend),
                                                                          world_trs.translation, world_trs.rotation);
+            std::uint32_t group = 0x1;
+            std::uint32_t mask = 0xFFFFFFFF;
 
-            rigid_body_backend->bind_world(*dynamics_world_);
+            auto *filter = scene_registry.try_get_component<CollisionFilter>(entity);
+            if (filter) {
+                group = filter->group;
+                mask = filter->mask;
+            }
+
+            rigid_body_backend->bind_world(*dynamics_world_, group, mask);
             activity.collision_object_backend = std::move(rigid_body_backend);
         });
 
     // Make RigidBodyActivity for new rigid bodies.
     scene_registry.view<RigidBody, PhysicsShape, LocalToWorld>(type_list<CollisionObjectActivity>{})
-        .each([&](SceneEntity entt, RigidBody &rigid_body, PhysicsShape &shape, LocalToWorld &local_to_world) {
-            auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entt).first;
+        .each([&](SceneEntity entity, RigidBody &rigid_body, PhysicsShape &shape, LocalToWorld &local_to_world) {
+            auto &activity = scene_registry.emplace_component<CollisionObjectActivity>(entity).first;
 
             gfx::TRSComponents world_trs;
             gfx::decompose_trs(local_to_world.value, world_trs);
@@ -137,14 +147,24 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
             auto shape_backend = make_collision_shape(shape, world_trs.scale);
 
-            auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entt, body_type, rigid_body.mass, std::move(shape_backend),
+            auto rigid_body_backend = std::make_unique<RigidBodyBackend>(entity, body_type, rigid_body.mass, std::move(shape_backend),
                                                                          world_trs.translation, world_trs.rotation);
 
-            rigid_body_backend->bind_world(*dynamics_world_);
+            std::uint32_t group = 0x1;
+            std::uint32_t mask = 0xFFFFFFFF;
+
+            auto* filter = scene_registry.try_get_component<CollisionFilter>(entity);
+            if (filter) {
+                group = filter->group;
+                mask = filter->mask;
+            }
+
+            rigid_body_backend->bind_world(*dynamics_world_, group, mask);
             rigid_body_backend->set_constraints(rigid_body.constraints);
 
             activity.collision_object_backend = std::move(rigid_body_backend);
         });
+    // END Create new collision objects --- //
 
     {
         auto view = scene_registry.view<CollisionObjectActivity>(type_list<RigidBody, StaticRigidBody, TriggerBody>{});

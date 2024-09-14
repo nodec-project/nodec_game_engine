@@ -78,8 +78,8 @@ public:
         return *native_;
     }
 
-    void bind_world(btDynamicsWorld &world) {
-        world.addRigidBody(native_.get());
+    void bind_world(btDynamicsWorld &world, std::uint32_t group, std::uint32_t mask) {
+        world.addRigidBody(native_.get(), group, mask);
         dynamic_world_ = &world;
     }
 

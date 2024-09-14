@@ -11,6 +11,7 @@
 #include "component_editors/audio_listener_editor.hpp"
 #include "component_editors/audio_source_editor.hpp"
 #include "component_editors/camera_editor.hpp"
+#include "component_editors/collision_filter_editor.hpp"
 #include "component_editors/directional_light_editor.hpp"
 #include "component_editors/image_renderer_editor.hpp"
 #include "component_editors/local_transform_editor.hpp"
@@ -164,6 +165,7 @@ Editor::Editor(Engine *engine)
             component_registry().register_component<RigidBody, RigidBodyEditor>("Rigid Body");
             component_registry().register_component<StaticRigidBody>("Static Rigid Body");
             component_registry().register_component<TriggerBody>("Trigger Body");
+            component_registry().register_component<CollisionFilter, CollisionFilterEditor>("Collision Filter");
         }
 
         {

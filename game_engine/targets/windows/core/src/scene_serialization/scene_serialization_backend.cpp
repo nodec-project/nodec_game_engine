@@ -1,6 +1,7 @@
 #include <scene_serialization/scene_serialization_backend.hpp>
 
 #include <nodec_animation/serialization/components/animator.hpp>
+#include <nodec_physics/serialization/components/collision_filter.hpp>
 #include <nodec_physics/serialization/components/physics_shape.hpp>
 #include <nodec_physics/serialization/components/rigid_body.hpp>
 #include <nodec_physics/serialization/components/static_rigid_body.hpp>
@@ -55,6 +56,7 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
         serialization.register_component<RigidBody, SerializableRigidBody>();
         serialization.register_component<StaticRigidBody, SerializableStaticRigidBody>();
         serialization.register_component<TriggerBody, SerializableTriggerBody>();
+        serialization.register_component<CollisionFilter, SerializableCollisionFilter>();
     }
     {
         using namespace nodec_scene_serialization::components;
