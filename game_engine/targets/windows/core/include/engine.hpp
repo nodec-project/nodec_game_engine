@@ -31,6 +31,8 @@
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 #include <nodec_world/impl/world_impl.hpp>
 
+#include <thread>
+
 class Engine final {
 public:
     Engine(nodec_application::impl::ApplicationImpl &app);
@@ -116,6 +118,9 @@ private:
 
     std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
     std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
+    
+    // WebSocketサーバー用スレッド
+    std::thread websocket_thread_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

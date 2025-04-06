@@ -6,7 +6,11 @@ English | [日本語](./README_jp.md)
 
 ## Supported environments
 
-* Windows
+* Tools
+  * cmake
+  * vcpkg
+* OS
+  * Windows
 
 > ℹ️ **NOTE: Other platforms supported?**
 >

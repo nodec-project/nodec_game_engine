@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 
 project(nodec_game_engine_core LANGUAGES CXX)
 
+find_package(unofficial-uwebsockets CONFIG REQUIRED)
+
 add_library(${PROJECT_NAME} STATIC
     src/engine.cpp
+
     # src/graphics/DxgiInfoLogger.cpp
     src/graphics/graphics.cpp
     src/imgui_impl_dx11.cpp
@@ -20,6 +23,10 @@ add_library(${PROJECT_NAME} STATIC
     src/screen/screen_backend.cpp
     src/window.cpp
 )
+
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN UWS_NO_ZLIB)
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC include
@@ -53,4 +60,5 @@ target_link_libraries(${PROJECT_NAME}
     BulletDynamics
     BulletCollision
     nodec_bullet3_compat
+    unofficial::uwebsockets::uwebsockets
 )

@@ -318,5 +318,7 @@ void PhysicsSystemBackend::contact_test(nodec_scene::SceneEntity entity, std::fu
 
         std::function<void(nodec_physics::CollisionInfo &)> callback;
     };
-    dynamics_world_->contactTest(&collision_body.native_collision_object(), Callback(callback));
+    
+    Callback cb(callback);
+    dynamics_world_->contactTest(&collision_body.native_collision_object(), cb);
 }

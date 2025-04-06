@@ -78,7 +78,7 @@ target_compile_definitions(${PROJECT_NAME}
     CEREAL_THREAD_SAFE=1
 )
 
-# == bullet3 configuration ===
+# === bullet3 configuration ===
 # https://github.com/bulletphysics/bullet3/pull/3860
 set(BUILD_SHARED_LIBS OFF)
 set(BUILD_EXTRAS OFF CACHE BOOL "" FORCE)
@@ -105,6 +105,7 @@ target_include_directories(BulletSoftBody PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/sr
 target_include_directories(LinearMath PUBLIC ${BULLET_PHYSICS_SOURCE_DIR}/src)
 
 # End bullet3 configuration ===
+
 add_subdirectory(sdks/nodec_bullet3_compat)
 
 add_subdirectory(sdks/DirectXTex)
