@@ -1,4 +1,3 @@
-
 #include <rendering/scene_renderer.hpp>
 
 #include <DirectXMath.h>
@@ -189,7 +188,9 @@ SceneRenderer::SceneRenderer(nodec_scene::Scene &scene,
     : logger_(nodec::logging::get_logger("engine.scene-renderer")),
       scene_(scene),
       gfx_(gfx),
-      renderer_context_(logger_, gfx, resource_registry) {
+      renderer_context_(logger_, gfx, resource_registry)
+      //occlusion_system_(gfx) // オクルージョンシステムの初期化
+{
 }
 
 void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
@@ -282,6 +283,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
     // Render the scene per each camera.
     scene.registry().view<const Camera, const LocalToWorld>().each(
         [&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &camera_local_to_world) {
+            // logger_->info(__FILE__, __LINE__) << "!!";
             ID3D11RenderTargetView *camera_render_target_view = &render_target;
 
             // --- Get active post process effects. ---
@@ -313,8 +315,6 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 camera_activity.state = std::make_unique<CameraState>();
             }
 
-            //if (camera_activity_result.second || (camera_dirty && camera_dirty->flags & CameraDirtyFlag::Projection)) {
-            //}
             const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
             camera_activity.state->update_projection(camera, aspect);
 
@@ -425,6 +425,10 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
     auto &scene_registry = scene.registry();
 
+    // オクルージョンテストを開始
+    // auto view_proj = camera_state.matrix_v() * camera_state.matrix_p();
+    // occlusion_system_.begin_occlusion_test(view_proj);
+
     // Group the draw-command by the shader.
     {
         scene_registry.view<const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{})
@@ -441,11 +445,25 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                     auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
                     if (!shader_backend) continue;
 
+                    // フラスタムカリングを適用
                     if (!nodec::gfx::intersects(camera_state.frustum(), mesh_backend->bounds, local_to_world.value)) {
                         return;
                     }
 
+                    //// オブジェクトのIDを生成（エンティティIDを使用）
+                    //// uintptr_t object_id = reinterpret_cast<uintptr_t>(entity.raw_handle());
+                    //uintptr_t object_id = static_cast<uintptr_t>(entity);
+
+                    //// オクルージョンカリングシステムにオブジェクトを登録
                     auto matrix_m = XMMATRIX(local_to_world.value.m);
+                    //occlusion_system_.register_object(object_id, matrix_m, mesh_backend);
+
+                    //// オブジェクトが可視かチェック
+                    //if (!occlusion_system_.is_visible(object_id)) {
+                    //    // 不可視の場合はスキップ
+                    //    continue;
+                    //}
+
                     const bool is_transparent = material_backend->is_transparent();
 
                     auto command = std::make_unique<MeshDrawCommand>(
@@ -456,6 +474,8 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                     push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
                 } // End foreach mesh
             });
+
+        // 画像レンダラーの処理（オクルージョンカリングは実装しない）
         scene.registry().view<const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
             auto &image = renderer.image;
             auto &material = renderer.material;
@@ -474,7 +494,7 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
             if (!nodec::gfx::intersects(camera_state.frustum(), bounds, local_to_world.value)) {
                 return;
             }
-            
+
             auto matrix_m = XMMatrixScaling(width, height, 1.f) * XMMATRIX(local_to_world.value.m);
 
             auto command = std::make_unique<ImageDrawCommand>(
@@ -487,6 +507,7 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
             push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
         });
 
+        // テキストレンダラーの処理（オクルージョンカリングは実装しない）
         scene.registry().view<const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const TextRenderer &renderer, const LocalToWorld &local_to_world) {
             auto &material = renderer.material;
             auto &font = renderer.font;
@@ -506,6 +527,9 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
             push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
         });
     }
+
+    // フレーム終了時の処理
+    // occlusion_system_.end_frame();
 
     // Clear render target view with solid color.
     {

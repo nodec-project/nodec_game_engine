@@ -7,6 +7,7 @@
 #include <unordered_set>
 
 #include <DirectXMath.h>
+#include <wrl/client.h>
 
 #include <nodec/logging/logging.hpp>
 #include <nodec/resource_management/resource_registry.hpp>
@@ -67,12 +68,6 @@ public:
                 command->draw(matrix_v, matrix_p, context, gfx);
             }
         }
-        // for (auto iter = draw_commands.begin(); iter != draw_commands.end(); ++iter) {
-        //     iter->second->draw(matrix_v, matrix_p, context, gfx);
-        // }
-        // for (auto &command : draw_commands) {
-        //     command.second->draw(matrix_v, matrix_p, context, gfx);
-        // }
     }
 
     void append_draw_command(const std::shared_ptr<MaterialBackend> &material_backend, std::unique_ptr<DrawCommand> command) {
@@ -82,7 +77,6 @@ public:
     }
 
     void clear_draw_commands() override {
-        // draw_commands.clear();
         for (auto &material_group : draw_commands) {
             material_group.second.clear();
         }
@@ -129,6 +123,47 @@ private:
     bool is_transparent_;
 };
 
+// オクルージョンクエリのための構造体
+struct OcclusionQueryInstance {
+    Microsoft::WRL::ComPtr<ID3D11Query> query;
+    bool visible;
+    bool query_issued;
+    uint32_t last_visible_frame;
+    DirectX::XMMATRIX local_to_world;
+    std::shared_ptr<MeshBackend> mesh;
+};
+
+// オクルージョンカリング管理クラス
+class OcclusionCullingSystem {
+public:
+    OcclusionCullingSystem(Graphics &gfx);
+    ~OcclusionCullingSystem();
+
+    // オブジェクトのオクルージョンクエリを作成または更新
+    void register_object(uintptr_t object_id, const DirectX::XMMATRIX &local_to_world, std::shared_ptr<MeshBackend> mesh);
+
+    // オクルージョンテストを開始
+    void begin_occlusion_test(const DirectX::XMMATRIX &view_proj);
+
+    // オクルージョンテストの結果を取得
+    bool is_visible(uintptr_t object_id);
+
+    // フレーム終了時の処理
+    void end_frame();
+
+private:
+    Graphics &gfx_;
+    Microsoft::WRL::ComPtr<ID3D11DepthStencilState> occlusion_depth_state_;
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState> occlusion_raster_state_;
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> bbox_vs_;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> bbox_ps_;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> constants_buffer_;
+    
+    std::unordered_map<uintptr_t, OcclusionQueryInstance> query_instances_;
+    uint32_t current_frame_index_;
+    static constexpr uint32_t VISIBILITY_THRESHOLD = 3; // フレーム数のしきい値
+};
+
 class SceneRenderer {
 public:
     SceneRenderer(nodec_scene::Scene &, Graphics &, nodec::resource_management::ResourceRegistry &);
@@ -157,6 +192,7 @@ private:
     SceneRendererContext renderer_context_;
 
     std::map<DrawGroupPriorityKey, std::unique_ptr<DrawGroup>> draw_groups_;
+    //OcclusionCullingSystem occlusion_system_; // オクルージョンカリングシステムの追加
 };
 
 #endif

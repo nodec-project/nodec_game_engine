@@ -27,95 +27,95 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
 
     logger_->info(__FILE__, __LINE__) << "Created!";
 
-    // --- uWebSockets テストコード (WebSocket + REST API) ---
-    logger_->info(__FILE__, __LINE__) << "Starting uWebSockets server on port 8080...";
+    // // --- uWebSockets テストコード (WebSocket + REST API) ---
+    // logger_->info(__FILE__, __LINE__) << "Starting uWebSockets server on port 8080...";
 
-    // 別スレッドでWebSocket & REST APIサーバーを起動
-    websocket_thread_ = std::thread([this]() {
-        uWS::App()
-            // REST API エンドポイント
-            .get("/api/status", [this](auto *res, auto *req) {
-                logger_->info(__FILE__, __LINE__) << "REST API: GET /api/status called";
+    // // 別スレッドでWebSocket & REST APIサーバーを起動
+    // websocket_thread_ = std::thread([this]() {
+    //     uWS::App()
+    //         // REST API エンドポイント
+    //         .get("/api/status", [this](auto *res, auto *req) {
+    //             logger_->info(__FILE__, __LINE__) << "REST API: GET /api/status called";
                 
-                // JSONレスポンスを作成
-                std::string json = "{\"status\":\"running\",\"engine\":\"Solreno\",\"version\":\"0.1.0\"}";
+    //             // JSONレスポンスを作成
+    //             std::string json = "{\"status\":\"running\",\"engine\":\"Solreno\",\"version\":\"0.1.0\"}";
                 
-                // JSONヘッダーを設定してレスポンスを送信
-                res->writeHeader("Content-Type", "application/json");
-                res->end(json);
-            })
-            .post("/api/command", [this](auto *res, auto *req) {
-                logger_->info(__FILE__, __LINE__) << "REST API: POST /api/command called";
+    //             // JSONヘッダーを設定してレスポンスを送信
+    //             res->writeHeader("Content-Type", "application/json");
+    //             res->end(json);
+    //         })
+    //         .post("/api/command", [this](auto *res, auto *req) {
+    //             logger_->info(__FILE__, __LINE__) << "REST API: POST /api/command called";
                 
-                // リクエストボディを読み込むための準備
-                std::string buffer;
+    //             // リクエストボディを読み込むための準備
+    //             std::string buffer;
                 
-                // リクエストボディデータを受信したときの処理
-                res->onData([this, res, buffer = std::move(buffer)](std::string_view data, bool last) mutable {
-                    // データをバッファに追加
-                    buffer.append(data.data(), data.length());
+    //             // リクエストボディデータを受信したときの処理
+    //             res->onData([this, res, buffer = std::move(buffer)](std::string_view data, bool last) mutable {
+    //                 // データをバッファに追加
+    //                 buffer.append(data.data(), data.length());
                     
-                    // 最後のデータチャンクを受信したら処理を実行
-                    if (last) {
-                        logger_->info(__FILE__, __LINE__) << "Command received: " << buffer;
+    //                 // 最後のデータチャンクを受信したら処理を実行
+    //                 if (last) {
+    //                     logger_->info(__FILE__, __LINE__) << "Command received: " << buffer;
                         
-                        // コマンド処理の例（実際の実装はここに追加）
-                        std::string response = "{\"result\":\"success\",\"message\":\"Command processed\"}";
+    //                     // コマンド処理の例（実際の実装はここに追加）
+    //                     std::string response = "{\"result\":\"success\",\"message\":\"Command processed\"}";
                         
-                        // レスポンスの送信
-                        res->writeHeader("Content-Type", "application/json");
-                        res->end(response);
-                    }
-                });
+    //                     // レスポンスの送信
+    //                     res->writeHeader("Content-Type", "application/json");
+    //                     res->end(response);
+    //                 }
+    //             });
                 
-                // データ受信中にエラーが発生した場合
-                res->onAborted([]() {
-                    // リクエストが中断された場合の処理
-                });
-            })
-            .get("/api/info", [this](auto *res, auto *req) {
-                logger_->info(__FILE__, __LINE__) << "REST API: GET /api/info called";
+    //             // データ受信中にエラーが発生した場合
+    //             res->onAborted([]() {
+    //                 // リクエストが中断された場合の処理
+    //             });
+    //         })
+    //         .get("/api/info", [this](auto *res, auto *req) {
+    //             logger_->info(__FILE__, __LINE__) << "REST API: GET /api/info called";
                 
-                // クエリパラメータの取得例
-                std::string_view query = req->getQuery();
-                logger_->info(__FILE__, __LINE__) << "Query parameters: " << query;
+    //             // クエリパラメータの取得例
+    //             std::string_view query = req->getQuery();
+    //             logger_->info(__FILE__, __LINE__) << "Query parameters: " << query;
                 
-                // 簡易的なエンジン情報JSONを作成
-                std::string json = "{\"name\":\"Solreno Engine\",\"description\":\"Game engine with WebSocket and REST API support\"}";
+    //             // 簡易的なエンジン情報JSONを作成
+    //             std::string json = "{\"name\":\"Solreno Engine\",\"description\":\"Game engine with WebSocket and REST API support\"}";
                 
-                // レスポンスを送信
-                res->writeHeader("Content-Type", "application/json");
-                res->end(json);
-            })
-            // WebSocket ハンドラ（既存のコード）
-            .ws<WsPerSocketData>("/*", {
-                // 接続イベント
-                .open = [this](auto *ws) {
-                    logger_->info(__FILE__, __LINE__) << "WebSocket client connected";
+    //             // レスポンスを送信
+    //             res->writeHeader("Content-Type", "application/json");
+    //             res->end(json);
+    //         })
+    //         // WebSocket ハンドラ（既存のコード）
+    //         .ws<WsPerSocketData>("/*", {
+    //             // 接続イベント
+    //             .open = [this](auto *ws) {
+    //                 logger_->info(__FILE__, __LINE__) << "WebSocket client connected";
 
-                    // 接続時にウェルカムメッセージを送信
-                    ws->send("Welcome to Solreno Engine WebSocket Server", uWS::OpCode::TEXT); },
+    //                 // 接続時にウェルカムメッセージを送信
+    //                 ws->send("Welcome to Solreno Engine WebSocket Server", uWS::OpCode::TEXT); },
 
-                // メッセージ受信イベント
-                .message = [this](auto *ws, std::string_view message, uWS::OpCode opCode) {
-                    logger_->info(__FILE__, __LINE__) << "WebSocket message received: " << message;
+    //             // メッセージ受信イベント
+    //             .message = [this](auto *ws, std::string_view message, uWS::OpCode opCode) {
+    //                 logger_->info(__FILE__, __LINE__) << "WebSocket message received: " << message;
 
-                    // エコーバック
-                    std::string response = "Echo: ";
-                    response += message;
-                    ws->send(response, uWS::OpCode::TEXT); },
-                // 切断イベント
-                .close = [this](auto *ws, int code, std::string_view message) { logger_->info(__FILE__, __LINE__) << "WebSocket client disconnected: " << code; },
-            })
-            .listen(8080, [this](auto *listen_socket) {
-                if (listen_socket) {
-                    logger_->info(__FILE__, __LINE__) << "WebSocket and REST API server listening on port 8080";
-                } else {
-                    logger_->error(__FILE__, __LINE__) << "Failed to start server";
-                }
-            })
-            .run(); // イベントループを実行
-    });
+    //                 // エコーバック
+    //                 std::string response = "Echo: ";
+    //                 response += message;
+    //                 ws->send(response, uWS::OpCode::TEXT); },
+    //             // 切断イベント
+    //             .close = [this](auto *ws, int code, std::string_view message) { logger_->info(__FILE__, __LINE__) << "WebSocket client disconnected: " << code; },
+    //         })
+    //         .listen(8080, [this](auto *listen_socket) {
+    //             if (listen_socket) {
+    //                 logger_->info(__FILE__, __LINE__) << "WebSocket and REST API server listening on port 8080";
+    //             } else {
+    //                 logger_->error(__FILE__, __LINE__) << "Failed to start server";
+    //             }
+    //         })
+    //         .run(); // イベントループを実行
+    // });
 
     // --- 通常のエンジン初期化処理 ---
     imgui_manager_.reset(new ImguiManager);
@@ -172,20 +172,20 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
 Engine::~Engine() {
     logger_->info(__FILE__, __LINE__) << "Destroyed!";
 
-    // WebSocketスレッドの終了処理
-    logger_->info(__FILE__, __LINE__) << "Stopping WebSocket server...";
+    // // WebSocketスレッドの終了処理
+    // logger_->info(__FILE__, __LINE__) << "Stopping WebSocket server...";
 
-    // uWebSocketsのイベントループを停止する方法は限られているため、
-    // スレッド自体を強制終了します
-    if (websocket_thread_.joinable()) {
-        // 警告: 通常、スレッドの強制終了は推奨されませんが、
-        // uWebSocketsのループを正常に終了させるためのAPIが限られているため
-        // この方法を使用します。実際のプロダクションコードでは、より適切な
-        // 終了メカニズムを実装するべきです。
-        TerminateThread(websocket_thread_.native_handle(), 0);
-        websocket_thread_.join();
-        logger_->info(__FILE__, __LINE__) << "WebSocket server stopped";
-    }
+    // // uWebSocketsのイベントループを停止する方法は限られているため、
+    // // スレッド自体を強制終了します
+    // if (websocket_thread_.joinable()) {
+    //     // 警告: 通常、スレッドの強制終了は推奨されませんが、
+    //     // uWebSocketsのループを正常に終了させるためのAPIが限られているため
+    //     // この方法を使用します。実際のプロダクションコードでは、より適切な
+    //     // 終了メカニズムを実装するべきです。
+    //     TerminateThread(websocket_thread_.native_handle(), 0);
+    //     websocket_thread_.join();
+    //     logger_->info(__FILE__, __LINE__) << "WebSocket server stopped";
+    // }
 
     // TODO: Consider to unload all modules before backends.
 

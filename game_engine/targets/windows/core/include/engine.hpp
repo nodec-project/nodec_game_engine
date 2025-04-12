@@ -119,8 +119,8 @@ private:
     std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
     std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
     
-    // WebSocketサーバー用スレッド
-    std::thread websocket_thread_;
+    // // WebSocketサーバー用スレッド
+    // std::thread websocket_thread_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

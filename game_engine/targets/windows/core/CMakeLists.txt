@@ -17,6 +17,7 @@ add_library(${PROJECT_NAME} STATIC
     src/rendering/scene_renderer_context.cpp
     src/rendering/scene_renderer.cpp
     src/rendering/scene_rendering_context.cpp
+    src/rendering/occlusion_culling_system.cpp  # オクルージョンカリングシステムを追加
     src/resources/resource_loader.cpp
     src/scene_audio/scene_audio_system.cpp
     src/scene_serialization/scene_serialization_backend.cpp
