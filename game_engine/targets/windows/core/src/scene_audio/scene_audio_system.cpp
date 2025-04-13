@@ -136,7 +136,7 @@ void SceneAudioSystem::update(nodec_scene::SceneRegistry &scene_registry) {
         auto view = scene_registry.view<AudioSource, AudioSourceActivity, AudioPlay>();
         view.each([&](SceneEntity entity, AudioSource &source, AudioSourceActivity &activity, AudioPlay &play) {
             try {
-                if (activity.state == AudioSourceActivity::State::Playing) return;
+                // if (activity.state == AudioSourceActivity::State::Playing) return;
 
                 activity.clip = std::static_pointer_cast<AudioClipBackend>(source.clip);
                 if (!activity.clip) return;
@@ -146,8 +146,9 @@ void SceneAudioSystem::update(nodec_scene::SceneRegistry &scene_registry) {
                 }
 
                 const auto &wfx = activity.clip->wfx();
+                auto playback_position = play.position.value_or(source.position);
 
-                int play_begin = source.position.count() * wfx.nSamplesPerSec / 1000;
+                int play_begin = playback_position.count() * wfx.nSamplesPerSec / 1000;
                 int total_sample_frames = activity.clip->samples().size() / wfx.nBlockAlign;
 
                 if (play_begin < 0 || total_sample_frames <= play_begin) return;
