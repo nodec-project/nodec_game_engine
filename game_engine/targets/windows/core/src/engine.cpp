@@ -1,19 +1,19 @@
 #include <engine.hpp>
 
-// Windows.hをuWebSocketsより前にインクルードして競合を防ぐ
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+// // Windows.hをuWebSocketsより前にインクルードして競合を防ぐ
+// #define NOMINMAX
+// #define WIN32_LEAN_AND_MEAN
+// #include <Windows.h>
 
-#include <thread>
-#include <uwebsockets/App.h>
+// #include <thread>
+// #include <uwebsockets/App.h>
 
 #include "animation/animation.hpp"
 
-// WebSocketコネクション用の空構造体 (voidの代わり)
-struct WsPerSocketData {
-    // 必要に応じてセッションデータをここに追加できます
-};
+// // WebSocketコネクション用の空構造体 (voidの代わり)
+// struct WsPerSocketData {
+//     // 必要に応じてセッションデータをここに追加できます
+// };
 
 Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     : logger_(nodec::logging::get_logger("engine")) {
@@ -157,6 +157,8 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     world_->stepped().connect([=](nodec_world::World &world) {
         on_stepped(world);
     });
+
+    // inspector_server_.reset(new InspectorServer());
 
     // --- Export the services to application.
     app.add_service<Screen>(screen_);

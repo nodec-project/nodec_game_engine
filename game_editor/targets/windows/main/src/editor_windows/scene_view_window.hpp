@@ -20,16 +20,26 @@
 #include "../scene_gizmo_renderer.hpp"
 
 class SceneViewWindow final : public imessentials::BaseWindow {
-    // TODO: Support resizing window.
-    const UINT VIEW_WIDTH = 640;
-    const UINT VIEW_HEIGHT = 480;
+    // 固定の定数を削除して変数に変更
+private:
+    UINT view_width_ = 640;
+    UINT view_height_ = 480;
+    UINT input_width_ = 640;  // 入力用の変数
+    UINT input_height_ = 480;  // 入力用の変数
+    bool size_changed_ = false;  // サイズ変更フラグ
 
 public:
     SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer,
                     nodec_resources::Resources &,
-                    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_regsitry);
+                    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry);
 
     void on_gui() override;
+    
+    // ビューサイズを変更するメソッド
+    void resize_view(Graphics &gfx, UINT width, UINT height);
+    
+    // サイズ変更フラグをチェックして必要に応じてリサイズを実行
+    void check_and_resize_if_needed();
 
 private:
     nodec_scene::Scene &scene_;
@@ -37,6 +47,7 @@ private:
     SceneGizmoImpl &scene_gizmo_;
     nodec_scene_editor::ComponentRegistry &component_registry_;
     nodec_resources::Resources &resources_;
+    Graphics &graphics_;  // グラフィックスオブジェクトへの参照を保持
 
     Microsoft::WRL::ComPtr<ID3D11Texture2D> texture_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;

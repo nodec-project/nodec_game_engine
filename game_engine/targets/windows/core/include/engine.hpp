@@ -6,6 +6,7 @@
 #include "audio/audio_platform.hpp"
 #include "input/keyboard_device_system.hpp"
 #include "input/mouse_device_system.hpp"
+#include "inspector_server/inspector_server.hpp"
 #include "physics/physics_system_backend.hpp"
 #include "rendering/scene_renderer.hpp"
 #include "resources/resources_backend.hpp"
@@ -118,9 +119,8 @@ private:
 
     std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
     std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
-    
-    // // WebSocketサーバー用スレッド
-    // std::thread websocket_thread_;
+
+    std::unique_ptr<InspectorServer> inspector_server_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

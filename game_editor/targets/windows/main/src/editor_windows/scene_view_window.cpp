@@ -10,19 +10,23 @@
 SceneViewWindow::SceneViewWindow(
     Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer, nodec_resources::Resources &resources,
     SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry)
-    : BaseWindow("Scene View##EditorWindows", nodec::Vector2f(VIEW_WIDTH, VIEW_HEIGHT)),
+    : BaseWindow("Scene View##EditorWindows", nodec::Vector2f(view_width_, view_height_)),
       scene_gizmo_(scene_gizmo), component_registry_(component_registry), resources_(resources),
-      scene_(scene), renderer_(renderer) {
+      scene_(scene), renderer_(renderer), graphics_(gfx) {
     // Generate the render target textures.
     D3D11_TEXTURE2D_DESC texture_desc{};
-    texture_desc.Width = VIEW_WIDTH;
-    texture_desc.Height = VIEW_HEIGHT;
+    texture_desc.Width = view_width_;
+    texture_desc.Height = view_height_;
     texture_desc.MipLevels = 1;
     texture_desc.ArraySize = 1;
     texture_desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
     texture_desc.SampleDesc.Count = 1;
     texture_desc.Usage = D3D11_USAGE_DEFAULT;
     texture_desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    
+    // 初期入力値を現在のサイズに設定
+    input_width_ = view_width_;
+    input_height_ = view_height_;
 
     ThrowIfFailedGfx(
         gfx.device().CreateTexture2D(&texture_desc, nullptr, &texture_),
@@ -51,14 +55,14 @@ SceneViewWindow::SceneViewWindow(
             &gfx, __FILE__, __LINE__);
     }
 
-    rendering_context_.reset(new SceneRenderingContext(VIEW_WIDTH, VIEW_HEIGHT, gfx));
+    rendering_context_.reset(new SceneRenderingContext(view_width_, view_height_, gfx));
     scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
 
     {
         using namespace nodec_rendering::components;
         using namespace DirectX;
 
-        const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
+        const auto view_aspect = static_cast<float>(view_width_) / view_height_;
         Camera camera;
         camera.projection = Camera::Projection::Perspective;
         camera.far_clip_plane = 10000.0f;
@@ -79,6 +83,37 @@ void SceneViewWindow::on_gui() {
     using namespace DirectX;
     using namespace nodec_scene::components;
     using namespace nodec_scene;
+
+    // サイズ変更をチェック
+    check_and_resize_if_needed();
+
+    // サイズ変更UIを追加
+    {
+        ImGui::Text("View Size Settings:");
+        ImGui::PushItemWidth(70);
+        ImGui::InputInt("Width##ViewSizeW", reinterpret_cast<int*>(&input_width_), 0, 0);
+        ImGui::SameLine();
+        ImGui::InputInt("Height##ViewSizeH", reinterpret_cast<int*>(&input_height_), 0, 0);
+        ImGui::PopItemWidth();
+        
+        // 入力値の範囲制限
+        if (input_width_ < 1) input_width_ = 1;
+        if (input_width_ > 4096) input_width_ = 4096;
+        if (input_height_ < 1) input_height_ = 1;
+        if (input_height_ > 4096) input_height_ = 4096;
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Apply")) {
+            // サイズが変更された場合だけ更新
+            if (input_width_ != view_width_ || input_height_ != view_height_) {
+                // ウィンドウ外部からgfxを取得する必要があるため、size_changed_フラグを設定
+                size_changed_ = true;
+            }
+        }
+        
+        ImGui::SameLine();
+        ImGui::Text("Current: %dx%d", view_width_, view_height_);
+    }
 
     if (ImGui::RadioButton("Translate", gizmo_operation_ == ImGuizmo::TRANSLATE)) {
         gizmo_operation_ = ImGuizmo::TRANSLATE;
@@ -102,9 +137,10 @@ void SceneViewWindow::on_gui() {
     if (ImGui::RadioButton("World", gizmo_mode_ == ImGuizmo::WORLD)) {
         gizmo_mode_ = ImGuizmo::WORLD;
     }
-    ImGui::BeginChild("SceneRender", ImVec2(VIEW_WIDTH, VIEW_HEIGHT), false, ImGuiWindowFlags_NoMove);
+    
+    ImGui::BeginChild("SceneRender", ImVec2(view_width_, view_height_), false, ImGuiWindowFlags_NoMove);
     {
-        const auto view_aspect = static_cast<float>(VIEW_WIDTH) / VIEW_HEIGHT;
+        const auto view_aspect = static_cast<float>(view_width_) / view_height_;
 
         {
             using namespace nodec_rendering::components;
@@ -202,10 +238,10 @@ void SceneViewWindow::on_gui() {
             scene_gizmo_renderer_->clear_gizmos(scene_);
         }
 
-        ImGui::Image((void *)shader_resource_view_.Get(), ImVec2(VIEW_WIDTH, VIEW_HEIGHT));
+        ImGui::Image((void *)shader_resource_view_.Get(), ImVec2(view_width_, view_height_));
 
         ImGuizmo::SetDrawlist();
-        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, VIEW_WIDTH, VIEW_HEIGHT);
+        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, view_width_, view_height_);
 
         // ImGuizmo::DrawGrid(view_.m, projection_.m, Matrix4x4f::identity.m, 100.f);
         // ImGuizmo::ViewManipulate(view_.m, 0.8f, ImVec2(view_manipulate_right - 128, view_manipulate_top), ImVec2(128, 128), 0x10101010);
@@ -229,4 +265,85 @@ void SceneViewWindow::on_gui() {
         }();
     }
     ImGui::EndChild();
+}
+
+void SceneViewWindow::resize_view(Graphics &gfx, UINT width, UINT height) {
+    if (width == 0 || height == 0) return;
+    
+    view_width_ = width;
+    view_height_ = height;
+    
+    // リソースを再生成
+    // 1. テクスチャの再生成
+    D3D11_TEXTURE2D_DESC texture_desc{};
+    texture_desc.Width = view_width_;
+    texture_desc.Height = view_height_;
+    texture_desc.MipLevels = 1;
+    texture_desc.ArraySize = 1;
+    texture_desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    texture_desc.SampleDesc.Count = 1;
+    texture_desc.Usage = D3D11_USAGE_DEFAULT;
+    texture_desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+    // 古いリソースを解放
+    texture_.Reset();
+    render_target_view_.Reset();
+    shader_resource_view_.Reset();
+    
+    ThrowIfFailedGfx(
+        gfx.device().CreateTexture2D(&texture_desc, nullptr, &texture_),
+        &gfx, __FILE__, __LINE__);
+
+    // 2. レンダーターゲットビューの再生成
+    {
+        D3D11_RENDER_TARGET_VIEW_DESC desc{};
+        desc.Format = texture_desc.Format;
+        desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+
+        ThrowIfFailedGfx(
+            gfx.device().CreateRenderTargetView(texture_.Get(), &desc, &render_target_view_),
+            &gfx, __FILE__, __LINE__);
+    }
+
+    // 3. シェーダーリソースビューの再生成
+    {
+        D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+        desc.Format = texture_desc.Format;
+        desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        desc.Texture2D.MipLevels = 1;
+
+        ThrowIfFailedGfx(
+            gfx.device().CreateShaderResourceView(texture_.Get(), &desc, &shader_resource_view_),
+            &gfx, __FILE__, __LINE__);
+    }
+
+    // 4. レンダリングコンテキストの再生成
+    rendering_context_.reset(new SceneRenderingContext(view_width_, view_height_, gfx));
+
+    // 5. プロジェクションマトリックスの更新
+    {
+        using namespace nodec_rendering::components;
+        using namespace DirectX;
+
+        const auto view_aspect = static_cast<float>(view_width_) / view_height_;
+        Camera camera;
+        camera.projection = Camera::Projection::Perspective;
+        camera.far_clip_plane = 10000.0f;
+        camera.near_clip_plane = 0.01f;
+        camera.fov_angle = 45.0f;
+
+        camera_state_.update_projection(camera, view_aspect);
+
+        XMFLOAT4X4 matrix;
+        XMStoreFloat4x4(&matrix, camera_state_.matrix_p());
+
+        projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
+    }
+}
+
+void SceneViewWindow::check_and_resize_if_needed() {
+    if (size_changed_) {
+        resize_view(graphics_, input_width_, input_height_);
+        size_changed_ = false;
+    }
 }
