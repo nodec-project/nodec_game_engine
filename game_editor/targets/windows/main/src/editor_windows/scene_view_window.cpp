@@ -19,10 +19,28 @@ SceneViewWindow::SceneViewWindow(
         auto config_block = static_cast<SceneViewSettings *>(base_config_block.get());
         view_width_ = config_block->width;
         view_height_ = config_block->height;
+        
+        // カメラの姿勢情報を読み込む
+        nodec::gfx::TRSComponents camera_trs;
+        camera_trs.translation = config_block->camera_position;
+        camera_trs.rotation = config_block->camera_rotation;
+        camera_trs.scale = nodec::Vector3f(1.0f, 1.0f, 1.0f);
+        
+        // view_inverse_とview_を設定
+        auto view_inverse_ = nodec::gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
+        view_ = nodec::math::inv(view_inverse_);
+        
+        // カメラステートを更新
+        camera_state_.update_transform(view_inverse_);
     } else {
         auto config_block = std::make_unique<SceneViewSettings>();
         config_block->width = view_width_;
         config_block->height = view_height_;
+        
+        // デフォルトのカメラポジションを設定
+        config_block->camera_position = nodec::Vector3f(0.0f, 0.0f, -5.0f);
+        config_block->camera_rotation = nodec::Quaternionf(0.0f, 0.0f, 0.0f, 1.0f);
+        
         base_config_block = std::move(config_block);
     }
 
@@ -96,6 +114,23 @@ void SceneViewWindow::on_gui() {
     using namespace DirectX;
     using namespace nodec_scene::components;
     using namespace nodec_scene;
+
+    // カメラ姿勢変更フラグ
+    bool camera_pose_changed = false;
+
+    // ImGuiのフレーム間の時間を取得（秒）
+    float delta_time = ImGui::GetIO().DeltaTime;
+    
+    // クールダウンタイマーを更新
+    if (camera_pose_save_cooldown_ > 0) {
+        camera_pose_save_cooldown_ -= delta_time;
+    }
+    
+    // クールダウン終了時に保存が必要ならば実行
+    if (camera_pose_save_cooldown_ <= 0 && camera_pose_needs_save_) {
+        save_camera_pose();
+        camera_pose_needs_save_ = false;
+    }
 
     // サイズ変更をチェック
     resize_if_needed();
@@ -222,14 +257,22 @@ void SceneViewWindow::on_gui() {
 
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
                 scene_view_dragging_ = false;
+                // カメラ回転時に変更フラグをセット
+                camera_pose_changed = true;
             }
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
                 scene_view_dragging_ = false;
+                // カメラ移動時に変更フラグをセット
+                camera_pose_changed = true;
             }
         }
 
         if (ImGui::IsWindowHovered()) {
-            camera_trs.translation += forward * io.MouseWheel;
+            if (io.MouseWheel != 0.0f) {
+                camera_trs.translation += forward * io.MouseWheel;
+                // ホイール操作時に変更フラグをセット（連続操作でスパムさせない）
+                camera_pose_changed = true;
+            }
         }
 
         {
@@ -278,6 +321,12 @@ void SceneViewWindow::on_gui() {
         }();
     }
     ImGui::EndChild();
+
+    // カメラ姿勢が変更された場合、保存が必要であることを示すフラグを立てる
+    if (camera_pose_changed) {
+        camera_pose_needs_save_ = true;
+        camera_pose_save_cooldown_ = CAMERA_POSE_SAVE_COOLDOWN_TIME;
+    }
 }
 
 void SceneViewWindow::resize_view(Graphics &gfx, UINT width, UINT height) {
@@ -368,4 +417,22 @@ void SceneViewWindow::resize_if_needed() {
     }
     resize_view(graphics_, input_width_, input_height_);
     size_changed_ = false;
+}
+
+// カメラの姿勢情報を保存するメソッド
+void SceneViewWindow::save_camera_pose() {
+    auto config_block = static_cast<SceneViewSettings *>(editor_config_archive_.config().blocks["editor-backends.SceneView"].get());
+    if (!config_block) return;
+    
+    // 現在のカメラの姿勢情報を取得
+    auto view_inverse = nodec::math::inv(view_);
+    nodec::gfx::TRSComponents camera_trs;
+    nodec::gfx::decompose_trs(view_inverse, camera_trs);
+    
+    // 設定に保存
+    config_block->camera_position = camera_trs.translation;
+    config_block->camera_rotation = camera_trs.rotation;
+    
+    // 変更を保存
+    editor_config_archive_.save();
 }
