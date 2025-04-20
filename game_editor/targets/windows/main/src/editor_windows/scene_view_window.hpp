@@ -18,6 +18,22 @@
 
 #include "../scene_gizmo_impl.hpp"
 #include "../scene_gizmo_renderer.hpp"
+#include "../editor_config_archive.hpp"
+
+struct SceneViewSettings : BaseEditorConfigBlock {
+    int width{640};
+    int height{480};
+
+    template<class Archive>
+    void serialize(Archive &archive) {
+        archive(cereal::make_nvp("width", width),
+                cereal::make_nvp("height", height));
+    }
+};
+
+NODEC_GAME_EDITOR_REGISTER_EDITOR_CONFIG_BLOCK(SceneViewSettings)
+
+
 
 class SceneViewWindow final : public imessentials::BaseWindow {
     // 固定の定数を削除して変数に変更
@@ -31,7 +47,9 @@ private:
 public:
     SceneViewWindow(Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer,
                     nodec_resources::Resources &,
-                    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry);
+                    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry,
+                    EditorConfigArchive &editor_config_archive
+                );
 
     void on_gui() override;
     
@@ -39,7 +57,7 @@ public:
     void resize_view(Graphics &gfx, UINT width, UINT height);
     
     // サイズ変更フラグをチェックして必要に応じてリサイズを実行
-    void check_and_resize_if_needed();
+    void resize_if_needed();
 
 private:
     nodec_scene::Scene &scene_;
@@ -47,7 +65,8 @@ private:
     SceneGizmoImpl &scene_gizmo_;
     nodec_scene_editor::ComponentRegistry &component_registry_;
     nodec_resources::Resources &resources_;
-    Graphics &graphics_;  // グラフィックスオブジェクトへの参照を保持
+    Graphics &graphics_;
+    EditorConfigArchive &editor_config_archive_;
 
     Microsoft::WRL::ComPtr<ID3D11Texture2D> texture_;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target_view_;

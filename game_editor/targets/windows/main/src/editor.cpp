@@ -5,8 +5,6 @@
 #include <nodec_physics/components/trigger_body.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
 
-#include "EditorConfig.hpp"
-
 #include "component_editors/animator_editor.hpp"
 #include "component_editors/audio_listener_editor.hpp"
 #include "component_editors/audio_source_editor.hpp"
@@ -40,6 +38,21 @@ Editor::Editor(Engine *engine)
     using namespace imessentials;
     using namespace nodec_scene_editor;
 
+    {
+        editor_config_archive_ = std::make_unique<EditorConfigArchive>("editor-config.json");
+        auto config = editor_config_archive_->load().get();
+
+        if (!config->resource_path.empty()) {
+            engine->resources().set_resource_path(config->resource_path);
+        }
+        if (!config->font.path.empty()) {
+            auto &io = ImGui::GetIO();
+            io.Fonts->AddFontFromFileTTF(config->font.path.c_str(), config->font.pixel_size, NULL, io.Fonts->GetGlyphRangesJapanese());
+        }
+
+        editor_config_archive_->set_config(std::move(config));
+    }
+
     editor_gui_.reset(new EditorGui(engine->resources()));
 
     window_manager().register_window<ControlWindow>([=]() {
@@ -50,7 +63,8 @@ Editor::Editor(Engine *engine)
         return std::make_unique<SceneViewWindow>(engine->window().graphics(),
                                                  engine->world_module().scene(), engine->scene_renderer(),
                                                  engine->resources(),
-                                                 *scene_gizmo_, component_registry_impl());
+                                                 *scene_gizmo_, component_registry_impl(),
+                                                 *editor_config_archive_);
     });
 
     window_manager().register_window<SceneHierarchyWindow>([=]() {
@@ -174,33 +188,6 @@ Editor::Editor(Engine *engine)
             component_registry().register_component<Prefab, PrefabEditor>("Prefab", engine->resources(), engine->world_module().scene(), engine->scene_serialization());
         }
     }
-
-    [=]() {
-        std::ifstream file("editor-config.json", std::ios::binary);
-        if (!file) return;
-
-        EditorConfig config;
-
-        try {
-            cereal::JSONInputArchive archive(file);
-            archive(config);
-        } catch (std::exception &e) {
-            logger_->warn(__FILE__, __LINE__)
-                << "Failed to load editor configuration.\n"
-                << "details: \n"
-                << e.what();
-            return;
-        }
-
-        if (!config.resource_path.empty()) {
-            engine->resources().set_resource_path(config.resource_path);
-        }
-
-        if (!config.font.path.empty()) {
-            auto &io = ImGui::GetIO();
-            io.Fonts->AddFontFromFileTTF(config.font.path.c_str(), config.font.pixel_size, NULL, io.Fonts->GetGlyphRangesJapanese());
-        }
-    }();
 }
 
 void Editor::setup() {

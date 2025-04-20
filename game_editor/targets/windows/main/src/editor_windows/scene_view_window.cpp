@@ -9,10 +9,23 @@
 
 SceneViewWindow::SceneViewWindow(
     Graphics &gfx, nodec_scene::Scene &scene, SceneRenderer &renderer, nodec_resources::Resources &resources,
-    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry)
+    SceneGizmoImpl &scene_gizmo, nodec_scene_editor::ComponentRegistry &component_registry,
+    EditorConfigArchive &editor_config_archive)
     : BaseWindow("Scene View##EditorWindows", nodec::Vector2f(view_width_, view_height_)),
       scene_gizmo_(scene_gizmo), component_registry_(component_registry), resources_(resources),
-      scene_(scene), renderer_(renderer), graphics_(gfx) {
+      scene_(scene), renderer_(renderer), graphics_(gfx), editor_config_archive_(editor_config_archive) {
+    auto& base_config_block = editor_config_archive_.config().blocks["editor-backends.SceneView"];
+    if (base_config_block) {
+        auto config_block = static_cast<SceneViewSettings *>(base_config_block.get());
+        view_width_ = config_block->width;
+        view_height_ = config_block->height;
+    } else {
+        auto config_block = std::make_unique<SceneViewSettings>();
+        config_block->width = view_width_;
+        config_block->height = view_height_;
+        base_config_block = std::move(config_block);
+    }
+
     // Generate the render target textures.
     D3D11_TEXTURE2D_DESC texture_desc{};
     texture_desc.Width = view_width_;
@@ -85,7 +98,7 @@ void SceneViewWindow::on_gui() {
     using namespace nodec_scene;
 
     // サイズ変更をチェック
-    check_and_resize_if_needed();
+    resize_if_needed();
 
     // サイズ変更UIを追加
     {
@@ -339,11 +352,20 @@ void SceneViewWindow::resize_view(Graphics &gfx, UINT width, UINT height) {
 
         projection_.set(matrix.m[0], matrix.m[1], matrix.m[2], matrix.m[3]);
     }
+
+    {
+        auto config_block = static_cast<SceneViewSettings *>(editor_config_archive_.config().blocks["editor-backends.SceneView"].get());
+        assert(config_block != nullptr);
+        config_block->width = view_width_;
+        config_block->height = view_height_;
+        editor_config_archive_.save();
+    }
 }
 
-void SceneViewWindow::check_and_resize_if_needed() {
-    if (size_changed_) {
-        resize_view(graphics_, input_width_, input_height_);
-        size_changed_ = false;
+void SceneViewWindow::resize_if_needed() {
+    if (!size_changed_) {
+        return;
     }
+    resize_view(graphics_, input_width_, input_height_);
+    size_changed_ = false;
 }
