@@ -33,7 +33,7 @@ void SceneGizmoRenderer::render(nodec_scene::Scene &scene,
     auto *gizmo_wire_shader = static_cast<ShaderBackend *>(gizmo_wire_material_->shader().get());
     if (!gizmo_wire_shader) return;
 
-    using namespace ::components;
+    //using namespace ::components;
     using namespace nodec_scene;
     using namespace nodec_scene::components;
     using namespace DirectX;
@@ -81,8 +81,8 @@ void SceneGizmoRenderer::render(nodec_scene::Scene &scene,
     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     rs_gizmo_wire_.bind();
 
-    scene_registry.view<GizmoWire, LocalToWorld>().each(
-        [&](const SceneEntity &entity, const GizmoWire &wire, const LocalToWorld &local_to_world) {
+    scene_registry.view<::components::GizmoWire, LocalToWorld>().each(
+        [&](const SceneEntity &entity, const ::components::GizmoWire &wire, const LocalToWorld &local_to_world) {
             if (!wire.mesh) return;
 
             // --- update cb_model_properties ---
