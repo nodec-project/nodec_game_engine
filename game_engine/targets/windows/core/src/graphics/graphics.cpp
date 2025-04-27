@@ -159,14 +159,21 @@ void Graphics::begin_frame() noexcept {
 }
 
 void Graphics::end_frame() {
+    // ImGuiのレンダリングをMSAAレンダーターゲットに対して行う
+    ImGui::Render();
+    
+    // ImGuiをMSAAレンダーターゲットに描画
+    // レンダーターゲットを明示的に設定
+    ID3D11RenderTargetView* rtv = render_target_view_.Get();
+    context_->OMSetRenderTargets(1, &rtv, nullptr);
+    
+    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    
+    // MSAAレンダーターゲットをバックバッファに解決
     context_->ResolveSubresource(
         back_buffer_.Get(), 0u,
         render_target_texture_.Get(), 0u,
         DXGI_FORMAT_B8G8R8A8_UNORM);
-
-    ImGui::Render();
-
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
     // Update and Render additional Platform Windows
     if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {

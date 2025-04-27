@@ -189,7 +189,7 @@ SceneRenderer::SceneRenderer(nodec_scene::Scene &scene,
       scene_(scene),
       gfx_(gfx),
       renderer_context_(logger_, gfx, resource_registry)
-      //occlusion_system_(gfx) // オクルージョンシステムの初期化
+// occlusion_system_(gfx) // オクルージョンシステムの初期化
 {
 }
 
@@ -412,6 +412,67 @@ void SceneRenderer::render(nodec_scene::Scene &scene, const CameraState &camera_
                     render_target, context);
 }
 
+float calculate_screen_pixel_size(const DirectX::XMMATRIX &world_view_projection, const nodec::gfx::BoundingBox &bounds,
+                                  float screen_width, float screen_height) {
+    using namespace DirectX;
+    using namespace nodec;
+
+    auto max_point = (bounds.max)();
+    auto min_point = (bounds.min)();
+
+    // バウンディングボックスの8頂点を取得
+    XMVECTOR corners[8];
+    corners[0] = XMVectorSet(min_point.x, min_point.y, min_point.z, 1.0f);
+    corners[1] = XMVectorSet(max_point.x, min_point.y, min_point.z, 1.0f);
+    corners[2] = XMVectorSet(min_point.x, max_point.y, min_point.z, 1.0f);
+    corners[3] = XMVectorSet(max_point.x, max_point.y, min_point.z, 1.0f);
+    corners[4] = XMVectorSet(min_point.x, min_point.y, max_point.z, 1.0f);
+    corners[5] = XMVectorSet(max_point.x, min_point.y, max_point.z, 1.0f);
+    corners[6] = XMVectorSet(min_point.x, max_point.y, max_point.z, 1.0f);
+    corners[7] = XMVectorSet(max_point.x, max_point.y, max_point.z, 1.0f);
+
+    // スクリーン空間に変換して最小/最大座標を求める
+    float min_x = FLT_MAX, min_y = FLT_MAX;
+    float max_x = -FLT_MAX, max_y = -FLT_MAX;
+
+    for (int i = 0; i < 8; ++i) {
+        // ワールド座標からNDC空間へ変換
+        XMVECTOR projected = XMVector4Transform(corners[i], world_view_projection);
+
+        // 透視除算（w除算）を行いNDC座標に変換
+        XMVECTOR ndc = projected;
+        float w = XMVectorGetW(projected);
+
+        // If w is close to 0 (points on camera's view plane or numerically unstable points), skip processing
+        if ((w > 0.f ? w : -w) < 0.0001f) continue;
+
+        ndc = XMVectorScale(ndc, 1.0f / w);
+
+        // NDC空間の座標を取得
+        float x = XMVectorGetX(ndc);
+        float y = XMVectorGetY(ndc);
+
+        // 最小/最大座標を更新
+        min_x = (std::min)(min_x, x);
+        min_y = (std::min)(min_y, y);
+        max_x = (std::max)(max_x, x);
+        max_y = (std::max)(max_y, y);
+    }
+
+    // バウンディングボックスがスクリーン外の場合
+    if (min_x > max_x || min_y > max_y) {
+        return 0.0f;
+    }
+
+    // NDC空間からスクリーンピクセルサイズに変換
+
+    float screen_width_pixels = (max_x - min_x) * 0.5f * screen_width;
+    float screen_height_pixels = (max_y - min_y) * 0.5f * screen_height;
+
+    // 幅と高さの大きい方を返す
+    return (std::max)(screen_width_pixels, screen_height_pixels);
+}
+
 void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                                     const CameraState &camera_state,
                                     ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
@@ -428,6 +489,8 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
     // オクルージョンテストを開始
     // auto view_proj = camera_state.matrix_v() * camera_state.matrix_p();
     // occlusion_system_.begin_occlusion_test(view_proj);
+
+    DirectX::XMMATRIX matrix_vp = camera_state.matrix_v() * camera_state.matrix_p();
 
     // Group the draw-command by the shader.
     {
@@ -450,19 +513,26 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                         return;
                     }
 
+                    const auto matrix_m = XMMATRIX(local_to_world.value.m);
+                    const auto matrix_mvp = matrix_m * matrix_vp;
+                    auto pixel_size = calculate_screen_pixel_size(matrix_mvp, mesh_backend->bounds,
+                                                                  context.target_width(), context.target_height());
+                    if (pixel_size < 3.0f) {
+                        return;
+                    }
+
                     //// オブジェクトのIDを生成（エンティティIDを使用）
                     //// uintptr_t object_id = reinterpret_cast<uintptr_t>(entity.raw_handle());
-                    //uintptr_t object_id = static_cast<uintptr_t>(entity);
+                    // uintptr_t object_id = static_cast<uintptr_t>(entity);
 
                     //// オクルージョンカリングシステムにオブジェクトを登録
-                    auto matrix_m = XMMATRIX(local_to_world.value.m);
-                    //occlusion_system_.register_object(object_id, matrix_m, mesh_backend);
+                    // occlusion_system_.register_object(object_id, matrix_m, mesh_backend);
 
                     //// オブジェクトが可視かチェック
-                    //if (!occlusion_system_.is_visible(object_id)) {
-                    //    // 不可視の場合はスキップ
-                    //    continue;
-                    //}
+                    // if (!occlusion_system_.is_visible(object_id)) {
+                    //     // 不可視の場合はスキップ
+                    //     continue;
+                    // }
 
                     const bool is_transparent = material_backend->is_transparent();
 

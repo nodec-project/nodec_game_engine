@@ -8,6 +8,8 @@
 // #include <thread>
 // #include <uwebsockets/App.h>
 
+#include <nodec/stopwatch.hpp>
+
 #include "animation/animation.hpp"
 
 // // WebSocketコネクション用の空構造体 (voidの代わり)
@@ -36,38 +38,38 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     //         // REST API エンドポイント
     //         .get("/api/status", [this](auto *res, auto *req) {
     //             logger_->info(__FILE__, __LINE__) << "REST API: GET /api/status called";
-                
+
     //             // JSONレスポンスを作成
     //             std::string json = "{\"status\":\"running\",\"engine\":\"Solreno\",\"version\":\"0.1.0\"}";
-                
+
     //             // JSONヘッダーを設定してレスポンスを送信
     //             res->writeHeader("Content-Type", "application/json");
     //             res->end(json);
     //         })
     //         .post("/api/command", [this](auto *res, auto *req) {
     //             logger_->info(__FILE__, __LINE__) << "REST API: POST /api/command called";
-                
+
     //             // リクエストボディを読み込むための準備
     //             std::string buffer;
-                
+
     //             // リクエストボディデータを受信したときの処理
     //             res->onData([this, res, buffer = std::move(buffer)](std::string_view data, bool last) mutable {
     //                 // データをバッファに追加
     //                 buffer.append(data.data(), data.length());
-                    
+
     //                 // 最後のデータチャンクを受信したら処理を実行
     //                 if (last) {
     //                     logger_->info(__FILE__, __LINE__) << "Command received: " << buffer;
-                        
+
     //                     // コマンド処理の例（実際の実装はここに追加）
     //                     std::string response = "{\"result\":\"success\",\"message\":\"Command processed\"}";
-                        
+
     //                     // レスポンスの送信
     //                     res->writeHeader("Content-Type", "application/json");
     //                     res->end(response);
     //                 }
     //             });
-                
+
     //             // データ受信中にエラーが発生した場合
     //             res->onAborted([]() {
     //                 // リクエストが中断された場合の処理
@@ -75,14 +77,14 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
     //         })
     //         .get("/api/info", [this](auto *res, auto *req) {
     //             logger_->info(__FILE__, __LINE__) << "REST API: GET /api/info called";
-                
+
     //             // クエリパラメータの取得例
     //             std::string_view query = req->getQuery();
     //             logger_->info(__FILE__, __LINE__) << "Query parameters: " << query;
-                
+
     //             // 簡易的なエンジン情報JSONを作成
     //             std::string json = "{\"name\":\"Solreno Engine\",\"description\":\"Game engine with WebSocket and REST API support\"}";
-                
+
     //             // レスポンスを送信
     //             res->writeHeader("Content-Type", "application/json");
     //             res->end(json);
