@@ -30,20 +30,14 @@
 #include "../graphics/SamplerState.hpp"
 #include "../graphics/geometry_buffer.hpp"
 #include "../graphics/graphics.hpp"
+#include "camera_state.hpp"
+#include "draw_command.hpp"
 #include "material_backend.hpp"
 #include "mesh_backend.hpp"
-#include "camera_state.hpp"
 #include "scene_renderer_context.hpp"
 #include "scene_rendering_context.hpp"
 #include "shader_backend.hpp"
 #include "texture_backend.hpp"
-
-class DrawCommand {
-public:
-    virtual ~DrawCommand() {}
-    virtual void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
-                      SceneRendererContext &, Graphics &) = 0;
-};
 
 class DrawGroup {
 public:
@@ -59,7 +53,7 @@ public:
 
 class OpaqueDrawGroup : public DrawGroup {
 public:
-    std::unordered_map<std::intptr_t, std::vector<std::unique_ptr<DrawCommand>>> draw_commands;
+    std::unordered_map<std::intptr_t, std::vector<DrawCommand *>> draw_commands;
 
     void draw_all(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
                   SceneRendererContext &context, Graphics &gfx) override {
@@ -70,10 +64,11 @@ public:
         }
     }
 
-    void append_draw_command(const std::shared_ptr<MaterialBackend> &material_backend, std::unique_ptr<DrawCommand> command) {
+    void append_draw_command(const std::shared_ptr<MaterialBackend> &material_backend,
+                             DrawCommand *command) {
         auto material_id = reinterpret_cast<std::intptr_t>(material_backend.get());
         auto &material_group = draw_commands[material_id];
-        material_group.push_back(std::move(command));
+        material_group.push_back(command);
     }
 
     void clear_draw_commands() override {
@@ -85,7 +80,7 @@ public:
 
 class TransparentDrawGroup : public DrawGroup {
 public:
-    std::multimap<float, std::unique_ptr<DrawCommand>> draw_commands;
+    std::multimap<float, DrawCommand *> draw_commands;
     void draw_all(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
                   SceneRendererContext &context, Graphics &gfx) override {
         for (auto iter = draw_commands.rbegin(); iter != draw_commands.rend(); ++iter) {
@@ -158,7 +153,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11VertexShader> bbox_vs_;
     Microsoft::WRL::ComPtr<ID3D11PixelShader> bbox_ps_;
     Microsoft::WRL::ComPtr<ID3D11Buffer> constants_buffer_;
-    
+
     std::unordered_map<uintptr_t, OcclusionQueryInstance> query_instances_;
     uint32_t current_frame_index_;
     static constexpr uint32_t VISIBILITY_THRESHOLD = 3; // フレーム数のしきい値
@@ -181,7 +176,7 @@ private:
 
     void push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
                            const std::shared_ptr<MaterialBackend> &material_backend,
-                           std::unique_ptr<DrawCommand> command,
+                           DrawCommand *command,
                            const DirectX::XMMATRIX &matrix_m, const DirectX::XMMATRIX &matrix_v_inverse);
 
 private:
@@ -192,7 +187,7 @@ private:
     SceneRendererContext renderer_context_;
 
     std::map<DrawGroupPriorityKey, std::unique_ptr<DrawGroup>> draw_groups_;
-    //OcclusionCullingSystem occlusion_system_; // オクルージョンカリングシステムの追加
+    // OcclusionCullingSystem occlusion_system_; // オクルージョンカリングシステムの追加
 };
 
 #endif
