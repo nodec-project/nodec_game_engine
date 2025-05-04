@@ -1,14 +1,16 @@
-#pragma once
+#ifndef NODEC_GAME_ENGINE__WIN_DESKTOP_APPLICATION_HPP_
+#define NODEC_GAME_ENGINE__WIN_DESKTOP_APPLICATION_HPP_
 
 #include <memory>
 
 #include <Windows.h>
 
+#include <nodec/event_loop.hpp>
 #include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
 
-#include "window.hpp"
 #include "logging.hpp"
+#include "window.hpp"
 
 class WinDesktopApplication : public nodec_application::impl::ApplicationImpl {
 public:
@@ -23,39 +25,28 @@ public:
         }
     }
 
+    nodec::EventLoop &event_loop() {
+        return event_loop_;
+    }
+
 protected:
     virtual void setup() = 0;
-    virtual void loop() = 0;
 
 private:
+    nodec::EventLoop event_loop_;
     int main() {
         // --- Init Logging ---
         init_logging(nodec::logging::Level::Debug);
-
-        //
-        //#ifndef NDEBUG
-        //    InitLogging(nodec::logging::Level::Debug);
-        //#else
-        //    InitLogging(nodec::logging::Level::Info);
-        //#endif
-        // end Init Logging ---
 
         nodec::logging::info(__FILE__, __LINE__) << "Hello world. Application start.";
 
         setup();
 
-        int exitCode;
-        while (true) {
-            if (!Window::ProcessMessages(exitCode)) {
-                break;
-            }
-
-            loop();
-        }
+        event_loop_.spin();
 
         nodec::logging::info(__FILE__, __LINE__) << "Application Successfully Ending. See you.";
 
-        return exitCode;
+        return 0;
     }
 
     int on_error_exit() {
@@ -77,3 +68,5 @@ private:
         return -1;
     }
 };
+
+#endif

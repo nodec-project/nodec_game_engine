@@ -162,6 +162,7 @@ void SceneAudioSystem::update(nodec_scene::SceneRegistry &scene_registry) {
                 buffer.PlayBegin = play_begin;
                 activity.play_begin_time = source.position;
 
+                ThrowIfFailed(activity.voice->GetVoice().Stop(), __FILE__, __LINE__);
                 ThrowIfFailed(activity.voice->GetVoice().FlushSourceBuffers(), __FILE__, __LINE__);
                 activity.voice->SubmitSourceBuffer(&buffer);
                 ThrowIfFailed(activity.voice->GetVoice().Start(), __FILE__, __LINE__);

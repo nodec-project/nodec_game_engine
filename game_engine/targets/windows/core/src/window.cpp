@@ -143,7 +143,7 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noe
 
     switch (msg) {
         // We don't want the DefProc to handle this message because
-        // we want our destructor to destoroy the window, so return 0 instead of break.
+        // we want our destructor to destroy the window, so return 0 instead of break.
     case WM_CLOSE:
         PostQuitMessage(0);
         return 0;
@@ -279,9 +279,10 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noe
         // END MOUSE MESSAGE ---
     }
     return DefWindowProc(hWnd, msg, wParam, lParam);
+    // return 0;
 }
 
-bool Window::ProcessMessages(int &exit_code) noexcept {
+bool Window::process_messages(int &exit_code) noexcept {
     MSG msg;
 
     // while queue has message, remove and dispatch them (but do not block on empty queue)

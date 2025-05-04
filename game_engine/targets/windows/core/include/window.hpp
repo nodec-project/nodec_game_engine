@@ -68,7 +68,8 @@ public:
     ~Window();
 
 public:
-    static bool ProcessMessages(int &exit_code) noexcept;
+    static bool process_messages(int &exit_code) noexcept;
+
     void set_title(const std::string &title);
 
     Graphics &graphics() {

@@ -182,7 +182,6 @@ void Graphics::end_frame() {
     }
 
     HRESULT hr;
-    // mInfoLogger.SetLatest();
     if (FAILED(hr = swap_chain_->Present(1u, 0u))) {
         if (hr == DXGI_ERROR_DEVICE_REMOVED) {
             ThrowIfFailedGfx("DeviceRemoved", hr, this, __FILE__, __LINE__);

@@ -1,10 +1,11 @@
-#pragma once
+#ifndef NODEC_GAME_EDITOR__APPLICATION_HPP_
+#define NODEC_GAME_EDITOR__APPLICATION_HPP_
 
-#include "Editor.hpp"
+#include "editor.hpp"
 
-#include <Engine.hpp>
-#include <WinDesktopApplication.hpp>
-#include <Window.hpp>
+#include <engine.hpp>
+#include <win_desktop_application.hpp>
+#include <window.hpp>
 
 class Application final : public WinDesktopApplication {
 public:
@@ -43,17 +44,44 @@ protected:
 
         // Do first step (initialize).
         engine->world_module().reset();
+
+        event_loop().schedule([&]() {
+            run_main_loop();
+        });
     }
 
-    void loop() {
+    void run_main_loop() {
+        int exit_code = 0;
+        MSG msg;
+
+        // while queue has message, remove and dispatch them (but do not block on empty queue)
+        // while (GetMessage(&msg, nullptr, 0, 0)) {
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                exit_code = (int)msg.wParam;
+                // signals quit
+                return;
+            }
+
+            // TranslateMessage will post auxiliary WM_CHAR messages from key msgs
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+
         engine->frame_begin();
 
         editor->update();
 
         engine->frame_end();
+
+        event_loop().schedule([&]() {
+            run_main_loop();
+        });
     }
 
 private:
     std::unique_ptr<Engine> engine;
     std::shared_ptr<Editor> editor;
 };
+
+#endif

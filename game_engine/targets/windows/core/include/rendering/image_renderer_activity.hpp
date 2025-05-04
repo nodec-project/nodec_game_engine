@@ -31,7 +31,7 @@ public:
               SceneRendererContext &renderer_context, Graphics &gfx) override {
         using namespace DirectX;
         renderer_context.bs_alpha_blend().bind();
-        // renderer_context.bs_default().bind(&gfx);
+        // renderer_context.bs_default().bind();
 
         auto matrix_m_inverse = DirectX::XMMatrixInverse(nullptr, matrix_m_);
         auto matrix_mvp = matrix_m_ * matrix_v * matrix_p;

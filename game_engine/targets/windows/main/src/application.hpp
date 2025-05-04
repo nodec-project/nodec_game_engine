@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include <WinDesktopApplication.hpp>
+#include <win_desktop_application.hpp>
 #include <engine.hpp>
 
 class Application : public WinDesktopApplication {

@@ -402,7 +402,7 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
     // Clear render target view with solid color.
     {
-        gfx_.context().ClearRenderTargetView(render_target, Vector4f::zero.v);
+        gfx_.context().ClearRenderTargetView(render_target, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
         for (auto iter = context.geometry_buffer_begin(); iter != context.geometry_buffer_end(); ++iter) {
             auto &buffer = iter->second;
             if (!buffer) continue;
