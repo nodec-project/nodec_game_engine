@@ -34,6 +34,20 @@ export interface EntityDetailsResponse {
   };
 }
 
+// Response from /api/animations/editing-context
+export interface AnimationEditingContext {
+  hasAnimator: boolean;
+  entityId: number;
+  entityName: string;
+  error?: string;
+  hasClip?: boolean;
+  clipPath?: string | null;
+  clipData?: {
+    duration: number;
+    curveCount: number;
+  } | null;
+}
+
 const API_BASE_URL = 'http://localhost:8080';
 
 export class GameEngineAPI {
@@ -120,6 +134,30 @@ export class GameEngineAPI {
       };
     } catch (error) {
       console.error(`Failed to fetch details for entity ${entityId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get animation editing context for an entity with Animator component
+   */
+  async getAnimationEditingContext(entityId: string): Promise<AnimationEditingContext> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/animations/editing-context?entityId=${entityId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Failed to fetch animation editing context for entity ${entityId}:`, error);
       throw error;
     }
   }

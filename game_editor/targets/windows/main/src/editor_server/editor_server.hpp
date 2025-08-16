@@ -22,12 +22,17 @@
 
 #include <uwebsockets/App.h>
 
+// Animation module includes
+#include <nodec_animation/components/animator.hpp>
+#include <nodec_animation/resources/animation_clip.hpp>
+
 // APIリクエスト情報を保持する構造体
 struct APIRequest {
     enum Type {
         GET_ROOT_ENTITIES,
         GET_ENTITY_COMPONENTS,
-        GET_ENTITY_INFO
+        GET_ENTITY_INFO,
+        GET_ANIMATION_EDITING_CONTEXT
     };
     
     Type type;
@@ -142,6 +147,42 @@ public:
                 });
                 
                 queue_request(APIRequest::GET_ENTITY_INFO, entity_id, [res, response_state](const std::string& response_data) {
+                    if (*response_state) {
+                        res->end(response_data);
+                    }
+                });
+            })
+            .get("/api/animations/editing-context", [this](auto *res, auto *req) {
+                res->writeHeader("Content-Type", "application/json");
+                res->writeHeader("Access-Control-Allow-Origin", "*");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+                
+                // Get entityId from query parameter
+                std::string_view query = req->getQuery();
+                std::string entity_id_str = parseQueryParam(query, "entityId");
+                
+                if (entity_id_str.empty()) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Missing entityId parameter\"}");
+                    return;
+                }
+                
+                uint32_t entity_id = 0;
+                try {
+                    entity_id = std::stoul(entity_id_str);
+                } catch (...) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Invalid entityId\"}");
+                    return;
+                }
+                
+                auto response_state = std::make_shared<bool>(true);
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+                
+                queue_request(APIRequest::GET_ANIMATION_EDITING_CONTEXT, entity_id, [res, response_state](const std::string& response_data) {
                     if (*response_state) {
                         res->end(response_data);
                     }
@@ -316,6 +357,77 @@ private:
         json << "}";
         return result;
     }
+    
+    // Parse query parameter from query string
+    std::string parseQueryParam(std::string_view query, const std::string& key) {
+        size_t key_pos = query.find(key + "=");
+        if (key_pos == std::string_view::npos) return "";
+        
+        size_t value_start = key_pos + key.length() + 1;
+        size_t value_end = query.find('&', value_start);
+        
+        if (value_end == std::string_view::npos) {
+            return std::string(query.substr(value_start));
+        }
+        return std::string(query.substr(value_start, value_end - value_start));
+    }
+    
+    // Get animation editing context for an entity with Animator component
+    std::string get_animation_editing_context_json(uint32_t entity_id) {
+        auto entity = static_cast<nodec::entities::Entity>(entity_id);
+        auto& registry = world_->scene().registry();
+        
+        if (!registry.is_valid(entity)) {
+            return "{\"error\":\"Invalid entity\"}";
+        }
+        
+        std::string result;
+        nodec::StringBuilder json(result);
+        json << "{";
+        
+        // Get entity name
+        auto* name = registry.try_get_component<nodec_scene::components::Name>(entity);
+        std::string entity_name = name ? name->value : ("Entity_" + std::to_string(entity_id));
+        
+        // Check for Animator component
+        auto* animator = registry.try_get_component<nodec_animation::components::Animator>(entity);
+        if (!animator) {
+            json << "\"hasAnimator\":false,";
+            json << "\"entityId\":" << entity_id << ",";
+            json << "\"entityName\":\"" << entity_name << "\",";
+            json << "\"error\":\"Entity does not have Animator component\"";
+            json << "}";
+            return result;
+        }
+        
+        // Basic response with Animator info
+        json << "\"hasAnimator\":true,";
+        json << "\"entityId\":" << entity_id << ",";
+        json << "\"entityName\":\"" << entity_name << "\",";
+        
+        // Check if clip exists
+        if (animator->clip) {
+            json << "\"hasClip\":true,";
+            
+            // Get clip resource path if available
+            // Note: This requires resource registry to get the resource name
+            // For now, we'll just indicate that a clip exists
+            json << "\"clipPath\":\"[clip loaded]\",";
+            
+            // Basic clip data (will be expanded in Step 2)
+            json << "\"clipData\":{";
+            json << "\"duration\":0.0,";  // Placeholder - will get actual duration in Step 2
+            json << "\"curveCount\":0";   // Placeholder - will count curves in Step 2
+            json << "}";
+        } else {
+            json << "\"hasClip\":false,";
+            json << "\"clipPath\":null,";
+            json << "\"clipData\":null";
+        }
+        
+        json << "}";
+        return result;
+    }
 
 public:
     // Editor::update()から呼び出される非同期リクエスト処理
@@ -336,6 +448,9 @@ public:
                     break;
                 case APIRequest::GET_ENTITY_INFO:
                     response_data = get_entity_info_json(request.entity_id);
+                    break;
+                case APIRequest::GET_ANIMATION_EDITING_CONTEXT:
+                    response_data = get_animation_editing_context_json(request.entity_id);
                     break;
                 default:
                     response_data = "{\"error\": \"Unknown request type\"}";
