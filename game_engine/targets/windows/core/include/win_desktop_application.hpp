@@ -5,7 +5,7 @@
 
 #include <Windows.h>
 
-#include <nodec/event_loop.hpp>
+#include <nodec/asyncio/event_loop.hpp>
 #include <nodec/logging/logging.hpp>
 #include <nodec_application/impl/application_impl.hpp>
 
@@ -25,15 +25,16 @@ public:
         }
     }
 
-    nodec::EventLoop &event_loop() {
+    nodec::asyncio::EventLoop &event_loop() {
         return event_loop_;
     }
 
 protected:
     virtual void setup() = 0;
-
+    
 private:
-    nodec::EventLoop event_loop_;
+    nodec::asyncio::EventLoop event_loop_;
+
     int main() {
         // --- Init Logging ---
         init_logging(nodec::logging::Level::Debug);
