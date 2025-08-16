@@ -3,6 +3,7 @@
 
 #include <Engine.hpp>
 
+#include "editor_server/editor_server.hpp"
 #include <imessentials/impl/menu_impl.hpp>
 #include <imessentials/impl/window_impl.hpp>
 #include <nodec/logging/logging.hpp>
@@ -69,6 +70,7 @@ private:
     std::unique_ptr<EditorGui> editor_gui_;
     std::unique_ptr<SceneGizmoImpl> scene_gizmo_;
     std::unique_ptr<EditorConfigArchive> editor_config_archive_;
+    std::unique_ptr<EditorServer> editor_server_;
 };
 
 #endif

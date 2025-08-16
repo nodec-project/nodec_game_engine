@@ -192,6 +192,11 @@ Editor::Editor(Engine *engine)
 
 void Editor::setup() {
     scene_gizmo_.reset(new SceneGizmoImpl(engine_->world_module().scene(), engine_->resources()));
+    
+    // Initialize EditorServer
+    // Use shared pointers from Engine
+    editor_server_.reset(new EditorServer(&engine_->world_module(), 
+                                          &engine_->scene_serialization()));
 
     // TODO: Restore the previous workspace.
     //  * Last opened windows.
@@ -221,6 +226,11 @@ void Editor::update() {
         }
 
         break;
+    }
+    
+    // Process EditorServer pending requests
+    if (editor_server_) {
+        editor_server_->process_pending_requests();
     }
 
     {
