@@ -196,6 +196,10 @@ private:
                         json << ",\"name\":\"Entity_" << static_cast<uint32_t>(entity) << "\"";
                     }
                     
+                    // Check if entity has children
+                    bool has_children = (hierarchy.first != nodec::entities::null_entity);
+                    json << ",\"has_children\":" << (has_children ? "true" : "false");
+                    
                     json << "}";
                     first = false;
                 }

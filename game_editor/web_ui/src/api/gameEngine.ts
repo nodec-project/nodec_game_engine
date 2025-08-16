@@ -1,30 +1,37 @@
 // Game Engine API Client
 
+// Entity info for root entities list
 export interface EntityInfo {
-  id: string;
+  id: string;  // Entity ID as string
   name: string;
   has_children: boolean;
 }
 
+// Response from /api/entities/roots
 export interface RootEntitiesResponse {
   entities: EntityInfo[];
 }
 
+// Component info
 export interface ComponentInfo {
   type_index: number;
   data: Record<string, unknown> | null; // JSON serialized component data
 }
 
+// Response from /api/entities/ids/:id/components
 export interface EntityComponentsResponse {
-  entity_id: string;
+  id: string;  // Changed from entity_id to id to match server response
   components: ComponentInfo[];
 }
 
+// Response from /api/entities/ids/:id
 export interface EntityDetailsResponse {
-  entity_id: string;
+  id: string;  // Entity ID as string (server returns number but we convert to string)
   name: string;
-  parent_id?: string;
-  children: string[];
+  hierarchy?: {
+    parent: number | null;
+    children: number[];  // Array of child entity IDs
+  };
 }
 
 const API_BASE_URL = 'http://localhost:8080';
@@ -105,8 +112,12 @@ export class GameEngineAPI {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: EntityDetailsResponse = await response.json();
-      return data;
+      const data = await response.json();
+      // Convert id to string if it's a number
+      return {
+        ...data,
+        id: String(data.id)
+      };
     } catch (error) {
       console.error(`Failed to fetch details for entity ${entityId}:`, error);
       throw error;

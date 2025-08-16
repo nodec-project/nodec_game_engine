@@ -147,7 +147,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
               Entity: {entityDetails.name}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              ID: {entityDetails.entity_id}
+              ID: {entityDetails.id}
             </Typography>
           </Box>
         )}
@@ -184,11 +184,11 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                     disabled
                   />
                 </Grid>
-                {entityDetails.parent_id && (
+                {entityDetails.hierarchy?.parent !== null && entityDetails.hierarchy?.parent !== undefined && (
                   <Grid item xs={12}>
                     <TextField
                       label="Parent ID"
-                      value={entityDetails.parent_id}
+                      value={entityDetails.hierarchy.parent}
                       variant="outlined"
                       size="small"
                       fullWidth
@@ -196,10 +196,10 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                     />
                   </Grid>
                 )}
-                {entityDetails.children.length > 0 && (
+                {entityDetails.hierarchy?.children && entityDetails.hierarchy.children.length > 0 && (
                   <Grid item xs={12}>
                     <Typography variant="caption" color="text.secondary">
-                      Children: {entityDetails.children.length}
+                      Children: {entityDetails.hierarchy.children.length}
                     </Typography>
                   </Grid>
                 )}

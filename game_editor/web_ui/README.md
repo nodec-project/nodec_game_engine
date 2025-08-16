@@ -1,6 +1,6 @@
-# Solreno Scene Editor Web UI
+# nodec Game Editor Web UI
 
-Web-based scene editor interface for the Solreno game engine.
+Web-based scene editor interface for the nodec game engine.
 
 ## Features
 
