@@ -160,7 +160,7 @@ Engine::Engine(nodec_application::impl::ApplicationImpl &app)
         on_stepped(world);
     });
 
-    // inspector_server_.reset(new InspectorServer());
+    inspector_server_.reset(new InspectorServer(world_));
 
     // --- Export the services to application.
     app.add_service<Screen>(screen_);
@@ -248,6 +248,11 @@ void Engine::frame_end() {
     scene_renderer_->render(world_->scene(),
                             window_->graphics().render_target_view(),
                             *scene_rendering_context_);
+
+    // Inspector Server の非同期リクエスト処理
+    if (inspector_server_) {
+        inspector_server_->process_pending_requests();
+    }
 
     window_->graphics().end_frame();
 }
