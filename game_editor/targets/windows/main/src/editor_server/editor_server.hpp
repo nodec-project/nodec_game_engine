@@ -7,14 +7,17 @@
 #include <mutex>
 #include <functional>
 
-#include <nodec/logging/logger.hpp>
+#include <nodec/logging/logging.hpp>
 #include <nodec/string_builder.hpp>
+#include <nodec/resource_management/resource_registry.hpp>
 #include <nodec_world/world.hpp>
 #include <nodec_scene/components/hierarchy.hpp>
 #include <nodec_scene/components/name.hpp>
 #include <nodec_scene/systems/hierarchy_system.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
+#include <nodec_scene_serialization/archive_context.hpp>
 #include <cereal/archives/json.hpp>
+#include <cereal/details/helpers.hpp>
 #include <sstream>
 
 #include <uwebsockets/App.h>
@@ -42,8 +45,9 @@ struct APIRequest {
 class EditorServer {
 public:
     EditorServer(nodec_world::World* world, 
-                 nodec_scene_serialization::SceneSerialization* scene_serialization) 
-        : world_(world), scene_serialization_(scene_serialization), 
+                 nodec_scene_serialization::SceneSerialization* scene_serialization,
+                 nodec::resource_management::ResourceRegistry* resource_registry) 
+        : world_(world), scene_serialization_(scene_serialization), resource_registry_(resource_registry),
           logger_(nodec::logging::get_logger("editor_server")) {
         thread_ = std::thread([this]() {
             auto app = uWS::App();
@@ -241,7 +245,8 @@ private:
             // JSONArchiveを使ってシリアライズ
             std::ostringstream oss;
             {
-                cereal::JSONOutputArchive archive(oss);
+                nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+                cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONOutputArchive> archive(context, oss, cereal::JSONOutputArchive::Options::NoIndent());
                 archive(cereal::make_nvp("component", serializable));
             }
             
@@ -357,6 +362,7 @@ private:
 private:
     nodec_world::World* world_;
     nodec_scene_serialization::SceneSerialization* scene_serialization_;
+    nodec::resource_management::ResourceRegistry* resource_registry_;
     std::shared_ptr<nodec::logging::Logger> logger_;
     us_listen_socket_t *listen_socket_{nullptr};
     std::thread thread_;
