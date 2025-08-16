@@ -1,13 +1,17 @@
 
 'use client';
 
+import { useState } from 'react';
 import { Box, Container, Typography, Grid } from '@mui/material';
 import { SceneHierarchy } from '../src/components/SceneHierarchy';
+import { ComponentInspector } from '../src/components/ComponentInspector';
 
 export default function Home() {
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+
   const handleEntitySelect = (entityId: string) => {
     console.log('Selected entity:', entityId);
-    // TODO: Implement entity selection handling
+    setSelectedEntityId(entityId);
   };
 
   return (
@@ -22,22 +26,7 @@ export default function Home() {
         </Grid>
         
         <Grid item xs={12} md={8} lg={9}>
-          <Box
-            sx={{
-              height: '100%',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'grey.50',
-            }}
-          >
-            <Typography variant="h6" color="text.secondary">
-              Entity Inspector (Coming Soon)
-            </Typography>
-          </Box>
+          <ComponentInspector entityId={selectedEntityId} />
         </Grid>
       </Grid>
     </Container>
