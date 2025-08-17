@@ -372,6 +372,94 @@ private:
         return std::string(query.substr(value_start, value_end - value_start));
     }
     
+    // Helper function to count curves in an AnimatedEntity recursively
+    int count_curves_recursive(const nodec_animation::resources::AnimatedEntity& entity) {
+        int count = 0;
+        
+        // Count curves in this entity's components
+        for (const auto& [type, component] : entity.components) {
+            count += static_cast<int>(component.properties.size());
+        }
+        
+        // Count curves in children
+        for (const auto& [child_name, child_entity] : entity.children) {
+            count += count_curves_recursive(child_entity);
+        }
+        
+        return count;
+    }
+    
+    // Helper function to get the maximum time from all curves
+    float get_clip_duration(const nodec_animation::resources::AnimatedEntity& entity) {
+        float max_time = 0.0f;
+        
+        // Check all properties in this entity
+        for (const auto& [type, component] : entity.components) {
+            for (const auto& [prop_name, prop] : component.properties) {
+                if (!prop.curve.keyframes().empty()) {
+                    max_time = std::max(max_time, prop.curve.keyframes().back().time);
+                }
+            }
+        }
+        
+        // Check children recursively
+        for (const auto& [child_name, child_entity] : entity.children) {
+            max_time = std::max(max_time, get_clip_duration(child_entity));
+        }
+        
+        return max_time;
+    }
+    
+    // Helper function to serialize curve data to JSON
+    void serialize_curve_json(nodec::StringBuilder& json, const std::string& property_path, 
+                             const nodec_animation::AnimationCurve& curve) {
+        json << "{";
+        json << "\"propertyPath\":\"" << property_path << "\",";
+        json << "\"keyframes\":[";
+        
+        bool first = true;
+        for (const auto& keyframe : curve.keyframes()) {
+            if (!first) json << ",";
+            json << "{\"time\":" << keyframe.time << ",\"value\":" << keyframe.value << "}";
+            first = false;
+        }
+        
+        json << "],";
+        json << "\"wrapMode\":\"" << static_cast<int>(curve.wrap_mode()) << "\"";
+        json << "}";
+    }
+    
+    // Helper function to collect all curves from AnimatedEntity
+    void collect_curves_json(nodec::StringBuilder& json, 
+                            const nodec_animation::resources::AnimatedEntity& entity,
+                            const std::string& entity_path,
+                            bool& first_curve) {
+        // Collect curves from this entity's components
+        for (const auto& [type_info, component] : entity.components) {
+            std::string component_name = "Component_" + std::to_string(type_info.seq_index());
+            
+            // Try to get the actual component type name if possible
+            // This would require a type registry, so we'll use the index for now
+            
+            for (const auto& [prop_name, prop] : component.properties) {
+                if (!first_curve) json << ",";
+                
+                std::string full_path = entity_path.empty() ? 
+                    component_name + "/" + prop_name :
+                    entity_path + "/" + component_name + "/" + prop_name;
+                    
+                serialize_curve_json(json, full_path, prop.curve);
+                first_curve = false;
+            }
+        }
+        
+        // Collect curves from children recursively
+        for (const auto& [child_name, child_entity] : entity.children) {
+            std::string child_path = entity_path.empty() ? child_name : entity_path + "/" + child_name;
+            collect_curves_json(json, child_entity, child_path, first_curve);
+        }
+    }
+    
     // Get animation editing context for an entity with Animator component
     std::string get_animation_editing_context_json(uint32_t entity_id) {
         auto entity = static_cast<nodec::entities::Entity>(entity_id);
@@ -409,16 +497,54 @@ private:
         if (animator->clip) {
             json << "\"hasClip\":true,";
             
-            // Get clip resource path if available
-            // Note: This requires resource registry to get the resource name
-            // For now, we'll just indicate that a clip exists
-            json << "\"clipPath\":\"[clip loaded]\",";
+            // Try to get the resource path from resource registry
+            std::string clip_path = "[clip loaded]";
+            // TODO: Get actual resource path from resource registry when available
+            // clip_path = resource_registry_->get_resource_path(animator->clip);
             
-            // Basic clip data (will be expanded in Step 2)
+            json << "\"clipPath\":\"" << clip_path << "\",";
+            
+            // Get detailed clip data
+            const auto& root_entity = animator->clip->root_entity();
+            float duration = get_clip_duration(root_entity);
+            int curve_count = count_curves_recursive(root_entity);
+            
             json << "\"clipData\":{";
-            json << "\"duration\":0.0,";  // Placeholder - will get actual duration in Step 2
-            json << "\"curveCount\":0";   // Placeholder - will count curves in Step 2
-            json << "}";
+            json << "\"duration\":" << duration << ",";
+            json << "\"curveCount\":" << curve_count << ",";
+            
+            // Add curves array
+            json << "\"curves\":[";
+            bool first_curve = true;
+            collect_curves_json(json, root_entity, "", first_curve);
+            json << "],";
+            
+            // Add property paths for UI to show available properties
+            json << "\"availableProperties\":[";
+            
+            // Step 3: Add property reflection
+            // This will use the scene serialization to discover available properties
+            bool first_prop = true;
+            registry.visit(entity, [&](const nodec::type_info& type_info, void* component) {
+                if (!scene_serialization_) return;
+                
+                auto serializable = scene_serialization_->make_serializable_component(type_info, component);
+                if (!serializable) return;
+                
+                // For now, just list the component types that have serializable properties
+                if (!first_prop) json << ",";
+                json << "{";
+                json << "\"componentType\":\"" << type_info.seq_index() << "\",";
+                json << "\"componentName\":\"Component_" << type_info.seq_index() << "\",";
+                
+                // TODO: Step 4 - Use property visitor to enumerate actual property names
+                json << "\"properties\":[]";
+                json << "}";
+                first_prop = false;
+            });
+            
+            json << "]";  // End availableProperties
+            json << "}";  // End clipData
         } else {
             json << "\"hasClip\":false,";
             json << "\"clipPath\":null,";

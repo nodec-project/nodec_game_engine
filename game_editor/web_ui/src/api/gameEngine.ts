@@ -34,6 +34,26 @@ export interface EntityDetailsResponse {
   };
 }
 
+// Keyframe data for animation curves
+export interface Keyframe {
+  time: number;
+  value: number;
+}
+
+// Animation curve data
+export interface AnimationCurve {
+  propertyPath: string;
+  keyframes: Keyframe[];
+  wrapMode: string;
+}
+
+// Available properties for animation
+export interface AnimatableProperty {
+  componentType: string;
+  componentName: string;
+  properties: string[];
+}
+
 // Response from /api/animations/editing-context
 export interface AnimationEditingContext {
   hasAnimator: boolean;
@@ -45,6 +65,8 @@ export interface AnimationEditingContext {
   clipData?: {
     duration: number;
     curveCount: number;
+    curves: AnimationCurve[];
+    availableProperties: AnimatableProperty[];
   } | null;
 }
 
