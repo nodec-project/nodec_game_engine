@@ -1,234 +1,561 @@
 # Animation Web Editor Implementation Plan
 
 ## Overview
-Implement a web-based animation editor that leverages web ecosystem UI components for rich curve editing capabilities, integrated with the existing Editor Server architecture. The editor must handle the relationship between AnimationClips, Animator components, and entity hierarchies.
+Implement a web-based animation editor that leverages web ecosystem UI components for rich curve editing capabilities, integrated with the existing Editor Server architecture. The editor must handle the relationship between AnimationClips, Animator components, and entity hierarchies with real-time preview in the game engine.
 
 ## Architecture Overview
 
-```
-Game Engine (C++)                Web UI (React/Next.js)
-┌─────────────────────┐          ┌────────────────────────┐
-│ AnimatorSystem      │          │ Animation Editor       │
-│                     │          │ ┌────────────────────┐ │
-│ Entity Hierarchy    │◄────────►│ │ Context Manager    │ │
-│                     │   HTTP   │ │ - Entity binding   │ │
-│ Animation Clips     │   API    │ │ - Clip management  │ │
-│                     │          │ └────────────────────┘ │
-│ Editor Server       │          │ ┌────────────────────┐ │
-│ (port 8080)         │          │ │ Curve Editor       │ │
-│                     │          │ │ - Keyframe edit    │ │
-│ Session Manager     │◄────────►│ │ - Bezier curves    │ │
-└─────────────────────┘          │ └────────────────────┘ │
-                                │ ┌────────────────────┐ │
-                                │ │ Property Selector  │ │
-                                │ │ - Component list   │ │
-                                │ │ - Property tree    │ │
-                                │ └────────────────────┘ │
-                                └────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Game Engine (C++)"
+        AS[AnimatorSystem]
+        EH[Entity Hierarchy]
+        AC[Animation Clips]
+        ES[Editor Server<br/>port 8080]
+        SM[Session Manager]
+        PC[Preview Controller]
+        
+        AS --> EH
+        AS --> AC
+        ES --> SM
+        SM --> PC
+    end
+    
+    subgraph "Web UI (React/Next.js)"
+        AE[Animation Editor]
+        CM[Context Manager<br/>- Entity binding<br/>- Clip management]
+        CE[Curve Editor<br/>- Keyframe edit<br/>- Bezier curves]
+        PM[Property Monitor<br/>- Real-time values]
+        
+        AE --> CM
+        AE --> CE
+        AE --> PM
+    end
+    
+    ES <--> |HTTP API| CM
+    SM <--> |WebSocket| CE
+    PC --> |Stream| PM
+    
+    style AS fill:#e1f5fe
+    style ES fill:#fff3e0
+    style AE fill:#f3e5f5
+    style CM fill:#e8f5e9
+    style CE fill:#e8f5e9
+    style PM fill:#e8f5e9
 ```
 
-## Phase 1: Animation Editing Context API (Week 1)
+## Current Implementation Status
+
+### ✅ Completed (Phase 1-2)
+1. **Animation Editing Context API**
+   - `GET /api/animations/editing-context?entityId=<id>` - Returns curves, properties, and clip data
+   - Helper functions for curve extraction and property traversal
+   - Full keyframe data serialization
+
+2. **Web UI Curve Visualization**
+   - CurveViewer component with canvas rendering
+   - Multi-curve display with selection
+   - Timeline and playback controls (UI only)
+   - Property list display
+
+### 🚧 In Progress (Phase 3-4)
+3. **Curve Editing** - Interactive keyframe manipulation
+4. **Real-time Preview** - Engine preview integration
+
+## Phase 3: Interactive Curve Editing with Preview Integration
 
 ### Objective
-Establish the foundation for animation editing by exposing entity-clip relationships through the Editor Server API.
+Enable curve editing in Web UI with immediate preview in the game engine using session-based management.
+
+### Session Concept
+
+A **session** represents a complete editing context for an entire AnimationClip, NOT individual curves:
+
+- **One Session = One AnimationClip**: Each session manages all curves within a single clip
+- **Working Copy**: Maintains a separate copy of the clip for editing without affecting the original
+- **Transaction Boundary**: All changes within a session can be saved or discarded as a unit
+- **Preview Context**: The session maintains preview state for all curves simultaneously
+- **History Management**: Undo/Redo operations tracked at the session level
+
+```mermaid
+graph LR
+    subgraph "Session Scope"
+        S[Session ID: uuid-1234]
+        S --> E[Entity: Player]
+        S --> OC[Original Clip]
+        S --> WC[Working Clip]
+        
+        WC --> C1[Curve: position.x]
+        WC --> C2[Curve: position.y]
+        WC --> C3[Curve: rotation.z]
+        WC --> C4[Curve: scale.x]
+        
+        S --> H[History Stack]
+        S --> PS[Preview State]
+    end
+    
+    style S fill:#fff3e0
+    style WC fill:#e8f5e9
+    style OC fill:#ffebee
+```
+
+### Architecture: Edit-Preview Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as Web UI
+    participant ES as Editor Server
+    participant GE as Game Engine
+    
+    Note over UI,GE: Session Creation (entire clip)
+    UI->>ES: POST /api/animations/sessions/create
+    Note right of ES: {<br/>  "entityId": 123,<br/>  "clipPath": "walk.clip"<br/>}
+    ES-->>UI: sessionId: "uuid-1234"
+    
+    Note over UI,GE: Curve Editing (within session)
+    loop For each curve edit
+        UI->>ES: PUT /api/animations/sessions/{sessionId}/curves/{propertyPath}
+        Note right of ES: {<br/>  "keyframes": [...]<br/>}
+        ES->>GE: Apply via PropertyWriter
+        GE-->>ES: Component values
+        ES-->>UI: WebSocket: Preview update
+    end
+    
+    Note over UI,GE: Save Session
+    UI->>ES: POST /api/animations/sessions/{sessionId}/save
+    ES-->>UI: Saved to clip file
+```
 
 ### Implementation Tasks
 
-#### 1.1 C++ Editor Server Extensions
-```cpp
-// Add to editor_server.hpp
-class EditorServer {
-    // New member for animation editing
-    AnimationEditorState animation_editor_state_;
+#### 3.1 Session Management (C++)
+
+```mermaid
+classDiagram
+    class AnimationEditSession {
+        <<Session manages entire clip>>
+        -string sessionId
+        -Entity targetEntity
+        -shared_ptr~AnimationClip~ original_clip_
+        -shared_ptr~AnimationClip~ working_clip_
+        -map~string_CurveState~ curve_states_
+        -unordered_set~string~ modified_curves_
+        -bool preview_enabled_
+        -float current_time_
+        -bool isDirty
+        +updateCurve(propertyPath, keyframes)
+        +addCurve(propertyPath)
+        +removeCurve(propertyPath)
+        +apply_to_preview()
+        +save()
+        +revert()
+        +undo()
+        +redo()
+    }
     
-    // New API handlers
-    void handle_get_editing_context(Request* req, Response* res);
-    void handle_create_session(Request* req, Response* res);
-    void handle_get_animatable_properties(Request* req, Response* res);
+    class CurveState {
+        -string propertyPath
+        -AnimationCurve originalCurve
+        -AnimationCurve currentCurve
+        -stack~CurveEdit~ history
+        -int historyIndex
+        +applyEdit(keyframes)
+        +undo()
+        +redo()
+        +hasChanges() bool
+    }
+    
+    class AnimationPreviewController {
+        -AnimationEditSession* session_
+        -float current_time_
+        -bool is_playing_
+        -float playback_speed_
+        -vector~WebSocketConnection~ subscribers_
+        +update(delta_time)
+        +play()
+        +pause()
+        +seek(time)
+        +broadcast_update()
+    }
+    
+    class PropertyWriter {
+        -string current_property_name_
+        -vector~string~ name_stack_
+        -AnimatedComponent source_
+        -float time_
+        +apply(entity, clip, time)
+        +load_value(value)
+        +start_node(name)
+        +end_node()
+    }
+    
+    class DifferentialUpdater {
+        -unordered_map~string_float~ previous_values_
+        +compute_diff(component, time) vector~PropertyUpdate~
+        +reset()
+    }
+    
+    AnimationEditSession "1" --> "*" CurveState : manages
+    AnimationEditSession --> AnimationClip : has working/original
+    AnimationEditSession --> PropertyWriter : uses
+    AnimationPreviewController --> AnimationEditSession : controls
+    AnimationPreviewController --> DifferentialUpdater : uses
+    PropertyWriter --> Entity : applies to
+```
+
+```cpp
+class AnimationEditSession {
+private:
+    // Original and working copies
+    std::shared_ptr<AnimationClip> original_clip_;
+    std::shared_ptr<AnimationClip> working_clip_;
+    
+    // Change tracking
+    std::unordered_set<std::string> modified_curves_;
+    
+    // Preview state
+    bool preview_enabled_ = true;
+    float current_time_ = 0.0f;
+    
+public:
+    void update_curve(const std::string& property_path, 
+                     const std::vector<Keyframe>& keyframes) {
+        // Update working copy
+        auto* curve = find_curve_by_path(working_clip_, property_path);
+        if (curve) {
+            curve->set_keyframes(keyframes);
+            modified_curves_.insert(property_path);
+            
+            // Auto-apply to preview
+            if (preview_enabled_) {
+                apply_to_preview();
+            }
+        }
+    }
+    
+    void apply_to_preview() {
+        // Use PropertyWriter to apply animation
+        AnimatedComponentWriter writer;
+        writer.apply(entity_, working_clip_->root_entity(), current_time_);
+    }
 };
 ```
 
-#### 1.2 Entity Hierarchy Collection
-- Implement recursive entity traversal
-- Collect component type information
-- Build property path mappings
-- Match clip entity paths to actual entities
-
-#### 1.3 Property Discovery System
-- Leverage ComponentRegistry for animatable components
-- Use PropertyWriter traversal mechanism
-- Cache property paths per component type
-- Generate human-readable property names
-
-### API Endpoints to Implement
-1. `GET /api/animations/editing-context?entityId=<id>`
-2. `GET /api/animations/animatable-properties?entityId=<id>`
-3. `GET /api/animations/clips`
-4. `GET /api/animations/clip?path=<resource_path>`
-
-### Testing Strategy
-- Create test entities with Animator components
-- Generate sample AnimationClips programmatically
-- Verify entity-clip binding logic
-- Test property discovery accuracy
-
-## Phase 2: Minimal Animation Viewer (Week 2)
-
-### Objective
-Display animation data in the Web UI with entity context awareness.
-
-### UI Components Structure
+#### 3.2 Session-Based Curve Editor (React)
 ```tsx
-<AnimationEditor>
-  <EntityContextPanel>
-    <EntitySelector />        // Select entity with Animator
-    <HierarchyView />         // Show entity tree
-    <ComponentList />         // List animatable components
-  </EntityContextPanel>
-  
-  <AnimationPanel>
-    <Timeline />              // Playback control
-    <CurveList>              // List of animated properties
-      <CurveViewer />        // Display curve
-    </CurveList>
-  </AnimationPanel>
-</AnimationEditor>
-```
-
-### Implementation Tasks
-
-#### 2.1 Entity Context Management
-```typescript
-interface AnimationContext {
-  animatorEntity: Entity;
-  clip: AnimationClip | null;
-  hierarchy: EntityHierarchy;
-  bindings: Record<string, number>;
-  session?: string;
+interface AnimationEditorProps {
+  entityId: number;
+  clipPath?: string;
 }
 
-const useAnimationContext = () => {
-  const [context, setContext] = useState<AnimationContext>();
+const AnimationEditor: React.FC<AnimationEditorProps> = ({ entityId, clipPath }) => {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [selectedCurves, setSelectedCurves] = useState<Set<string>>(new Set());
   
-  const loadContext = async (entityId: number) => {
-    const data = await api.getEditingContext(entityId);
-    setContext(data);
+  // Create session on mount
+  useEffect(() => {
+    const createSession = async () => {
+      const response = await api.createAnimationSession({
+        entityId,
+        clipPath
+      });
+      setSessionId(response.sessionId);
+      setSessionData(response);
+    };
+    createSession();
+    
+    // Cleanup on unmount
+    return () => {
+      if (sessionId) {
+        api.deleteSession(sessionId);
+      }
+    };
+  }, [entityId, clipPath]);
+  
+  // Update curve within session
+  const handleCurveUpdate = useCallback(
+    debounce(async (propertyPath: string, keyframes: Keyframe[]) => {
+      if (!sessionId) return;
+      
+      await api.updateSessionCurve(
+        sessionId,
+        propertyPath,
+        { keyframes }
+      );
+    }, 100),
+    [sessionId]
+  );
+  
+  // Add new curve to session
+  const handleAddCurve = async (propertyPath: string) => {
+    if (!sessionId) return;
+    
+    await api.addSessionCurve(sessionId, {
+      propertyPath,
+      keyframes: [
+        { time: 0, value: 0 },
+        { time: 1, value: 1 }
+      ]
+    });
+    
+    // Refresh session data
+    const updated = await api.getSession(sessionId);
+    setSessionData(updated);
   };
   
-  return { context, loadContext };
-};
-```
-
-#### 2.2 Property Tree Component
-```tsx
-const PropertyTree: React.FC<{hierarchy: EntityHierarchy}> = ({hierarchy}) => {
-  return (
-    <TreeView>
-      {Object.entries(hierarchy).map(([path, node]) => (
-        <TreeItem key={path} label={node.name}>
-          {Object.entries(node.components).map(([comp, info]) => (
-            <TreeItem key={comp} label={comp}>
-              {info.animatableProperties.map(prop => (
-                <TreeItem 
-                  key={prop} 
-                  label={prop}
-                  onClick={() => addPropertyCurve(path, comp, prop)}
-                />
-              ))}
-            </TreeItem>
-          ))}
-        </TreeItem>
-      ))}
-    </TreeView>
-  );
-};
-```
-
-#### 2.3 Curve Visualization
-- Use Recharts for initial implementation
-- Display keyframes as points
-- Show interpolated curve
-- Support zoom/pan on timeline
-
-### Dependencies
-- `recharts`: For curve visualization
-- `@mui/lab`: For TreeView component
-- `react-use`: For hooks utilities
-
-## Phase 3: Interactive Curve Editing (Week 3-4)
-
-### Objective
-Enable curve editing with awareness of entity property constraints.
-
-### Features to Implement
-
-#### 3.1 Property-Aware Editing
-- Property type validation (float ranges, etc.)
-- Component-specific constraints
-- Real-time value preview on entities
-
-#### 3.2 Curve Editor Integration
-```tsx
-interface CurveEditorProps {
-  entityPath: string;
-  componentType: string;
-  propertyPath: string;
-  curve: AnimationCurve;
-  entityId: number;  // For real-time preview
-  onUpdate: (curve: AnimationCurve) => void;
-}
-
-const CurveEditor: React.FC<CurveEditorProps> = ({
-  entityPath,
-  componentType,
-  propertyPath,
-  curve,
-  entityId,
-  onUpdate
-}) => {
-  // Property-specific constraints
-  const constraints = usePropertyConstraints(componentType, propertyPath);
+  // Save entire session
+  const handleSave = async () => {
+    if (!sessionId) return;
+    
+    await api.saveSession(sessionId);
+    toast.success('Animation saved successfully');
+  };
+  
+  // Undo/Redo
+  const handleUndo = () => api.undoSession(sessionId);
+  const handleRedo = () => api.redoSession(sessionId);
   
   return (
-    <BezierEditor
-      keyframes={curve.keyframes}
-      min={constraints.min}
-      max={constraints.max}
-      onChange={(keyframes) => {
-        const newCurve = { ...curve, keyframes };
-        onUpdate(newCurve);
-        previewValue(entityId, componentType, propertyPath, currentTime);
-      }}
-    />
+    <Box>
+      <Toolbar>
+        <Button onClick={handleSave}>Save</Button>
+        <Button onClick={handleUndo}>Undo</Button>
+        <Button onClick={handleRedo}>Redo</Button>
+        <Chip label={sessionData?.isDirty ? 'Modified' : 'Saved'} />
+      </Toolbar>
+      
+      <PropertyTree
+        properties={sessionData?.availableProperties}
+        onAddCurve={handleAddCurve}
+      />
+      
+      {sessionData?.curves.map(curve => (
+        <CurveEditor
+          key={curve.propertyPath}
+          curve={curve}
+          onUpdate={(keyframes) => 
+            handleCurveUpdate(curve.propertyPath, keyframes)
+          }
+        />
+      ))}
+    </Box>
   );
 };
 ```
 
-#### 3.3 Session Management
-- Create editing sessions on server
-- Track changes in working copy
-- Support undo/redo operations
-- Auto-save to prevent data loss
+#### 3.3 Performance Optimization
 
-### Technology Stack
-- **Primary**: Custom implementation with D3.js/Canvas
-- **Alternative**: Adapt `react-curve-editor` library
-- **Fallback**: Use modified Recharts with drag support
+##### Differential Updates
+```cpp
+class DifferentialUpdater {
+    std::unordered_map<std::string, float> previous_values_;
+    
+public:
+    std::vector<PropertyUpdate> compute_diff(
+        const AnimatedComponent& component,
+        float time) {
+        
+        std::vector<PropertyUpdate> updates;
+        
+        for (const auto& [path, prop] : component.properties) {
+            float new_value = prop.curve.evaluate(time).second;
+            float old_value = previous_values_[path];
+            
+            if (std::abs(new_value - old_value) > 0.0001f) {
+                updates.push_back({path, old_value, new_value});
+                previous_values_[path] = new_value;
+            }
+        }
+        
+        return updates;
+    }
+};
+```
 
-### API Endpoints to Add
-1. `POST /api/animations/sessions/create`
-2. `PUT /api/animations/sessions/:id/curves`
-3. `DELETE /api/animations/sessions/:id`
-4. `POST /api/animations/sessions/:id/save`
+##### Debouncing Strategy
+```typescript
+// UI-side optimization
+const EditOptimizer = {
+  // Immediate local update for responsiveness
+  updateLocal: (curve: AnimationCurve) => {
+    setLocalState(curve);
+  },
+  
+  // Throttled preview updates (60fps)
+  updatePreview: throttle((curve: AnimationCurve) => {
+    ws.send({ type: 'PREVIEW_UPDATE', curve });
+  }, 16),
+  
+  // Debounced save (100ms after last edit)
+  updateServer: debounce((curve: AnimationCurve) => {
+    api.saveSessionCurve(sessionId, curve);
+  }, 100)
+};
+```
 
-## Phase 4: Real-time Preview Integration (Week 5)
+### API Endpoints
+
+#### Session Management
+
+```typescript
+// 1. Create session for entire clip
+POST /api/animations/sessions/create
+Request: {
+  entityId: number;           // Target entity with Animator
+  clipPath?: string;          // Existing clip or create new
+}
+Response: {
+  sessionId: string;
+  clipData: {
+    duration: number;
+    curves: AnimationCurve[];
+  };
+  entityHierarchy: EntityNode[];
+  availableProperties: PropertyInfo[];
+}
+
+// 2. Update curve within session
+PUT /api/animations/sessions/:sessionId/curves/:encodedPropertyPath
+Request: {
+  keyframes: Keyframe[];
+  wrapMode?: WrapMode;
+}
+Response: {
+  success: boolean;
+  preview?: PropertyValues;   // Current values at time
+}
+
+// 3. Add new curve to session
+POST /api/animations/sessions/:sessionId/curves
+Request: {
+  propertyPath: string;
+  keyframes: Keyframe[];
+  componentType?: string;     // For type validation
+}
+
+// 4. Remove curve from session
+DELETE /api/animations/sessions/:sessionId/curves/:encodedPropertyPath
+
+// 5. Save session to clip file
+POST /api/animations/sessions/:sessionId/save
+Request: {
+  clipPath?: string;          // Save as new file
+  overwrite?: boolean;
+}
+
+// 6. Discard session
+DELETE /api/animations/sessions/:sessionId
+
+// 7. Undo/Redo operations
+POST /api/animations/sessions/:sessionId/undo
+POST /api/animations/sessions/:sessionId/redo
+```
+
+### Session Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: POST /sessions/create
+    
+    Created --> Editing: First curve edit
+    
+    state Editing {
+        [*] --> Clean
+        Clean --> Dirty: Curve update/add/remove
+        Dirty --> Dirty: More edits
+        Dirty --> Clean: Save
+        Dirty --> Clean: Revert
+        
+        state Dirty {
+            [*] --> Modified
+            Modified --> Modified: Edit curves
+            Modified --> Undone: Undo
+            Undone --> Modified: Redo
+            Undone --> Undone: More undo
+        }
+    }
+    
+    Editing --> Saved: POST /sessions/{id}/save
+    Editing --> Discarded: DELETE /sessions/{id}
+    
+    Saved --> [*]: Session closed
+    Discarded --> [*]: Changes lost
+    
+    note right of Editing
+        - Multiple curves edited
+        - Preview active
+        - Undo/Redo available
+        - Working copy in memory
+    end note
+    
+    note right of Saved
+        - Write to clip file
+        - Update resource registry
+        - Clear session
+    end note
+```
+
+## Phase 4: Real-time Preview Integration
 
 ### Objective
-Preview animations on actual entities while editing.
+Preview animations on actual entities while editing with WebSocket streaming.
 
 ### Implementation Approach
 
-#### 4.1 WebSocket Protocol
+#### 4.1 Preview Controller (C++)
+```cpp
+class AnimationPreviewController {
+private:
+    AnimationEditSession* session_;
+    float current_time_ = 0.0f;
+    bool is_playing_ = false;
+    float playback_speed_ = 1.0f;
+    
+    // WebSocket connections
+    std::vector<WebSocketConnection*> subscribers_;
+    
+public:
+    void update(float delta_time) {
+        if (is_playing_) {
+            current_time_ += delta_time * playback_speed_;
+            
+            // Wrap or clamp time
+            if (current_time_ > session_->duration()) {
+                current_time_ = 0.0f; // Loop
+            }
+            
+            apply_animation();
+            broadcast_update();
+        }
+    }
+    
+    void apply_animation() {
+        // Apply working clip at current time
+        session_->apply_to_preview(current_time_);
+        
+        // Collect property values
+        auto values = collect_animated_values(session_->entity);
+        
+        // Send to subscribers
+        broadcast_property_values(values);
+    }
+    
+    void broadcast_update() {
+        json update = {
+            {"type", "TIME_UPDATE"},
+            {"time", current_time_},
+            {"isPlaying", is_playing_}
+        };
+        
+        for (auto* ws : subscribers_) {
+            ws->send(update.dump());
+        }
+    }
+};
+```
+
+#### 4.2 WebSocket Protocol
 ```typescript
 // Client-side WebSocket handler
 class AnimationPreviewSocket {
@@ -238,53 +565,172 @@ class AnimationPreviewSocket {
   connect(sessionId: string) {
     this.ws = new WebSocket('ws://localhost:8080/api/animations/preview-stream');
     this.sessionId = sessionId;
+    
+    this.ws.onopen = () => {
+      this.ws.send(JSON.stringify({
+        type: 'SUBSCRIBE',
+        sessionId
+      }));
+    };
   }
   
-  updateTime(time: number) {
+  sendControl(action: 'play' | 'pause' | 'stop' | 'seek', params?: any) {
     this.ws.send(JSON.stringify({
-      type: 'PREVIEW_TIME',
+      type: 'CONTROL',
+      action,
       sessionId: this.sessionId,
-      time
+      ...params
     }));
   }
   
-  onEntityUpdate(callback: (entities: EntityUpdateMap) => void) {
+  onMessage(handler: (msg: PreviewMessage) => void) {
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.type === 'PREVIEW_UPDATE') {
-        callback(data.entities);
-      }
+      handler(data);
     };
   }
 }
 ```
 
-#### 4.2 Server-side Preview System
-```cpp
-// Animation preview handler
-void handle_preview_websocket(WebSocket* ws, std::string_view message) {
-    auto data = parse_json(message);
+#### 4.3 Preview UI Integration
+```tsx
+const PreviewController: React.FC<{
+  sessionId: string;
+  duration: number;
+  onTimeChange: (time: number) => void;
+}> = ({ sessionId, duration, onTimeChange }) => {
+  const [state, setState] = useState({
+    isPlaying: false,
+    currentTime: 0,
+    speed: 1.0
+  });
+  
+  const ws = useRef<AnimationPreviewSocket>();
+  
+  useEffect(() => {
+    ws.current = new AnimationPreviewSocket();
+    ws.current.connect(sessionId);
     
-    if (data.type == "PREVIEW_TIME") {
-        auto* session = animation_editor_state_.getSession(data.sessionId);
-        if (!session) return;
-        
-        // Apply animation to entities
-        auto updates = session->evaluateAtTime(data.time);
-        
-        // Send updates back
-        ws->send(serialize_entity_updates(updates));
+    ws.current.onMessage((msg) => {
+      if (msg.type === 'TIME_UPDATE') {
+        setState(s => ({ ...s, currentTime: msg.time }));
+        onTimeChange(msg.time);
+      } else if (msg.type === 'PROPERTY_VALUES') {
+        updatePropertyMonitor(msg.properties);
+      }
+    });
+    
+    return () => ws.current?.disconnect();
+  }, [sessionId]);
+  
+  const handlePlay = () => {
+    ws.current?.sendControl('play');
+    setState(s => ({ ...s, isPlaying: true }));
+  };
+  
+  const handleSeek = (time: number) => {
+    ws.current?.sendControl('seek', { time });
+    setState(s => ({ ...s, currentTime: time }));
+  };
+  
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <IconButton onClick={handlePlay}>
+        {state.isPlaying ? <Pause /> : <PlayArrow />}
+      </IconButton>
+      
+      <Slider
+        value={state.currentTime}
+        max={duration}
+        onChange={(_, value) => handleSeek(value as number)}
+      />
+      
+      <Typography variant="caption">
+        {state.currentTime.toFixed(2)}s / {duration.toFixed(2)}s
+      </Typography>
+      
+      <SpeedControl
+        value={state.speed}
+        onChange={(speed) => {
+          ws.current?.sendControl('speed', { speed });
+          setState(s => ({ ...s, speed }));
+        }}
+      />
+    </Box>
+  );
+};
+```
+
+### WebSocket Message Types
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected
+    Disconnected --> Connecting: connect()
+    Connecting --> Connected: onOpen
+    Connecting --> Disconnected: onError
+    
+    Connected --> Subscribed: SUBSCRIBE
+    Subscribed --> Playing: CONTROL(play)
+    Subscribed --> Editing: CURVE_UPDATE
+    
+    Playing --> Paused: CONTROL(pause)
+    Paused --> Playing: CONTROL(play)
+    Playing --> Stopped: CONTROL(stop)
+    Stopped --> Playing: CONTROL(play)
+    
+    Editing --> Editing: CURVE_UPDATE
+    Editing --> Playing: CONTROL(play)
+    
+    state Playing {
+        [*] --> Streaming
+        Streaming --> Streaming: TIME_UPDATE
+        Streaming --> Streaming: PROPERTY_VALUES
     }
+    
+    state Editing {
+        [*] --> Updating
+        Updating --> Updating: Send Changes
+        Updating --> Updating: Receive Preview
+    }
+    
+    Subscribed --> Disconnected: onClose
+    Playing --> Disconnected: onClose
+    Editing --> Disconnected: onClose
+```
+
+#### Client → Server
+```typescript
+interface ClientMessage {
+  type: 'SUBSCRIBE' | 'UNSUBSCRIBE' | 'CONTROL' | 'CURVE_UPDATE';
+  sessionId: string;
+  // Control specific
+  action?: 'play' | 'pause' | 'stop' | 'seek' | 'speed';
+  time?: number;
+  speed?: number;
+  // Curve update specific
+  propertyPath?: string;
+  keyframes?: Keyframe[];
 }
 ```
 
-#### 4.3 UI Integration
-- Sync timeline scrubbing with preview
-- Highlight animated properties in scene
-- Show before/after comparison
-- Support play/pause/step controls
+#### Server → Client
+```typescript
+interface ServerMessage {
+  type: 'TIME_UPDATE' | 'PROPERTY_VALUES' | 'STATE_CHANGE' | 'ERROR';
+  // Time update
+  time?: number;
+  isPlaying?: boolean;
+  // Property values
+  properties?: Record<string, number>;
+  // State change
+  state?: 'playing' | 'paused' | 'stopped';
+  // Error
+  error?: string;
+}
+```
 
-## Phase 5: Advanced Features (Week 6+)
+## Phase 5: Advanced Features
 
 ### 5.1 Multi-Property Editing
 - Select multiple properties
@@ -301,40 +747,73 @@ void handle_preview_websocket(WebSocket* ws, std::string_view message) {
 - Blend weight adjustment
 - Cross-fade visualization
 
+### 5.4 Validation and Constraints
+```cpp
+class PropertyConstraints {
+    struct Constraint {
+        float min_value;
+        float max_value;
+        bool is_cyclic;  // For angles
+        std::string unit; // "degrees", "meters", etc.
+    };
+    
+    std::unordered_map<std::string, Constraint> constraints_;
+    
+public:
+    ValidationResult validate_curve(
+        const std::string& property_path,
+        const AnimationCurve& curve) {
+        
+        auto it = constraints_.find(property_path);
+        if (it == constraints_.end()) {
+            return ValidationResult::OK; // No constraints
+        }
+        
+        const auto& constraint = it->second;
+        
+        for (const auto& keyframe : curve.keyframes()) {
+            if (keyframe.value < constraint.min_value ||
+                keyframe.value > constraint.max_value) {
+                return ValidationResult::OUT_OF_RANGE;
+            }
+        }
+        
+        return ValidationResult::OK;
+    }
+};
+```
+
 ## Technology Recommendations
 
 ### Core Libraries
 
 #### Animation & Curves
-1. **Build Custom with D3.js** (Recommended)
-   - Full control over interaction
+1. **Custom Canvas Implementation** (Current)
+   - Full control over rendering and interaction
    - Good performance
-   - Extensive documentation
+   - Already implemented in CurveViewer
 
-2. **react-spring** + Canvas
-   - Smooth animations
-   - Good for interactive feedback
-   - Combine with curve rendering
+2. **D3.js Integration** (Future Enhancement)
+   - For advanced curve manipulation
+   - Better interaction handling
+   - Rich animation capabilities
 
-3. **Theatre.js** (Alternative)
-   - Complete animation solution
-   - May be overkill but very polished
-
-#### UI Components
-- **@mui/material**: Base UI components
-- **react-window**: Virtualized lists for performance
-- **react-resizable-panels**: Layout management
-- **@dnd-kit**: Drag and drop for keyframes
-
-### State Management
+#### State Management
 ```typescript
 // Zustand store for animation editor state
 interface AnimationEditorStore {
+  // Context
   context: AnimationContext | null;
-  session: string | null;
-  selectedCurves: CurveSelection[];
+  sessionId: string | null;
+  
+  // Playback state
   currentTime: number;
   isPlaying: boolean;
+  playbackSpeed: number;
+  
+  // Selection
+  selectedCurves: Set<string>;
+  selectedKeyframes: Map<string, number[]>;
   
   // Actions
   loadEntity: (entityId: number) => Promise<void>;
@@ -343,80 +822,221 @@ interface AnimationEditorStore {
   setCurrentTime: (time: number) => void;
   play: () => void;
   pause: () => void;
+  
+  // Undo/Redo
+  history: CurveHistory[];
+  historyIndex: number;
+  undo: () => void;
+  redo: () => void;
 }
 ```
 
-## Minimal MVP Implementation Steps
+## Error Handling Strategy
 
-### Week 1: Foundation
-1. ✅ Design API endpoints
-2. Implement editing context endpoint
-3. Create test animation data
-4. Basic property discovery
+### Client-Side Validation
+```typescript
+const validateKeyframe = (keyframe: Keyframe, constraints: PropertyConstraints): ValidationResult => {
+  if (keyframe.time < 0) {
+    return { valid: false, error: 'Time cannot be negative' };
+  }
+  
+  if (constraints) {
+    if (keyframe.value < constraints.min || keyframe.value > constraints.max) {
+      return { 
+        valid: false, 
+        error: `Value must be between ${constraints.min} and ${constraints.max}` 
+      };
+    }
+  }
+  
+  return { valid: true };
+};
+```
 
-### Week 2: Visualization
-1. Entity context panel
-2. Property tree view
-3. Simple curve display
-4. Timeline component
+### Server-Side Recovery
+```cpp
+class SessionRecovery {
+    void handle_websocket_disconnect(const std::string& session_id) {
+        // Keep session alive for reconnection
+        auto* session = get_session(session_id);
+        if (session) {
+            session->mark_disconnected();
+            
+            // Start grace period timer
+            schedule_cleanup(session_id, std::chrono::minutes(5));
+        }
+    }
+    
+    void handle_reconnect(const std::string& session_id, WebSocket* ws) {
+        auto* session = get_session(session_id);
+        if (session && !session->is_expired()) {
+            session->reconnect(ws);
+            
+            // Send full state update
+            send_full_state(ws, session);
+        }
+    }
+};
+```
 
-### Week 3: Editing
-1. Keyframe manipulation
-2. Curve updates via API
-3. Session management
-4. Save functionality
+## Performance Metrics
 
-### Week 4: Preview
-1. WebSocket connection
-2. Real-time updates
-3. Playback controls
-4. Visual feedback
+### Target Performance
+- **Curve Update Latency**: < 16ms (60fps)
+- **Preview Update Rate**: 30-60fps
+- **WebSocket Latency**: < 10ms local, < 50ms network
+- **Session Memory**: < 10MB per session
+- **Maximum Concurrent Sessions**: 10
+
+### Optimization Strategies
+
+```mermaid
+flowchart LR
+    subgraph "User Input"
+        KD[Keyframe Drag]
+        KA[Keyframe Add]
+        PS[Playback Seek]
+    end
+    
+    subgraph "Optimization Layer"
+        TH[Throttle<br/>16ms/60fps]
+        DB[Debounce<br/>100ms]
+        BT[Batch<br/>Updates]
+    end
+    
+    subgraph "Processing"
+        LU[Local Update<br/>Immediate]
+        PU[Preview Update<br/>Throttled]
+        SU[Server Update<br/>Debounced]
+    end
+    
+    subgraph "Targets"
+        UI[UI State]
+        WS[WebSocket]
+        API[HTTP API]
+    end
+    
+    KD --> TH --> LU --> UI
+    KD --> TH --> PU --> WS
+    KD --> DB --> SU --> API
+    
+    KA --> LU --> UI
+    KA --> SU --> API
+    
+    PS --> TH --> PU --> WS
+    
+    style TH fill:#ffe0b2
+    style DB fill:#ffe0b2
+    style BT fill:#ffe0b2
+    style LU fill:#c8e6c9
+    style PU fill:#bbdefb
+    style SU fill:#f8bbd0
+```
+
+1. **Batching**: Group multiple updates in single frame
+2. **Throttling**: Limit update frequency during rapid edits (60fps for preview)
+3. **Debouncing**: Delay server saves until editing stops (100ms)
+4. **Caching**: Cache evaluated curve values
+5. **LOD**: Reduce update frequency for non-visible properties
+6. **Compression**: Compress WebSocket messages for network
+
+## Implementation Timeline
+
+```mermaid
+gantt
+    title Animation Editor Implementation Schedule
+    dateFormat YYYY-MM-DD
+    section Phase 1-2
+        API Design           :done,    api1, 2024-01-01, 2d
+        Context Endpoint     :done,    api2, after api1, 3d
+        Curve Visualization  :done,    viz1, after api2, 3d
+        Property Discovery   :done,    prop1, after api2, 2d
+    
+    section Phase 3
+        Session Backend      :active,  sess1, 2024-01-10, 3d
+        Curve Update API     :         api3, after sess1, 2d
+        Keyframe Editing     :         edit1, after api3, 3d
+        Local State Mgmt     :         state1, after api3, 2d
+    
+    section Phase 4
+        WebSocket Setup      :         ws1, after edit1, 2d
+        Preview Controller   :         prev1, after ws1, 3d
+        Property Updates     :         prop2, after prev1, 2d
+        Playback Controls    :         play1, after prev1, 2d
+    
+    section Phase 5
+        Performance Opt      :         perf1, after play1, 3d
+        Error Handling       :         err1, after play1, 2d
+        Undo/Redo           :         undo1, after err1, 3d
+        Save/Load           :         save1, after undo1, 2d
+```
+
+### Week 1: Session Foundation ✅
+- [x] Design API endpoints
+- [x] Implement editing context endpoint
+- [x] Create curve visualization
+- [x] Basic property discovery
+
+### Week 2: Curve Editing (Current)
+- [ ] Session management backend
+- [ ] Curve update API
+- [ ] Interactive keyframe editing
+- [ ] Local state management
+
+### Week 3: Preview Integration
+- [ ] WebSocket setup
+- [ ] Preview controller
+- [ ] Real-time property updates
+- [ ] Playback controls
+
+### Week 4: Polish & Optimization
+- [ ] Performance optimization
+- [ ] Error handling
+- [ ] Undo/redo support
+- [ ] Save/load functionality
 
 ## Success Metrics
 
-### Phase 1
-- [ ] Can fetch editing context for entity with Animator
-- [ ] Property discovery returns correct animatable properties
-- [ ] Entity hierarchy properly mapped to clip structure
-
-### Phase 2
-- [ ] Curves displayed with entity context
-- [ ] Property tree shows all animatable properties
-- [ ] Can select properties to add curves
-
-### Phase 3
+### Phase 3 (Curve Editing)
 - [ ] Can drag keyframes to new positions
 - [ ] Changes persist through session
-- [ ] Can save modified clips
+- [ ] Smooth interaction at 60fps
+- [ ] Validation prevents invalid values
 
-### Phase 4
+### Phase 4 (Preview)
 - [ ] Real-time preview while editing
-- [ ] Smooth playback in scene view
-- [ ] WebSocket connection stable
+- [ ] < 50ms latency for local preview
+- [ ] Smooth playback at 30fps minimum
+- [ ] WebSocket connection stable over time
+
+### Phase 5 (Advanced)
+- [ ] Multi-property batch editing
+- [ ] Template system functional
+- [ ] Blending preview accurate
 
 ## Risk Mitigation
 
-### Entity-Clip Mismatch
-- **Risk**: Clip references entities that don't exist
-- **Mitigation**: Validation and warning system, orphaned curve highlighting
+### Performance Degradation
+- **Risk**: Too many curves slow down editor
+- **Mitigation**: Virtual scrolling, LOD system, progressive loading
 
-### Performance with Large Hierarchies
-- **Risk**: Deep entity hierarchies slow down API
-- **Mitigation**: Lazy loading, pagination, caching
+### Session State Loss
+- **Risk**: Browser crash loses unsaved work
+- **Mitigation**: Auto-save to localStorage, server-side session persistence
 
-### Session State Synchronization
-- **Risk**: Client-server state mismatch
-- **Mitigation**: Version tracking, conflict resolution, auto-save
+### Network Instability
+- **Risk**: WebSocket disconnections interrupt preview
+- **Mitigation**: Reconnection logic, offline mode, state synchronization
 
 ### Browser Compatibility
-- **Risk**: Advanced canvas features not supported
-- **Mitigation**: Progressive enhancement, fallback renderers
+- **Risk**: Canvas features not supported in all browsers
+- **Mitigation**: Feature detection, WebGL fallback, progressive enhancement
 
 ## Future Enhancements
 
-1. **Animation Layers**: Multiple clips on same entity
-2. **Procedural Animation**: Node-based curve generation
-3. **Motion Capture Import**: BVH/FBX animation import
-4. **Animation Compression**: Optimize clip file sizes
-5. **Collaborative Editing**: Multiple users editing same clip
-6. **Version Control Integration**: Git-friendly animation format
+1. **Collaborative Editing**: Multiple users editing same animation
+2. **Version Control**: Git-friendly animation format with diff support
+3. **AI-Assisted Animation**: Automatic in-betweening and motion prediction
+4. **Performance Capture**: Import motion capture data
+5. **Procedural Animation**: Node-based curve generation
+6. **Mobile Support**: Touch-based curve editing

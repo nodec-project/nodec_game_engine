@@ -1,4 +1,5 @@
 #include <graphics/graphics.hpp>
+#include <graphics/graphics_device.hpp>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
 
@@ -146,41 +147,134 @@ Graphics::Graphics(HWND hWnd, int width, int height)
     logger_->info(__FILE__, __LINE__) << "Successfully initialized.";
 }
 
+// Constructor using shared device
+Graphics::Graphics(HWND hWnd, int width, int height, GraphicsDevice& shared_device, bool manage_imgui)
+    : width_(width), height_(height), logger_(nodec::logging::get_logger("engine.graphics")),
+      owns_device_(false), manages_imgui_(manage_imgui) {
+
+    // Use shared device and context (don't take ownership)
+    device_ = shared_device.device();
+    context_ = shared_device.context();
+
+    // Create SwapChain for this window using the shared device
+    DXGI_SWAP_CHAIN_DESC sd = {};
+    sd.BufferDesc.Width = width;
+    sd.BufferDesc.Height = height;
+    sd.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    sd.BufferDesc.RefreshRate.Numerator = 0;
+    sd.BufferDesc.RefreshRate.Denominator = 0;
+    sd.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+    sd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+    sd.SampleDesc.Count = 1;
+    sd.SampleDesc.Quality = 0;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.BufferCount = 2;
+    sd.OutputWindow = hWnd;
+    sd.Windowed = TRUE;
+    sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+    ThrowIfFailedGfx(
+        shared_device.dxgi_factory()->CreateSwapChain(device_.Get(), &sd, &swap_chain_),
+        this, __FILE__, __LINE__);
+
+    // Create MSAA render target
+    wrl::ComPtr<ID3D11Texture2D> msaa_texture;
+    D3D11_TEXTURE2D_DESC msaa_tex_desc = {};
+    msaa_tex_desc.Width = width;
+    msaa_tex_desc.Height = height;
+    msaa_tex_desc.MipLevels = 1;
+    msaa_tex_desc.ArraySize = 1;
+    msaa_tex_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    msaa_tex_desc.SampleDesc.Count = 4;
+    msaa_tex_desc.SampleDesc.Quality = D3D11_STANDARD_MULTISAMPLE_PATTERN;
+    msaa_tex_desc.Usage = D3D11_USAGE_DEFAULT;
+    msaa_tex_desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+    ThrowIfFailedGfx(
+        device_->CreateTexture2D(&msaa_tex_desc, nullptr, &msaa_texture),
+        this, __FILE__, __LINE__);
+    render_target_texture_ = msaa_texture;
+
+    wrl::ComPtr<ID3D11RenderTargetView> msaa_render_target_view;
+    ThrowIfFailedGfx(
+        device_->CreateRenderTargetView(msaa_texture.Get(), nullptr, &msaa_render_target_view),
+        this, __FILE__, __LINE__);
+    render_target_view_ = msaa_render_target_view;
+
+    // Get back buffer
+    wrl::ComPtr<ID3D11Texture2D> back_buffer;
+    ThrowIfFailedGfx(swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), &back_buffer), this, __FILE__, __LINE__);
+    back_buffer_ = back_buffer;
+
+    // Setup depth stencil state
+    D3D11_DEPTH_STENCIL_DESC dsDesc = {};
+    dsDesc.DepthEnable = TRUE;
+    dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    dsDesc.DepthFunc = D3D11_COMPARISON_LESS;
+    wrl::ComPtr<ID3D11DepthStencilState> pDSState;
+    ThrowIfFailedGfx(device_->CreateDepthStencilState(&dsDesc, &pDSState), this, __FILE__, __LINE__);
+    context_->OMSetDepthStencilState(pDSState.Get(), 1u);
+
+    // Configure viewport
+    D3D11_VIEWPORT vp;
+    vp.Width = static_cast<float>(width);
+    vp.Height = static_cast<float>(height);
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0.0f;
+    vp.TopLeftY = 0.0f;
+    context_->RSSetViewports(1u, &vp);
+
+    // init imgui d3d impl only if this instance manages ImGui
+    if (manages_imgui_) {
+        ImGui_ImplDX11_Init(device_.Get(), context_.Get());
+    }
+
+    logger_->info(__FILE__, __LINE__) << "Successfully initialized with shared device. manages_imgui=" << manages_imgui_;
+}
+
 Graphics::~Graphics() {
-    ImGui_ImplDX11_Shutdown();
+    if (manages_imgui_) {
+        ImGui_ImplDX11_Shutdown();
+    }
 
     logger_->info(__FILE__, __LINE__) << "End Graphics.";
 }
 
 void Graphics::begin_frame() noexcept {
-    ImGui_ImplDX11_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
+    if (manages_imgui_) {
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+    }
 }
 
 void Graphics::end_frame() {
-    // ImGuiのレンダリングをMSAAレンダーターゲットに対して行う
-    ImGui::Render();
-    
-    // ImGuiをMSAAレンダーターゲットに描画
-    // レンダーターゲットを明示的に設定
-    ID3D11RenderTargetView* rtv = render_target_view_.Get();
-    context_->OMSetRenderTargets(1, &rtv, nullptr);
-    
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    
-    // MSAAレンダーターゲットをバックバッファに解決
+    if (manages_imgui_) {
+        // ImGuiのレンダリングをMSAAレンダーターゲットに対して行う
+        ImGui::Render();
+
+        // ImGuiをMSAAレンダーターゲットに描画
+        // レンダーターゲットを明示的に設定
+        ID3D11RenderTargetView* rtv = render_target_view_.Get();
+        context_->OMSetRenderTargets(1, &rtv, nullptr);
+
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+        // Update and Render additional Platform Windows
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+    }
+
+    // Always resolve MSAA render target to back buffer (for both ImGui and non-ImGui modes)
     context_->ResolveSubresource(
         back_buffer_.Get(), 0u,
         render_target_texture_.Get(), 0u,
         DXGI_FORMAT_B8G8R8A8_UNORM);
 
-    // Update and Render additional Platform Windows
-    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-    }
-
+    // Always present the swap chain
     HRESULT hr;
     if (FAILED(hr = swap_chain_->Present(1u, 0u))) {
         if (hr == DXGI_ERROR_DEVICE_REMOVED) {

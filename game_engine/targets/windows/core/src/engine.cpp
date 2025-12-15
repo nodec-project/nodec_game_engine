@@ -196,14 +196,17 @@ Engine::~Engine() {
     world_->scene().registry().clear();
 }
 
-void Engine::setup() {
+void Engine::setup(GraphicsDevice& shared_device) {
     using namespace nodec;
+
+    shared_graphics_device_ = &shared_device;
 
     window_.reset(new Window(
         screen_->size().x, screen_->size().y,
         screen_->resolution().x, screen_->resolution().y,
         unicode::utf8to16<std::wstring>(screen_->title()).c_str(),
-        &keyboard_device_system_->device(), &mouse_device_system_->device()));
+        &keyboard_device_system_->device(), &mouse_device_system_->device(),
+        shared_device));
 
     screen_->setup(window_.get());
 
@@ -216,6 +219,8 @@ void Engine::setup() {
     scene_audio_system_.reset(new SceneAudioSystem(*audio_platform_, world_->scene().registry()));
 
     scene_rendering_context_.reset(new SceneRenderingContext(window_->graphics().width(), window_->graphics().height(), window_->graphics()));
+
+    logger_->info(__FILE__, __LINE__) << "Engine setup with shared GraphicsDevice.";
 }
 
 void Engine::on_stepped(nodec_world::World &world) {

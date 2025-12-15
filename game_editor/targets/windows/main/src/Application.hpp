@@ -2,8 +2,10 @@
 #define NODEC_GAME_EDITOR__APPLICATION_HPP_
 
 #include "editor.hpp"
+#include "editor_window.hpp"
 
 #include <engine.hpp>
+#include <graphics/graphics_device.hpp>
 #include <win_desktop_application.hpp>
 #include <window.hpp>
 
@@ -28,6 +30,9 @@ protected:
         using namespace nodec_scene_editor::impl;
         using namespace nodec_scene_editor;
 
+        // Create shared graphics device first
+        graphics_device_.reset(new GraphicsDevice());
+
         engine.reset(new Engine(*this));
 
         editor.reset(new Editor(engine.get()));
@@ -39,7 +44,16 @@ protected:
         // ImGui does not work if the resolution and window size are not the same.
         engine->screen().set_size(engine->screen().resolution());
 
-        engine->setup();
+        // Setup engine with shared device (Engine's window won't manage ImGui)
+        engine->setup(*graphics_device_);
+
+        // Create EditorWindow for ImGui (uses shared device)
+        editor_window_.reset(new EditorWindow(
+            *graphics_device_,
+            1280, 720,
+            L"nodec Game Editor"
+        ));
+
         editor->setup();
 
         // Do first step (initialize).
@@ -55,7 +69,6 @@ protected:
         MSG msg;
 
         // while queue has message, remove and dispatch them (but do not block on empty queue)
-        // while (GetMessage(&msg, nullptr, 0, 0)) {
         while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 exit_code = (int)msg.wParam;
@@ -68,11 +81,19 @@ protected:
             DispatchMessage(&msg);
         }
 
-        engine->frame_begin();
+        // EditorWindow handles ImGui frame
+        editor_window_->begin_frame();
 
+        // Editor update (DockSpace, editor windows)
         editor->update();
 
+        // Engine frame processing (transform updates, scene rendering, etc.)
+        // Note: Engine's Graphics doesn't manage ImGui, so frame_begin/end just handle rendering
+        engine->frame_begin();
         engine->frame_end();
+
+        // EditorWindow presents ImGui
+        editor_window_->end_frame();
 
         event_loop().schedule([&]() {
             run_main_loop();
@@ -80,8 +101,10 @@ protected:
     }
 
 private:
+    std::unique_ptr<GraphicsDevice> graphics_device_;
     std::unique_ptr<Engine> engine;
     std::shared_ptr<Editor> editor;
+    std::unique_ptr<EditorWindow> editor_window_;
 };
 
 #endif

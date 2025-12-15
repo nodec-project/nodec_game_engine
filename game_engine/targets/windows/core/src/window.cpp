@@ -1,12 +1,10 @@
 #include "Window.hpp"
-#include "imgui_impl_win32.h"
+#include "graphics/graphics_device.hpp"
 
 #include <nodec/unicode.hpp>
 
 #include <sstream>
 #include <string>
-
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // === Window Class ====
 
@@ -49,7 +47,8 @@ Window::Window(int width, int height,
                int gfxWidth, int gfxHeight,
                const wchar_t *name,
                nodec_input::keyboard::impl::KeyboardDevice *pKeyboard,
-               nodec_input::mouse::impl::MouseDevice *pMouse)
+               nodec_input::mouse::impl::MouseDevice *pMouse,
+               GraphicsDevice& shared_device)
     : logger_(nodec::logging::get_logger("engine.window")), mWidth(width), mHeight(height),
       mpKeyboard(pKeyboard), mpMouse(pMouse) {
     RECT wr;
@@ -69,25 +68,20 @@ Window::Window(int width, int height,
         wr.right - wr.left, wr.bottom - wr.top,
         nullptr, nullptr, WindowClass::GetInstance(), this);
 
-    // create for error.
     if (hWnd == nullptr) {
         throw HrException(GetLastError(), __FILE__, __LINE__);
     }
 
-    // newly created windows start off as hidden.
+    // Show the window
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
-    // create graphics object
-    graphics_ = std::make_unique<Graphics>(hWnd, gfxWidth, gfxHeight);
+    // create graphics object with shared device (no ImGui management)
+    graphics_ = std::make_unique<Graphics>(hWnd, gfxWidth, gfxHeight, shared_device, false);
 
-    // Init ImGUI Win32 Impl
-    ImGui_ImplWin32_Init(hWnd);
+    logger_->info(__FILE__, __LINE__) << "Window created.";
 }
 
 Window::~Window() {
-    // Cleanup
-    ImGui_ImplWin32_Shutdown();
-
     mWindowDestroyed(*this);
 
     DestroyWindow(hWnd);
@@ -135,12 +129,6 @@ LRESULT CALLBACK Window::HandleMsgThunk(HWND hWnd, UINT msg, WPARAM wParam, LPAR
 }
 
 LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noexcept {
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
-        return true;
-    }
-
-    const auto &imio = ImGui::GetIO();
-
     switch (msg) {
         // We don't want the DefProc to handle this message because
         // we want our destructor to destroy the window, so return 0 instead of break.
@@ -148,65 +136,26 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noe
         PostQuitMessage(0);
         return 0;
 
-        //    // when window loses funcs to prevent input
-        // case WM_KILLFOCUS:
-        //    //SetTitle("A");
-        //    break;
-
-        //    // on window to foreground/background
-        // case WM_ACTIVATE:
-        //    if (wParam & WA_ACTIVE) {
-        //        // active by keyboard not mouse
-        //        //SetTitle("b");
-
-        //    }
-        //    else {
-        //        // active by mouse
-        //        //SetTitle("c");
-        //    }
-        //    break;
-
         // --- KEYBOARD MESSAGE ---
     case WM_KEYDOWN:
         // syskey commands need to be handled to track ALT key (VK_MENU) and F10
     case WM_SYSKEYDOWN: {
-        if (imio.WantCaptureKeyboard) break;
-
-        // nodec::logging::InfoStream(__FILE__, __LINE__) << lParam << ", " << wParam;
-
-        // filter autorepeat
-        // if (!(lParam & 0x40000000)) {
-
         using namespace nodec_input::keyboard;
         mpKeyboard->handle_key_event(
             KeyEvent::Type::Press,
             static_cast<Key>(wParam));
-
     } break;
 
     case WM_KEYUP:
     case WM_SYSKEYUP: {
-        if (imio.WantCaptureKeyboard) break;
-
         using namespace nodec_input::keyboard;
         mpKeyboard->handle_key_event(
             KeyEvent::Type::Release,
             static_cast<Key>(wParam));
-
     } break;
-
-        // case WM_CHAR:
-
-        //    keyboardModule->handle_text_input(static_cast<unsigned char>(wParam));
-
-        //    break;
-
-        //    // END KEYBOARD MESSAGE ---
 
         // --- MOUSE MESSAGE ---
     case WM_MOUSEMOVE: {
-        if (imio.WantCaptureMouse) break;
-
         const POINTS pt = MAKEPOINTS(lParam);
 
         using namespace nodec_input::mouse;
@@ -226,8 +175,6 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noe
     case WM_LBUTTONUP:
     case WM_RBUTTONUP:
     case WM_MBUTTONUP: {
-        if (imio.WantCaptureMouse) break;
-
         const POINTS pt = MAKEPOINTS(lParam);
         const nodec::Vector2i position{pt.x, pt.y};
 
@@ -270,16 +217,8 @@ LRESULT Window::HandleMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) noe
         }
 
     } break;
-
-        // case WM_MOUSEWHEEL:
-        //{
-
-        //    break;
-        //}
-        // END MOUSE MESSAGE ---
     }
     return DefWindowProc(hWnd, msg, wParam, lParam);
-    // return 0;
 }
 
 bool Window::process_messages(int &exit_code) noexcept {

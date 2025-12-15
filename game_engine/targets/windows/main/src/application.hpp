@@ -5,6 +5,7 @@
 
 #include <win_desktop_application.hpp>
 #include <engine.hpp>
+#include <graphics/graphics_device.hpp>
 
 class Application : public WinDesktopApplication {
 public:
@@ -18,10 +19,11 @@ public:
 
 protected:
     void setup() {
+        graphics_device_ = std::make_unique<GraphicsDevice>();
         engine_.reset(new Engine(*this));
         configure();
         engine_->screen().set_size(engine_->screen().resolution());
-        engine_->setup();
+        engine_->setup(*graphics_device_);
 
         engine_->world_module().reset();
     }
@@ -33,6 +35,7 @@ protected:
     }
 
 private:
+    std::unique_ptr<GraphicsDevice> graphics_device_;
     std::unique_ptr<Engine> engine_;
 };
 

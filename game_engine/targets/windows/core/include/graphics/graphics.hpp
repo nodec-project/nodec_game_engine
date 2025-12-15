@@ -15,13 +15,25 @@
 
 #include <stdexcept>
 
+// Forward declaration
+class GraphicsDevice;
+
 class Graphics {
 public:
+    // Original constructor (creates its own device, manages ImGui)
     Graphics(HWND hWnd, int width, int height);
+
+    // New constructor (uses external shared device, no ImGui management)
+    // When using shared device, ImGui should be managed externally (e.g., by EditorWindow)
+    Graphics(HWND hWnd, int width, int height, GraphicsDevice& shared_device, bool manage_imgui = false);
+
     ~Graphics();
 
     void begin_frame() noexcept;
     void end_frame();
+
+    // Check if this Graphics instance manages ImGui
+    bool manages_imgui() const noexcept { return manages_imgui_; }
 
     void DrawIndexed(UINT count);
 
@@ -48,9 +60,18 @@ public:
     };
 
 private:
+    void init_common(int width, int height);
+
+private:
     std::shared_ptr<nodec::logging::Logger> logger_;
     UINT width_;
     UINT height_;
+
+    // Device ownership flag
+    bool owns_device_{true};
+
+    // ImGui management flag
+    bool manages_imgui_{true};
 
     Microsoft::WRL::ComPtr<ID3D11Device> device_;
     Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;

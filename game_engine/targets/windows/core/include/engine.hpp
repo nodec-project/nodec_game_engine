@@ -4,6 +4,7 @@
 #include "Font/FontLibrary.hpp"
 #include "ImguiManager.hpp"
 #include "audio/audio_platform.hpp"
+#include "graphics/graphics_device.hpp"
 #include "input/keyboard_device_system.hpp"
 #include "input/mouse_device_system.hpp"
 #include "physics/physics_system_backend.hpp"
@@ -39,7 +40,7 @@ public:
 
     ~Engine();
 
-    void setup();
+    void setup(GraphicsDevice& shared_device);
 
     void frame_begin();
 
@@ -81,6 +82,9 @@ private:
 
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;
+
+    // Shared graphics device reference
+    GraphicsDevice* shared_graphics_device_{nullptr};
 
     // imgui must be destroyed after window.
     std::unique_ptr<ImguiManager> imgui_manager_;
