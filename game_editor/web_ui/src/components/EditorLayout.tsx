@@ -10,7 +10,7 @@ import {
   SerializedDockview,
 } from 'dockview';
 import { IconButton, Tooltip } from '@mui/material';
-import { OpenInNew as PopoutIcon } from '@mui/icons-material';
+import { PictureInPictureAlt as FloatIcon } from '@mui/icons-material';
 import { SceneHierarchyPanel } from './panels/SceneHierarchyPanel';
 import { ComponentInspectorPanel } from './panels/ComponentInspectorPanel';
 import { AnimationEditorPanel } from './panels/AnimationEditorPanel';
@@ -19,29 +19,28 @@ import { EditorProvider } from '../contexts/EditorContext';
 // Import dockview styles
 import '../styles/dockview-theme.css';
 
-// Right header actions - adds popout button to panel headers
-const RightHeaderActions: React.FC<IDockviewHeaderActionsProps> = ({ containerApi, api, group }) => {
-  const handlePopout = useCallback(() => {
-    // Get all panels in this group and move to popout
-    const panels = group.panels;
-    if (panels.length > 0) {
-      // Use the dockview API to create a popout window
-      containerApi.addPopoutGroup(group);
-    }
+// Right header actions - adds float button to panel headers
+const RightHeaderActions: React.FC<IDockviewHeaderActionsProps> = ({ containerApi, group }) => {
+  const handleFloat = useCallback(() => {
+    // Convert this group to a floating group within the same window
+    containerApi.addFloatingGroup(group, {
+      width: 500,
+      height: 400,
+    });
   }, [containerApi, group]);
 
   return (
-    <Tooltip title="Open in new window">
+    <Tooltip title="Float panel">
       <IconButton
         size="small"
-        onClick={handlePopout}
+        onClick={handleFloat}
         sx={{
           color: '#cccccc',
           padding: '2px',
           '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
         }}
       >
-        <PopoutIcon fontSize="small" sx={{ fontSize: 16 }} />
+        <FloatIcon fontSize="small" sx={{ fontSize: 16 }} />
       </IconButton>
     </Tooltip>
   );
@@ -210,8 +209,6 @@ const EditorLayoutContent: React.FC = () => {
           onReady={onReady}
           className="dockview-theme-dark"
           disableFloatingGroups={false}
-          floatingGroupBounds="boundedWithinViewport"
-          popoutUrl="/popout.html"
           rightHeaderActionsComponent={RightHeaderActions}
         />
       </div>
