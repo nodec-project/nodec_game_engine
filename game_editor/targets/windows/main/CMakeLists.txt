@@ -14,10 +14,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     src/editor_windows/scene_view_window.cpp
     src/editor_windows/geometry_buffer_inspector_window.cpp
     src/scene_gizmo_renderer.cpp
-    src/animation/animation_edit_session_simple.cpp
-    src/animation/animation_session_manager.cpp
-    src/animation/animation_preview_controller.cpp
-    src/animation/curve_edit_history.cpp
+    src/editor_server/editor_server.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

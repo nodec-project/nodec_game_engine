@@ -30,6 +30,7 @@ import {
   gameEngineAPI,
   AnimationCurve,
   AnimationClipResponse,
+  AnimatedEntityChild,
   Keyframe,
 } from '../../api/gameEngine';
 import { CurveViewer, CurveData } from '../animation/CurveViewer';
@@ -307,6 +308,272 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     setTabValue(1);
   }, [animState]);
 
+  // Remove entity from animation hierarchy
+  const handleRemoveEntity = useCallback((entityPath: string) => {
+    if (!animState) return;
+
+    // Helper to remove entity from children array by path
+    const removeFromChildren = (
+      children: AnimatedEntityChild[],
+      pathParts: string[]
+    ): AnimatedEntityChild[] => {
+      if (pathParts.length === 0) return children;
+
+      const [currentName, ...restPath] = pathParts;
+
+      if (restPath.length === 0) {
+        // Remove the entity at this level
+        return children.filter(child => child.key !== currentName);
+      }
+
+      // Recurse into child
+      return children.map(child => {
+        if (child.key !== currentName) return child;
+        return {
+          ...child,
+          value: {
+            ...child.value,
+            children: removeFromChildren(child.value.children, restPath),
+          },
+        };
+      });
+    };
+
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    const newClipData: AnimationClipResponse = {
+      clip: {
+        root_entity: {
+          ...animState.clipData.clip.root_entity,
+          children: removeFromChildren(animState.clipData.clip.root_entity.children, pathParts),
+        },
+      },
+    };
+
+    // Re-flatten curves
+    const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
+    const newDuration = gameEngineAPI.getClipDuration(newCurves);
+
+    // Update selected curves - remove any that belonged to the removed entity
+    const curveKeys = new Set(newCurves.map(c => getCurveKey(c)));
+    setSelectedCurves(prev => {
+      const next = new Set<string>();
+      prev.forEach(key => {
+        if (curveKeys.has(key)) next.add(key);
+      });
+      return next;
+    });
+
+    setAnimState({
+      ...animState,
+      clipData: newClipData,
+      curves: newCurves,
+      duration: newDuration,
+    });
+
+    // Clear selection if removed entity was selected
+    if (selectedHierarchyNode?.entityPath.startsWith(entityPath)) {
+      setSelectedHierarchyNode(null);
+    }
+  }, [animState, selectedHierarchyNode]);
+
+  // Remove component from an entity in the animation hierarchy
+  const handleRemoveComponent = useCallback((entityPath: string, componentIndex: number) => {
+    if (!animState) return;
+
+    // Helper to update entity's components
+    const updateEntityComponents = (
+      children: AnimatedEntityChild[],
+      pathParts: string[],
+      compIndex: number
+    ): AnimatedEntityChild[] => {
+      if (pathParts.length === 0) return children;
+
+      const [currentName, ...restPath] = pathParts;
+
+      return children.map(child => {
+        if (child.key !== currentName) return child;
+
+        if (restPath.length === 0) {
+          // Remove component at this entity
+          return {
+            ...child,
+            value: {
+              ...child.value,
+              components: child.value.components.filter((_, idx) => idx !== compIndex),
+            },
+          };
+        }
+
+        // Recurse
+        return {
+          ...child,
+          value: {
+            ...child.value,
+            children: updateEntityComponents(child.value.children, restPath, compIndex),
+          },
+        };
+      });
+    };
+
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    let newClipData: AnimationClipResponse;
+
+    if (pathParts.length === 0) {
+      // Removing from root entity
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            components: animState.clipData.clip.root_entity.components.filter((_, idx) => idx !== componentIndex),
+          },
+        },
+      };
+    } else {
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            children: updateEntityComponents(animState.clipData.clip.root_entity.children, pathParts, componentIndex),
+          },
+        },
+      };
+    }
+
+    // Re-flatten curves
+    const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
+    const newDuration = gameEngineAPI.getClipDuration(newCurves);
+
+    // Update selected curves
+    const curveKeys = new Set(newCurves.map(c => getCurveKey(c)));
+    setSelectedCurves(prev => {
+      const next = new Set<string>();
+      prev.forEach(key => {
+        if (curveKeys.has(key)) next.add(key);
+      });
+      return next;
+    });
+
+    setAnimState({
+      ...animState,
+      clipData: newClipData,
+      curves: newCurves,
+      duration: newDuration,
+    });
+
+    // Clear selection if removed component was selected
+    if (selectedHierarchyNode?.entityPath === entityPath && selectedHierarchyNode?.componentIndex === componentIndex) {
+      setSelectedHierarchyNode(null);
+    }
+  }, [animState, selectedHierarchyNode]);
+
+  // Remove property from a component in the animation hierarchy
+  const handleRemoveProperty = useCallback((entityPath: string, componentIndex: number, propertyKey: string) => {
+    if (!animState) return;
+
+    // Helper to update component's properties
+    const updateComponentProperties = (
+      children: AnimatedEntityChild[],
+      pathParts: string[],
+      compIndex: number,
+      propKey: string
+    ): AnimatedEntityChild[] => {
+      if (pathParts.length === 0) return children;
+
+      const [currentName, ...restPath] = pathParts;
+
+      return children.map(child => {
+        if (child.key !== currentName) return child;
+
+        if (restPath.length === 0) {
+          // Update properties at this entity's component
+          return {
+            ...child,
+            value: {
+              ...child.value,
+              components: child.value.components.map((comp, idx) => {
+                if (idx !== compIndex) return comp;
+                return {
+                  ...comp,
+                  properties: comp.properties.filter(p => p.key !== propKey),
+                };
+              }),
+            },
+          };
+        }
+
+        // Recurse
+        return {
+          ...child,
+          value: {
+            ...child.value,
+            children: updateComponentProperties(child.value.children, restPath, compIndex, propKey),
+          },
+        };
+      });
+    };
+
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    let newClipData: AnimationClipResponse;
+
+    if (pathParts.length === 0) {
+      // Removing from root entity's component
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            components: animState.clipData.clip.root_entity.components.map((comp, idx) => {
+              if (idx !== componentIndex) return comp;
+              return {
+                ...comp,
+                properties: comp.properties.filter(p => p.key !== propertyKey),
+              };
+            }),
+          },
+        },
+      };
+    } else {
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            children: updateComponentProperties(animState.clipData.clip.root_entity.children, pathParts, componentIndex, propertyKey),
+          },
+        },
+      };
+    }
+
+    // Re-flatten curves
+    const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
+    const newDuration = gameEngineAPI.getClipDuration(newCurves);
+
+    // Update selected curves
+    const curveKeys = new Set(newCurves.map(c => getCurveKey(c)));
+    setSelectedCurves(prev => {
+      const next = new Set<string>();
+      prev.forEach(key => {
+        if (curveKeys.has(key)) next.add(key);
+      });
+      return next;
+    });
+
+    setAnimState({
+      ...animState,
+      clipData: newClipData,
+      curves: newCurves,
+      duration: newDuration,
+    });
+
+    // Clear selection if removed property was selected
+    if (selectedHierarchyNode?.entityPath === entityPath &&
+        selectedHierarchyNode?.componentIndex === componentIndex &&
+        selectedHierarchyNode?.propertyKey === propertyKey) {
+      setSelectedHierarchyNode(null);
+    }
+  }, [animState, selectedHierarchyNode]);
+
   return (
     <Paper
       sx={{
@@ -475,6 +742,9 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                     selectedNode={selectedHierarchyNode}
                     onSelectNode={setSelectedHierarchyNode}
                     onAddEntity={() => setEntityPickerOpen(true)}
+                    onRemoveEntity={handleRemoveEntity}
+                    onRemoveComponent={handleRemoveComponent}
+                    onRemoveProperty={handleRemoveProperty}
                   />
                 </Box>
               )}
