@@ -125,9 +125,6 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   if (!entityId) {
     return (
       <Paper sx={{ height: '100%', p: 2 }}>
-        <Typography variant="h6" component="h2" gutterBottom>
-          Component Inspector
-        </Typography>
         <Alert severity="info">
           Select an entity to view its components
         </Alert>
@@ -137,21 +134,16 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="h6" component="h2">
-          Component Inspector
-        </Typography>
-        {entityDetails && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Entity: {entityDetails.name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              ID: {entityDetails.id}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+      {entityDetails && (
+        <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Entity: {entityDetails.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            ID: {entityDetails.id}
+          </Typography>
+        </Box>
+      )}
 
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
         {loading && (

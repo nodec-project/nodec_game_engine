@@ -317,12 +317,6 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <AnimationIcon />
-        <Typography variant="h6" component="h2">
-          Animation Editor
-        </Typography>
-      </Box>
 
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>

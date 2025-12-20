@@ -209,22 +209,13 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" component="h2">
-            Scene Hierarchy
-          </Typography>
-          <IconButton onClick={fetchRootEntities} disabled={loading} size="small">
-            <RefreshIcon />
-          </IconButton>
-        </Box>
-        
-        {/* Connection Status */}
-        <Box sx={{ mt: 1 }}>
-          <Typography variant="caption" color={engineConnected ? 'success.main' : 'error.main'}>
-            Engine: {engineConnected ? 'Connected' : 'Disconnected'}
-          </Typography>
-        </Box>
+      <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption" color={engineConnected ? 'success.main' : 'error.main'}>
+          Engine: {engineConnected ? 'Connected' : 'Disconnected'}
+        </Typography>
+        <IconButton onClick={fetchRootEntities} disabled={loading} size="small">
+          <RefreshIcon />
+        </IconButton>
       </Box>
 
       <Box sx={{ flex: 1, overflow: 'auto' }}>
