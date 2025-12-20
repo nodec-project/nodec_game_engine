@@ -40,34 +40,55 @@ export interface Keyframe {
   value: number;
 }
 
-// Animation curve data
+// Animation curve data (from .anim file format)
+export interface AnimationCurveData {
+  wrap_mode: number;
+  keyframes: Keyframe[];
+}
+
+// Animated property in clip
+export interface AnimatedProperty {
+  key: string;  // property path like "position.x", "rotation.z"
+  value: {
+    curve: AnimationCurveData;
+  };
+}
+
+// Animated component in clip
+export interface AnimatedComponentData {
+  placeholder: {
+    type_info: {
+      seq_index: number;
+    };
+  };
+  properties: AnimatedProperty[];
+}
+
+// Animated entity child in clip
+export interface AnimatedEntityChild {
+  key: string;  // entity name
+  value: {
+    components: AnimatedComponentData[];
+    children: AnimatedEntityChild[];
+  };
+}
+
+// AnimationClip resource response from /api/resources/animation_clip/*
+export interface AnimationClipResponse {
+  clip: {
+    root_entity: {
+      components: AnimatedComponentData[];
+      children: AnimatedEntityChild[];
+    };
+  };
+}
+
+// Flattened curve for UI display
 export interface AnimationCurve {
+  entityPath: string;
   propertyPath: string;
   keyframes: Keyframe[];
-  wrapMode: string;
-}
-
-// Available properties for animation
-export interface AnimatableProperty {
-  componentType: string;
-  componentName: string;
-  properties: string[];
-}
-
-// Response from /api/animations/editing-context
-export interface AnimationEditingContext {
-  hasAnimator: boolean;
-  entityId: number;
-  entityName: string;
-  error?: string;
-  hasClip?: boolean;
-  clipPath?: string | null;
-  clipData?: {
-    duration: number;
-    curveCount: number;
-    curves: AnimationCurve[];
-    availableProperties: AnimatableProperty[];
-  } | null;
+  wrapMode: number;
 }
 
 const API_BASE_URL = 'http://localhost:8080';
@@ -161,11 +182,12 @@ export class GameEngineAPI {
   }
 
   /**
-   * Get animation editing context for an entity with Animator component
+   * Get a resource by type and name
    */
-  async getAnimationEditingContext(entityId: string): Promise<AnimationEditingContext> {
+  async getResource<T>(resourceType: string, resourceName: string): Promise<T> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/animations/editing-context?entityId=${entityId}`, {
+      console.log(`${API_BASE_URL}/api/resources/${resourceType}/${resourceName}`)
+      const response = await fetch(`${API_BASE_URL}/api/resources/${resourceType}/${resourceName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -179,9 +201,111 @@ export class GameEngineAPI {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error(`Failed to fetch animation editing context for entity ${entityId}:`, error);
+      console.error(`Failed to fetch resource ${resourceType}/${resourceName}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Get an animation clip by resource name
+   */
+  async getAnimationClip(clipName: string): Promise<AnimationClipResponse> {
+    return this.getResource<AnimationClipResponse>('animation_clip', clipName);
+  }
+
+  /**
+   * Helper: Flatten AnimationClip into a list of curves for UI display
+   */
+  flattenAnimationClip(clip: AnimationClipResponse): AnimationCurve[] {
+    const curves: AnimationCurve[] = [];
+
+    const processEntity = (
+      entity: { components: AnimatedComponentData[]; children: AnimatedEntityChild[] },
+      entityPath: string
+    ) => {
+      // Process components in this entity
+      for (const component of entity.components) {
+        for (const prop of component.properties) {
+          curves.push({
+            entityPath,
+            propertyPath: prop.key,
+            keyframes: prop.value.curve.keyframes,
+            wrapMode: prop.value.curve.wrap_mode,
+          });
+        }
+      }
+
+      // Process children recursively
+      for (const child of entity.children) {
+        const childPath = entityPath ? `${entityPath}/${child.key}` : child.key;
+        processEntity(child.value, childPath);
+      }
+    };
+
+    processEntity(clip.clip.root_entity, '');
+    return curves;
+  }
+
+  /**
+   * Helper: Calculate clip duration from curves
+   */
+  getClipDuration(curves: AnimationCurve[]): number {
+    let maxTime = 0;
+    for (const curve of curves) {
+      for (const kf of curve.keyframes) {
+        if (kf.time > maxTime) {
+          maxTime = kf.time;
+        }
+      }
+    }
+    return maxTime;
+  }
+
+  /**
+   * Helper: Find animator clip name from entity components
+   * Returns null if no animator or no clip assigned
+   *
+   * Component structure from API:
+   * {
+   *   type_index: number,
+   *   data: {
+   *     component: {
+   *       polymorphic_name: "nodec_animation::components::SerializableAnimator",
+   *       ptr_wrapper: {
+   *         valid: 1,
+   *         data: {
+   *           clip: "resource_name"
+   *         }
+   *       }
+   *     }
+   *   }
+   * }
+   */
+  findAnimatorClipName(components: ComponentInfo[]): string | null {
+    for (const comp of components) {
+      if (comp.data && typeof comp.data === 'object') {
+        // Check if this is a SerializableAnimator component
+        const componentData = comp.data as {
+          component?: {
+            polymorphic_name?: string;
+            ptr_wrapper?: {
+              valid?: number;
+              data?: {
+                clip?: string;
+              };
+            };
+          };
+        };
+
+        // Check for SerializableAnimator by polymorphic_name
+        if (componentData.component?.polymorphic_name === 'nodec_animation::components::SerializableAnimator') {
+          const clipName = componentData.component.ptr_wrapper?.data?.clip;
+          // Return empty string if animator exists but no clip, or the clip name
+          return clipName ?? '';
+        }
+      }
+    }
+    return null;
   }
 
   /**

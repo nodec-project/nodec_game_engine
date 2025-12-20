@@ -2,15 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { IDockviewPanelProps } from 'dockview';
-import { 
-  Box, 
-  Typography, 
-  Alert, 
+import {
+  Box,
+  Typography,
+  Alert,
   CircularProgress,
   Paper,
   Chip,
   Divider,
-  Button,
   Tabs,
   Tab,
   List,
@@ -24,78 +23,141 @@ import {
   MovieFilter as ClipIcon,
   Warning as WarningIcon,
   Timeline as TimelineIcon,
-  Settings as PropertyIcon,
 } from '@mui/icons-material';
 import { useEditor } from '../../contexts/EditorContext';
-import { gameEngineAPI, AnimationEditingContext, AnimationCurve } from '../../api/gameEngine';
+import { gameEngineAPI, AnimationCurve } from '../../api/gameEngine';
 import { CurveViewer } from '../animation/CurveViewer';
+
+// Animation editing state
+interface AnimationState {
+  entityName: string;
+  clipName: string;
+  curves: AnimationCurve[];
+  duration: number;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface AnimationEditorPanelProps {}
 
 export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorPanelProps>> = () => {
   const { selectedEntityId } = useEditor();
-  const [context, setContext] = useState<AnimationEditingContext | null>(null);
+  const [animState, setAnimState] = useState<AnimationState | null>(null);
+  const [hasAnimator, setHasAnimator] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
   const [selectedCurves, setSelectedCurves] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(0);
-  
+
   useEffect(() => {
     if (!selectedEntityId) {
-      setContext(null);
+      setAnimState(null);
+      setHasAnimator(false);
       setError(null);
       return;
     }
-    
-    const fetchContext = async () => {
+
+    const fetchAnimationData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const animContext = await gameEngineAPI.getAnimationEditingContext(selectedEntityId);
-        setContext(animContext);
-        
-        if (animContext.error && !animContext.hasAnimator) {
-          setError(animContext.error);
+
+        // Step 1: Get entity components
+        const components = await gameEngineAPI.getEntityComponents(selectedEntityId);
+
+        // Step 2: Find animator clip name from components
+        const clipName = gameEngineAPI.findAnimatorClipName(components);
+
+        if (clipName === null) {
+          // No animator component or no clip assigned
+          setHasAnimator(false);
+          setAnimState(null);
+          setError('Entity does not have Animator component or no clip assigned');
+          return;
         }
-        
+
+        setHasAnimator(true);
+
+        if (clipName === '') {
+          // Has animator but no clip assigned
+          setAnimState(null);
+          return;
+        }
+
+        // Step 3: Fetch the animation clip resource
+        const clipResponse = await gameEngineAPI.getAnimationClip(clipName);
+        console.log(clipResponse)
+
+        // Step 4: Flatten curves for UI display
+        const curves = gameEngineAPI.flattenAnimationClip(clipResponse);
+        const duration = gameEngineAPI.getClipDuration(curves);
+
+        setAnimState({
+          entityName: `Entity_${selectedEntityId}`,
+          clipName,
+          curves,
+          duration,
+        });
+
         // Auto-select all curves initially
-        if (animContext.clipData?.curves) {
-          setSelectedCurves(new Set(animContext.clipData.curves.map(c => c.propertyPath)));
-        }
+        const curveKeys = curves.map(c => getCurveKey(c));
+        setSelectedCurves(new Set(curveKeys));
+
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch animation context');
-        setContext(null);
+        setError(err instanceof Error ? err.message : 'Failed to fetch animation data');
+        setAnimState(null);
+        setHasAnimator(false);
       } finally {
         setLoading(false);
       }
     };
-    
-    fetchContext();
+
+    fetchAnimationData();
   }, [selectedEntityId]);
-  
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+
+  // Helper to get unique key for a curve
+  const getCurveKey = (curve: AnimationCurve): string => {
+    return curve.entityPath ? `${curve.entityPath}/${curve.propertyPath}` : curve.propertyPath;
+  };
+
+  // Helper to get display name for a curve
+  const getCurveDisplayName = (curve: AnimationCurve): string => {
+    if (curve.entityPath) {
+      return `${curve.entityPath} > ${curve.propertyPath}`;
+    }
+    return curve.propertyPath;
+  };
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
-  
-  const handleCurveToggle = (propertyPath: string) => {
+
+  const handleCurveToggle = (curveKey: string) => {
     setSelectedCurves(prev => {
       const next = new Set(prev);
-      if (next.has(propertyPath)) {
-        next.delete(propertyPath);
+      if (next.has(curveKey)) {
+        next.delete(curveKey);
       } else {
-        next.add(propertyPath);
+        next.add(curveKey);
       }
       return next;
     });
   };
-  
+
   const getFilteredCurves = (): AnimationCurve[] => {
-    if (!context?.clipData?.curves) return [];
-    return context.clipData.curves.filter(c => selectedCurves.has(c.propertyPath));
+    if (!animState?.curves) return [];
+    return animState.curves.filter(c => selectedCurves.has(getCurveKey(c)));
   };
-  
+
+  // Convert AnimationCurve to the format expected by CurveViewer
+  const getCurvesForViewer = () => {
+    return getFilteredCurves().map(c => ({
+      propertyPath: getCurveDisplayName(c),
+      keyframes: c.keyframes,
+      wrapMode: String(c.wrapMode),
+    }));
+  };
+
   return (
     <Paper
       sx={{
@@ -112,13 +174,13 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
           Animation Editor
         </Typography>
       </Box>
-      
+
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
       )}
-      
+
       {!loading && !selectedEntityId && (
         <Box sx={{ p: 2 }}>
           <Alert severity="info">
@@ -126,57 +188,57 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
           </Alert>
         </Box>
       )}
-      
-      {!loading && error && (
+
+      {!loading && selectedEntityId && error && !hasAnimator && (
         <Box sx={{ p: 2 }}>
           <Alert severity="warning">
             {error}
           </Alert>
         </Box>
       )}
-      
-      {!loading && context && context.hasAnimator && (
+
+      {!loading && hasAnimator && (
         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           {/* Entity and Clip Info Bar */}
           <Box sx={{ px: 2, pb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Chip 
-                label={context.entityName} 
-                size="small" 
+              <Chip
+                label={animState?.entityName || `Entity_${selectedEntityId}`}
+                size="small"
                 icon={<AnimationIcon />}
                 variant="outlined"
               />
-              {context.hasClip && (
+              {animState && (
                 <>
-                  <Chip 
-                    label={context.clipPath || 'Clip loaded'} 
-                    size="small" 
+                  <Chip
+                    label={animState.clipName}
+                    size="small"
                     icon={<ClipIcon />}
                     variant="outlined"
                   />
-                  <Chip 
-                    label={`Duration: ${context.clipData?.duration.toFixed(2)}s`} 
-                    size="small" 
+                  <Chip
+                    label={`Duration: ${animState.duration.toFixed(2)}s`}
+                    size="small"
                     variant="outlined"
                   />
-                  <Chip 
-                    label={`Curves: ${context.clipData?.curveCount}`} 
-                    size="small" 
+                  <Chip
+                    label={`Curves: ${animState.curves.length}`}
+                    size="small"
                     variant="outlined"
                   />
                 </>
               )}
             </Box>
           </Box>
-          
+
           <Divider />
-          
-          {context.hasClip && context.clipData ? (
+
+          {animState ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <Tabs 
-                value={tabValue} 
+              <Tabs
+                value={tabValue}
                 onChange={handleTabChange}
-                sx={{ 
+                sx={{
                   borderBottom: 1,
                   borderColor: 'divider',
                   minHeight: 40,
@@ -184,14 +246,13 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                 }}
               >
                 <Tab label="Curves" icon={<TimelineIcon />} iconPosition="start" />
-                <Tab label="Properties" icon={<PropertyIcon />} iconPosition="start" />
               </Tabs>
-              
+
               {tabValue === 0 && (
                 <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                   {/* Curve Selection List */}
-                  <Paper sx={{ 
-                    width: 250, 
+                  <Paper sx={{
+                    width: 280,
                     borderRight: 1,
                     borderColor: 'divider',
                     borderRadius: 0,
@@ -202,45 +263,48 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                       Select Curves to Display
                     </Typography>
                     <List dense sx={{ flex: 1, overflow: 'auto' }}>
-                      {context.clipData.curves.map((curve, index) => (
-                        <ListItem 
-                          key={index}
-                          onClick={() => handleCurveToggle(curve.propertyPath)}
-                          sx={{ cursor: 'pointer' }}
-                        >
-                          <ListItemIcon sx={{ minWidth: 32 }}>
-                            <Checkbox
-                              edge="start"
-                              checked={selectedCurves.has(curve.propertyPath)}
-                              size="small"
+                      {animState.curves.map((curve, index) => {
+                        const curveKey = getCurveKey(curve);
+                        return (
+                          <ListItem
+                            key={index}
+                            onClick={() => handleCurveToggle(curveKey)}
+                            sx={{ cursor: 'pointer' }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                              <Checkbox
+                                edge="start"
+                                checked={selectedCurves.has(curveKey)}
+                                size="small"
+                              />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={getCurveDisplayName(curve)}
+                              primaryTypographyProps={{ fontSize: '0.875rem' }}
+                              secondary={`${curve.keyframes.length} keys`}
+                              secondaryTypographyProps={{ fontSize: '0.75rem' }}
                             />
-                          </ListItemIcon>
-                          <ListItemText 
-                            primary={curve.propertyPath}
-                            primaryTypographyProps={{ fontSize: '0.875rem' }}
-                            secondary={`${curve.keyframes.length} keys`}
-                            secondaryTypographyProps={{ fontSize: '0.75rem' }}
-                          />
-                        </ListItem>
-                      ))}
+                          </ListItem>
+                        );
+                      })}
                     </List>
                   </Paper>
-                  
+
                   {/* Curve Viewer */}
                   <Box sx={{ flex: 1, p: 2 }}>
                     {getFilteredCurves().length > 0 ? (
                       <CurveViewer
-                        curves={getFilteredCurves()}
-                        duration={context.clipData.duration}
+                        curves={getCurvesForViewer()}
+                        duration={animState.duration}
                         currentTime={currentTime}
                         onTimeChange={setCurrentTime}
                       />
                     ) : (
-                      <Box 
-                        sx={{ 
-                          height: '100%', 
-                          display: 'flex', 
-                          alignItems: 'center', 
+                      <Box
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
                           justifyContent: 'center',
                           border: '2px dashed',
                           borderColor: 'divider',
@@ -255,39 +319,11 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                   </Box>
                 </Box>
               )}
-              
-              {tabValue === 1 && (
-                <Box sx={{ p: 2, overflow: 'auto' }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Available Properties for Animation
-                  </Typography>
-                  {context.clipData.availableProperties.length > 0 ? (
-                    <List>
-                      {context.clipData.availableProperties.map((prop, index) => (
-                        <ListItem key={index}>
-                          <ListItemText
-                            primary={prop.componentName}
-                            secondary={
-                              prop.properties.length > 0 
-                                ? `Properties: ${prop.properties.join(', ')}`
-                                : 'No animatable properties detected'
-                            }
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  ) : (
-                    <Alert severity="info">
-                      No animatable properties found. Properties will be populated when property reflection is implemented.
-                    </Alert>
-                  )}
-                </Box>
-              )}
             </Box>
           ) : (
             <Box sx={{ p: 2, flex: 1 }}>
-              <Alert 
-                severity="info" 
+              <Alert
+                severity="info"
                 icon={<WarningIcon />}
               >
                 No animation clip assigned to this Animator
