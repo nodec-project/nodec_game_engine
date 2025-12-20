@@ -54,13 +54,19 @@ export interface AnimatedProperty {
   };
 }
 
+// Animated component placeholder (cereal polymorphic format)
+export interface AnimatedComponentPlaceholder {
+  polymorphic_id: number;
+  polymorphic_name?: string;  // Optional - may not be present for some types
+  ptr_wrapper: {
+    valid: number;
+    data: Record<string, unknown>;
+  };
+}
+
 // Animated component in clip
 export interface AnimatedComponentData {
-  placeholder: {
-    type_info: {
-      seq_index: number;
-    };
-  };
+  placeholder: AnimatedComponentPlaceholder;
   properties: AnimatedProperty[];
 }
 

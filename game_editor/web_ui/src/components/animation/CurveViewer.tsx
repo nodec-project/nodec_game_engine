@@ -1,39 +1,117 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
-import { Box, Typography, Paper, Chip, IconButton, Tooltip } from '@mui/material';
-import { ZoomIn, ZoomOut, FitScreen, PlayArrow, Pause } from '@mui/icons-material';
-import { AnimationCurve, Keyframe } from '../../api/gameEngine';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Box, Typography, IconButton, Tooltip } from '@mui/material';
+import { ZoomIn, ZoomOut, FitScreen, PlayArrow, Pause, Add, Delete } from '@mui/icons-material';
 
-interface CurveViewerProps {
-  curves: AnimationCurve[];
-  duration: number;
-  currentTime?: number;
-  onTimeChange?: (time: number) => void;
+// Keyframe data
+interface Keyframe {
+  time: number;
+  value: number;
 }
 
-export const CurveViewer: React.FC<CurveViewerProps> = ({ 
-  curves, 
-  duration, 
+// Curve data for display
+export interface CurveData {
+  id: string; // Unique identifier for the curve
+  propertyPath: string;
+  keyframes: Keyframe[];
+  wrapMode: number;
+}
+
+// Selected keyframe info
+interface SelectedKeyframe {
+  curveId: string;
+  keyframeIndex: number;
+}
+
+interface CurveViewerProps {
+  curves: CurveData[];
+  duration: number;
+  currentTime?: number;
+  editable?: boolean;
+  onTimeChange?: (time: number) => void;
+  onKeyframeUpdate?: (curveId: string, keyframeIndex: number, keyframe: Keyframe) => void;
+  onKeyframeAdd?: (curveId: string, keyframe: Keyframe) => void;
+  onKeyframeDelete?: (curveId: string, keyframeIndex: number) => void;
+}
+
+export const CurveViewer: React.FC<CurveViewerProps> = ({
+  curves,
+  duration,
   currentTime = 0,
-  onTimeChange 
+  editable = false,
+  onTimeChange,
+  onKeyframeUpdate,
+  onKeyframeAdd,
+  onKeyframeDelete,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [selectedCurve, setSelectedCurve] = useState<number | null>(null);
+  const [selectedCurveIndex, setSelectedCurveIndex] = useState<number | null>(null);
+  const [selectedKeyframe, setSelectedKeyframe] = useState<SelectedKeyframe | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isAddMode, setIsAddMode] = useState(false);
   const animationRef = useRef<number>();
 
-  // Colors for different curves
-  const curveColors = [
-    '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', 
+  // Colors for different curves (stable reference)
+  const curveColors = React.useMemo(() => [
+    '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24',
     '#f0932b', '#eb4d4b', '#6ab04c', '#130f40'
-  ];
+  ], []);
+
+  // Convert canvas coordinates to time/value
+  const canvasToTimeValue = useCallback((canvasX: number, canvasY: number, canvas: HTMLCanvasElement) => {
+    const timeScale = (canvas.width - 100) / duration * zoom;
+    const valueScale = 100 * zoom;
+    const centerY = canvas.height / 2;
+
+    const time = (canvasX - 50 - offset.x) / timeScale;
+    const value = (centerY - canvasY + offset.y) / valueScale;
+
+    return { time: Math.max(0, time), value };
+  }, [duration, zoom, offset]);
+
+  // Convert time/value to canvas coordinates
+  const timeValueToCanvas = useCallback((time: number, value: number, canvas: HTMLCanvasElement) => {
+    const timeScale = (canvas.width - 100) / duration * zoom;
+    const valueScale = 100 * zoom;
+    const centerY = canvas.height / 2;
+
+    const x = 50 + time * timeScale + offset.x;
+    const y = centerY - value * valueScale + offset.y;
+
+    return { x, y };
+  }, [duration, zoom, offset]);
+
+  // Find keyframe at position
+  const findKeyframeAtPosition = useCallback((canvasX: number, canvasY: number): SelectedKeyframe | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const hitRadius = 8;
+
+    for (let curveIdx = 0; curveIdx < curves.length; curveIdx++) {
+      const curve = curves[curveIdx];
+      for (let kfIdx = 0; kfIdx < curve.keyframes.length; kfIdx++) {
+        const kf = curve.keyframes[kfIdx];
+        const { x, y } = timeValueToCanvas(kf.time, kf.value, canvas);
+
+        const dx = canvasX - x;
+        const dy = canvasY - y;
+        if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
+          return { curveId: curve.id, keyframeIndex: kfIdx };
+        }
+      }
+    }
+    return null;
+  }, [curves, timeValueToCanvas]);
 
   // Draw the curves on canvas
-  const drawCurves = () => {
+  const drawCurves = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -42,7 +120,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Fill background
     ctx.fillStyle = '#fafafa';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -51,14 +129,14 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     ctx.strokeStyle = '#e0e0e0';
     ctx.lineWidth = 0.5;
     const gridSize = 50 * zoom;
-    
+
     for (let x = 0; x < canvas.width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
-    
+
     for (let y = 0; y < canvas.height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -78,36 +156,49 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
 
     // Draw curves
     curves.forEach((curve, index) => {
-      if (curve.keyframes.length < 2) return;
+      if (curve.keyframes.length < 1) return;
 
-      ctx.strokeStyle = curveColors[index % curveColors.length];
-      ctx.lineWidth = selectedCurve === index ? 3 : 2;
-      ctx.globalAlpha = selectedCurve === null || selectedCurve === index ? 1 : 0.3;
+      const color = curveColors[index % curveColors.length];
+      ctx.strokeStyle = color;
+      ctx.lineWidth = selectedCurveIndex === index ? 3 : 2;
+      ctx.globalAlpha = selectedCurveIndex === null || selectedCurveIndex === index ? 1 : 0.3;
 
-      ctx.beginPath();
-      
-      // Convert keyframes to canvas coordinates
-      const timeScale = (canvas.width - 100) / duration * zoom;
-      const valueScale = 100 * zoom;
-      const centerY = canvas.height / 2;
+      // Draw curve line
+      if (curve.keyframes.length >= 2) {
+        ctx.beginPath();
+        curve.keyframes.forEach((keyframe, i) => {
+          const { x, y } = timeValueToCanvas(keyframe.time, keyframe.value, canvas);
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+      }
 
-      curve.keyframes.forEach((keyframe, i) => {
-        const x = 50 + keyframe.time * timeScale + offset.x;
-        const y = centerY - keyframe.value * valueScale + offset.y;
+      // Draw keyframe points
+      curve.keyframes.forEach((keyframe, kfIndex) => {
+        const { x, y } = timeValueToCanvas(keyframe.time, keyframe.value, canvas);
+        const isSelected = selectedKeyframe?.curveId === curve.id && selectedKeyframe?.keyframeIndex === kfIndex;
 
-        if (i === 0) {
-          ctx.moveTo(x, y);
+        // Draw keyframe marker
+        ctx.fillStyle = isSelected ? '#fff' : color;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isSelected ? 3 : 2;
+
+        ctx.beginPath();
+        if (isSelected) {
+          // Draw larger circle for selected keyframe
+          ctx.arc(x, y, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
         } else {
-          // Linear interpolation for now
-          ctx.lineTo(x, y);
+          // Draw square for normal keyframe
+          ctx.fillRect(x - 4, y - 4, 8, 8);
         }
-
-        // Draw keyframe point
-        ctx.fillStyle = ctx.strokeStyle;
-        ctx.fillRect(x - 3, y - 3, 6, 6);
       });
 
-      ctx.stroke();
       ctx.globalAlpha = 1;
     });
 
@@ -115,7 +206,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     if (currentTime >= 0 && currentTime <= duration) {
       const timeScale = (canvas.width - 100) / duration * zoom;
       const x = 50 + currentTime * timeScale + offset.x;
-      
+
       ctx.strokeStyle = '#ffd700';
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
@@ -129,45 +220,49 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     // Draw time labels
     ctx.fillStyle = '#616161';
     ctx.font = '12px monospace';
-    const timeStep = duration / 10;
+    const timeStep = Math.max(duration / 10, 0.1);
     for (let t = 0; t <= duration; t += timeStep) {
       const x = 50 + t * (canvas.width - 100) / duration * zoom + offset.x;
       ctx.fillText(t.toFixed(1) + 's', x - 15, canvas.height - 5);
     }
-  };
+
+    // Draw add mode indicator
+    if (isAddMode) {
+      ctx.fillStyle = 'rgba(76, 175, 80, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#4caf50';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('Click to add keyframe', 10, 20);
+    }
+  }, [curves, zoom, offset, selectedCurveIndex, selectedKeyframe, currentTime, duration, timeValueToCanvas, isAddMode, curveColors]);
 
   useEffect(() => {
     drawCurves();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [curves, zoom, offset, selectedCurve, currentTime]);
+  }, [drawCurves]);
 
   // Handle canvas resize
   useEffect(() => {
     const handleResize = () => {
-      if (canvasRef.current) {
-        const container = canvasRef.current.parentElement;
-        if (container) {
-          canvasRef.current.width = container.clientWidth;
-          canvasRef.current.height = container.clientHeight;
-          drawCurves();
-        }
+      if (canvasRef.current && containerRef.current) {
+        canvasRef.current.width = containerRef.current.clientWidth;
+        canvasRef.current.height = containerRef.current.clientHeight;
+        drawCurves();
       }
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [drawCurves]);
 
   // Animation playback
   useEffect(() => {
     if (isPlaying) {
       let lastTime = performance.now();
-      const animate = (currentTime: number) => {
-        const deltaTime = (currentTime - lastTime) / 1000;
-        lastTime = currentTime;
-        
+      const animate = (time: number) => {
+        const deltaTime = (time - lastTime) / 1000;
+        lastTime = time;
+
         setPlaybackTime(prev => {
           const newTime = prev + deltaTime;
           if (newTime >= duration) {
@@ -177,25 +272,125 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
           onTimeChange?.(newTime);
           return newTime;
         });
-        
+
         if (isPlaying) {
           animationRef.current = requestAnimationFrame(animate);
         }
       };
-      
+
       animationRef.current = requestAnimationFrame(animate);
     } else {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     }
-    
+
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
   }, [isPlaying, duration, onTimeChange]);
+
+  // Handle keyboard events
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!editable) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedKeyframe && onKeyframeDelete) {
+          onKeyframeDelete(selectedKeyframe.curveId, selectedKeyframe.keyframeIndex);
+          setSelectedKeyframe(null);
+        }
+      } else if (e.key === 'Escape') {
+        setSelectedKeyframe(null);
+        setIsAddMode(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editable, selectedKeyframe, onKeyframeDelete]);
+
+  // Mouse event handlers
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+
+    if (editable && isAddMode && selectedCurveIndex !== null) {
+      // Add mode: add keyframe to selected curve
+      const { time, value } = canvasToTimeValue(canvasX, canvasY, canvas);
+      const curve = curves[selectedCurveIndex];
+      if (curve && onKeyframeAdd) {
+        onKeyframeAdd(curve.id, { time, value });
+      }
+      setIsAddMode(false);
+      return;
+    }
+
+    // Check if clicking on a keyframe
+    const hit = findKeyframeAtPosition(canvasX, canvasY);
+    if (hit) {
+      setSelectedKeyframe(hit);
+      if (editable) {
+        setIsDragging(true);
+      }
+    } else {
+      setSelectedKeyframe(null);
+      // Click on timeline to set time
+      if (onTimeChange) {
+        const { time } = canvasToTimeValue(canvasX, canvasY, canvas);
+        onTimeChange(Math.min(duration, time));
+        setPlaybackTime(Math.min(duration, time));
+      }
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging || !selectedKeyframe || !editable) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+
+    const { time, value } = canvasToTimeValue(canvasX, canvasY, canvas);
+
+    if (onKeyframeUpdate) {
+      onKeyframeUpdate(selectedKeyframe.curveId, selectedKeyframe.keyframeIndex, {
+        time: Math.max(0, time),
+        value
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!editable || selectedCurveIndex === null) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+
+    // Add keyframe at double-click position
+    const { time, value } = canvasToTimeValue(canvasX, canvasY, canvas);
+    const curve = curves[selectedCurveIndex];
+    if (curve && onKeyframeAdd) {
+      onKeyframeAdd(curve.id, { time: Math.max(0, time), value });
+    }
+  };
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
   const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.2));
@@ -204,104 +399,141 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     setOffset({ x: 0, y: 0 });
   };
 
+  const handleDeleteKeyframe = () => {
+    if (selectedKeyframe && onKeyframeDelete) {
+      onKeyframeDelete(selectedKeyframe.curveId, selectedKeyframe.keyframeIndex);
+      setSelectedKeyframe(null);
+    }
+  };
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Toolbar */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 1, 
-        p: 1, 
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        p: 1,
         borderBottom: 1,
         borderColor: 'divider'
       }}>
         <Typography variant="caption" sx={{ mr: 2 }}>
           Curves: {curves.length}
         </Typography>
-        
+
         <Tooltip title="Play">
           <IconButton size="small" onClick={() => setIsPlaying(!isPlaying)}>
             {isPlaying ? <Pause /> : <PlayArrow />}
           </IconButton>
         </Tooltip>
-        
+
         <Tooltip title="Zoom In">
           <IconButton size="small" onClick={handleZoomIn}>
             <ZoomIn />
           </IconButton>
         </Tooltip>
-        
+
         <Tooltip title="Zoom Out">
           <IconButton size="small" onClick={handleZoomOut}>
             <ZoomOut />
           </IconButton>
         </Tooltip>
-        
+
         <Tooltip title="Fit to Screen">
           <IconButton size="small" onClick={handleFitScreen}>
             <FitScreen />
           </IconButton>
         </Tooltip>
-        
-        <Typography variant="caption" sx={{ ml: 2 }}>
+
+        {editable && (
+          <>
+            <Box sx={{ width: 1, height: 20, borderLeft: 1, borderColor: 'divider', mx: 1 }} />
+            <Tooltip title="Add Keyframe (select curve first, then click)">
+              <IconButton
+                size="small"
+                onClick={() => setIsAddMode(!isAddMode)}
+                color={isAddMode ? 'primary' : 'default'}
+                disabled={selectedCurveIndex === null}
+              >
+                <Add />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete Selected Keyframe">
+              <IconButton
+                size="small"
+                onClick={handleDeleteKeyframe}
+                disabled={selectedKeyframe === null}
+                color="error"
+              >
+                <Delete />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
+
+        <Typography variant="caption" sx={{ ml: 'auto' }}>
           Time: {playbackTime.toFixed(2)}s / {duration.toFixed(2)}s
         </Typography>
+
+        {selectedKeyframe && (
+          <Typography variant="caption" sx={{ ml: 2, color: 'primary.main' }}>
+            Selected: keyframe {selectedKeyframe.keyframeIndex}
+          </Typography>
+        )}
       </Box>
 
       {/* Canvas */}
-      <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <Box ref={containerRef} sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <canvas
           ref={canvasRef}
           style={{
             width: '100%',
             height: '100%',
-            cursor: 'crosshair'
+            cursor: isDragging ? 'grabbing' : isAddMode ? 'cell' : 'crosshair'
           }}
-          onClick={(e) => {
-            const rect = canvasRef.current?.getBoundingClientRect();
-            if (rect && onTimeChange) {
-              const x = e.clientX - rect.left - 50;
-              const timeScale = (rect.width - 100) / duration * zoom;
-              const time = Math.max(0, Math.min(duration, x / timeScale));
-              onTimeChange(time);
-              setPlaybackTime(time);
-            }
-          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onDoubleClick={handleDoubleClick}
         />
       </Box>
 
       {/* Curve List */}
-      <Box sx={{ 
-        p: 1, 
+      <Box sx={{
+        p: 1,
         borderTop: 1,
         borderColor: 'divider',
-        maxHeight: 150,
+        maxHeight: 100,
         overflow: 'auto'
       }}>
-        <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
-          Property Curves:
+        <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+          Select curve to edit:
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {curves.map((curve, index) => (
-            <Chip
-              key={index}
-              label={curve.propertyPath}
-              size="small"
+            <Box
+              key={curve.id}
+              onClick={() => setSelectedCurveIndex(selectedCurveIndex === index ? null : index)}
               sx={{
-                backgroundColor: selectedCurve === index ? 
-                  curveColors[index % curveColors.length] : 'transparent',
-                color: selectedCurve === index ? '#fff' : 'text.primary',
-                borderColor: curveColors[index % curveColors.length],
+                px: 1,
+                py: 0.5,
+                fontSize: '0.75rem',
+                borderRadius: 1,
                 cursor: 'pointer',
+                backgroundColor: selectedCurveIndex === index ?
+                  curveColors[index % curveColors.length] : 'transparent',
+                color: selectedCurveIndex === index ? '#fff' : 'text.primary',
+                border: `2px solid ${curveColors[index % curveColors.length]}`,
                 '&:hover': {
                   backgroundColor: curveColors[index % curveColors.length],
                   color: '#fff',
                   opacity: 0.8
                 }
               }}
-              variant="outlined"
-              onClick={() => setSelectedCurve(selectedCurve === index ? null : index)}
-            />
+            >
+              {curve.propertyPath} ({curve.keyframes.length} keys)
+            </Box>
           ))}
         </Box>
       </Box>

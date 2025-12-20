@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { IDockviewPanelProps } from 'dockview';
 import {
   Box,
@@ -23,16 +23,25 @@ import {
   MovieFilter as ClipIcon,
   Warning as WarningIcon,
   Timeline as TimelineIcon,
+  AccountTree as HierarchyIcon,
 } from '@mui/icons-material';
 import { useEditor } from '../../contexts/EditorContext';
-import { gameEngineAPI, AnimationCurve } from '../../api/gameEngine';
-import { CurveViewer } from '../animation/CurveViewer';
+import {
+  gameEngineAPI,
+  AnimationCurve,
+  AnimationClipResponse,
+  Keyframe,
+} from '../../api/gameEngine';
+import { CurveViewer, CurveData } from '../animation/CurveViewer';
+import { AnimationHierarchyEditor, SelectedNode } from '../animation/AnimationHierarchyEditor';
+import { EntityPickerDialog } from '../animation/EntityPickerDialog';
 
-// Animation editing state
+// Animation editing state - stores full clip for mutation
 interface AnimationState {
   entityName: string;
   clipName: string;
-  curves: AnimationCurve[];
+  clipData: AnimationClipResponse;  // Full clip data for mutations
+  curves: AnimationCurve[];         // Flattened curves for display
   duration: number;
 }
 
@@ -48,6 +57,8 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
   const [tabValue, setTabValue] = useState(0);
   const [selectedCurves, setSelectedCurves] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(0);
+  const [selectedHierarchyNode, setSelectedHierarchyNode] = useState<SelectedNode | null>(null);
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!selectedEntityId) {
@@ -86,7 +97,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
 
         // Step 3: Fetch the animation clip resource
         const clipResponse = await gameEngineAPI.getAnimationClip(clipName);
-        console.log(clipResponse)
+        console.log(clipResponse);
 
         // Step 4: Flatten curves for UI display
         const curves = gameEngineAPI.flattenAnimationClip(clipResponse);
@@ -95,6 +106,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         setAnimState({
           entityName: `Entity_${selectedEntityId}`,
           clipName,
+          clipData: clipResponse,
           curves,
           duration,
         });
@@ -144,19 +156,156 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     });
   };
 
-  const getFilteredCurves = (): AnimationCurve[] => {
+  const getFilteredCurves = useCallback((): AnimationCurve[] => {
     if (!animState?.curves) return [];
     return animState.curves.filter(c => selectedCurves.has(getCurveKey(c)));
-  };
+  }, [animState?.curves, selectedCurves]);
 
   // Convert AnimationCurve to the format expected by CurveViewer
-  const getCurvesForViewer = () => {
+  const getCurvesForViewer = useCallback((): CurveData[] => {
     return getFilteredCurves().map(c => ({
+      id: getCurveKey(c),
       propertyPath: getCurveDisplayName(c),
-      keyframes: c.keyframes,
-      wrapMode: String(c.wrapMode),
+      keyframes: [...c.keyframes],
+      wrapMode: c.wrapMode,
     }));
-  };
+  }, [getFilteredCurves]);
+
+  // Find curve index in animState.curves by curveId
+  const findCurveIndex = useCallback((curveId: string): number => {
+    if (!animState?.curves) return -1;
+    return animState.curves.findIndex(c => getCurveKey(c) === curveId);
+  }, [animState?.curves]);
+
+  // Keyframe mutation handlers
+  const handleKeyframeUpdate = useCallback((curveId: string, keyframeIndex: number, keyframe: Keyframe) => {
+    if (!animState) return;
+
+    const curveIndex = findCurveIndex(curveId);
+    if (curveIndex === -1) return;
+
+    // Update the curves array immutably
+    const newCurves = [...animState.curves];
+    const curve = { ...newCurves[curveIndex] };
+    const newKeyframes = [...curve.keyframes];
+    newKeyframes[keyframeIndex] = keyframe;
+    curve.keyframes = newKeyframes;
+    newCurves[curveIndex] = curve;
+
+    // Recalculate duration
+    const duration = gameEngineAPI.getClipDuration(newCurves);
+
+    setAnimState({
+      ...animState,
+      curves: newCurves,
+      duration,
+    });
+  }, [animState, findCurveIndex]);
+
+  const handleKeyframeAdd = useCallback((curveId: string, keyframe: Keyframe) => {
+    if (!animState) return;
+
+    const curveIndex = findCurveIndex(curveId);
+    if (curveIndex === -1) return;
+
+    // Update the curves array immutably
+    const newCurves = [...animState.curves];
+    const curve = { ...newCurves[curveIndex] };
+
+    // Insert keyframe in sorted order by time
+    const newKeyframes = [...curve.keyframes, keyframe].sort((a, b) => a.time - b.time);
+    curve.keyframes = newKeyframes;
+    newCurves[curveIndex] = curve;
+
+    // Recalculate duration
+    const duration = gameEngineAPI.getClipDuration(newCurves);
+
+    setAnimState({
+      ...animState,
+      curves: newCurves,
+      duration,
+    });
+  }, [animState, findCurveIndex]);
+
+  const handleKeyframeDelete = useCallback((curveId: string, keyframeIndex: number) => {
+    if (!animState) return;
+
+    const curveIndex = findCurveIndex(curveId);
+    if (curveIndex === -1) return;
+
+    // Update the curves array immutably
+    const newCurves = [...animState.curves];
+    const curve = { ...newCurves[curveIndex] };
+    const newKeyframes = curve.keyframes.filter((_, i) => i !== keyframeIndex);
+    curve.keyframes = newKeyframes;
+    newCurves[curveIndex] = curve;
+
+    // Recalculate duration
+    const duration = gameEngineAPI.getClipDuration(newCurves);
+
+    setAnimState({
+      ...animState,
+      curves: newCurves,
+      duration,
+    });
+  }, [animState, findCurveIndex]);
+
+  // Get list of entity names already in the animation (for exclusion in picker)
+  const getAnimatedEntityNames = useCallback((): string[] => {
+    if (!animState?.clipData) return [];
+
+    const names: string[] = [];
+
+    const collectNames = (children: { key: string; value: { children: typeof children } }[]) => {
+      for (const child of children) {
+        names.push(child.key);
+        if (child.value.children) {
+          collectNames(child.value.children as typeof children);
+        }
+      }
+    };
+
+    collectNames(animState.clipData.clip.root_entity.children);
+    return names;
+  }, [animState?.clipData]);
+
+  // Add entity to animation hierarchy
+  const handleAddEntity = useCallback((entityId: string, entityName: string) => {
+    if (!animState) return;
+
+    // Create a new child entity entry with empty components
+    const newChild = {
+      key: entityName,
+      value: {
+        components: [],
+        children: [],
+      },
+    };
+
+    // Update clipData immutably
+    const newClipData: AnimationClipResponse = {
+      clip: {
+        root_entity: {
+          ...animState.clipData.clip.root_entity,
+          children: [...animState.clipData.clip.root_entity.children, newChild],
+        },
+      },
+    };
+
+    // Re-flatten curves
+    const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
+    const newDuration = gameEngineAPI.getClipDuration(newCurves);
+
+    setAnimState({
+      ...animState,
+      clipData: newClipData,
+      curves: newCurves,
+      duration: newDuration,
+    });
+
+    // Switch to Hierarchy tab to show the new entity
+    setTabValue(1);
+  }, [animState]);
 
   return (
     <Paper
@@ -246,6 +395,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                 }}
               >
                 <Tab label="Curves" icon={<TimelineIcon />} iconPosition="start" />
+                <Tab label="Hierarchy" icon={<HierarchyIcon />} iconPosition="start" />
               </Tabs>
 
               {tabValue === 0 && (
@@ -297,7 +447,11 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                         curves={getCurvesForViewer()}
                         duration={animState.duration}
                         currentTime={currentTime}
+                        editable={true}
                         onTimeChange={setCurrentTime}
+                        onKeyframeUpdate={handleKeyframeUpdate}
+                        onKeyframeAdd={handleKeyframeAdd}
+                        onKeyframeDelete={handleKeyframeDelete}
                       />
                     ) : (
                       <Box
@@ -319,6 +473,17 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                   </Box>
                 </Box>
               )}
+
+              {tabValue === 1 && (
+                <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                  <AnimationHierarchyEditor
+                    clipData={animState.clipData}
+                    selectedNode={selectedHierarchyNode}
+                    onSelectNode={setSelectedHierarchyNode}
+                    onAddEntity={() => setEntityPickerOpen(true)}
+                  />
+                </Box>
+              )}
             </Box>
           ) : (
             <Box sx={{ p: 2, flex: 1 }}>
@@ -332,6 +497,14 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
           )}
         </Box>
       )}
+
+      {/* Entity Picker Dialog */}
+      <EntityPickerDialog
+        open={entityPickerOpen}
+        onClose={() => setEntityPickerOpen(false)}
+        onSelect={handleAddEntity}
+        excludeEntityIds={getAnimatedEntityNames()}
+      />
     </Paper>
   );
 };
