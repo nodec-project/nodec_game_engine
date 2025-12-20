@@ -18,6 +18,29 @@ export interface ComponentInfo {
   data: Record<string, unknown> | null; // JSON serialized component data
 }
 
+// Serializable component in cereal polymorphic format
+export interface SerializableComponent {
+  polymorphic_id: number;
+  polymorphic_name?: string;
+  ptr_wrapper: {
+    valid: number;
+    data: Record<string, unknown>;
+  };
+}
+
+// Request body for PATCH /api/entities/ids/:id/components
+export interface PatchComponentsRequest {
+  components: SerializableComponent[];
+}
+
+// Response from PATCH /api/entities/ids/:id/components
+export interface PatchComponentsResponse {
+  success: boolean;
+  id: number;
+  updated_count: number;
+  error?: string;
+}
+
 // Response from /api/entities/ids/:id/components
 export interface EntityComponentsResponse {
   id: string;  // Changed from entity_id to id to match server response
@@ -217,6 +240,51 @@ export class GameEngineAPI {
    */
   async getAnimationClip(clipName: string): Promise<AnimationClipResponse> {
     return this.getResource<AnimationClipResponse>('animation_clip', clipName);
+  }
+
+  /**
+   * Update entity components via PATCH
+   * @param entityId - The entity ID
+   * @param components - Array of serializable components in cereal polymorphic format
+   */
+  async patchEntityComponents(entityId: string, components: SerializableComponent[]): Promise<PatchComponentsResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/entities/ids/${entityId}/components`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ components }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: PatchComponentsResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Failed to patch components for entity ${entityId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper: Extract SerializableComponent from ComponentInfo
+   * Returns null if the component data is not in the expected format
+   */
+  extractSerializableComponent(componentInfo: ComponentInfo): SerializableComponent | null {
+    if (!componentInfo.data) return null;
+
+    const data = componentInfo.data as {
+      component?: SerializableComponent;
+    };
+
+    if (data.component && typeof data.component.polymorphic_id === 'number' && data.component.ptr_wrapper) {
+      return data.component;
+    }
+
+    return null;
   }
 
   /**

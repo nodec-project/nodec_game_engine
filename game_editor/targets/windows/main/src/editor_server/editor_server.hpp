@@ -33,13 +33,15 @@ struct APIRequest {
         GET_ROOT_ENTITIES,
         GET_ENTITY_COMPONENTS,
         GET_ENTITY_INFO,
-        GET_RESOURCE
+        GET_RESOURCE,
+        PATCH_ENTITY_COMPONENTS
     };
 
     Type type;
     uint32_t entity_id;  // エンティティID（必要に応じて使用）
     std::string resource_type;  // リソースタイプ (e.g., "animation_clip")
     std::string resource_name;  // リソース名
+    std::string request_body;   // リクエストボディ (PATCH用)
     std::function<void(const std::string&)> response_callback;
     bool is_valid = true;  // リクエストが有効かどうか
 
@@ -51,6 +53,9 @@ struct APIRequest {
 
     APIRequest(Type t, std::string res_type, std::string res_name, std::function<void(const std::string&)> callback)
         : type(t), entity_id(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)), response_callback(std::move(callback)) {}
+
+    APIRequest(Type t, uint32_t id, std::string body, std::function<void(const std::string&)> callback)
+        : type(t), entity_id(id), request_body(std::move(body)), response_callback(std::move(callback)) {}
 };
 
 class EditorServer {
@@ -69,7 +74,7 @@ public:
             // CORS Preflight handler for all /api/* routes
             app.options("/api/*", [](auto *res, auto *req) {
                 res->writeHeader("Access-Control-Allow-Origin", "*");
-                res->writeHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
                 res->writeHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
                 res->writeHeader("Access-Control-Max-Age", "86400");
                 res->end();
@@ -107,7 +112,7 @@ public:
                 res->writeHeader("Access-Control-Allow-Origin", "*");
                 res->writeHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
                 res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
-                
+
                 // URLパラメータからエンティティIDを取得
                 std::string id_str(req->getParameter(0));
                 uint32_t entity_id = 0;
@@ -118,15 +123,56 @@ public:
                     res->end("{\"error\":\"Invalid entity ID\"}");
                     return;
                 }
-                
+
                 auto response_state = std::make_shared<bool>(true);
                 res->onAborted([response_state]() {
                     *response_state = false;
                 });
-                
+
                 queue_request(APIRequest::GET_ENTITY_COMPONENTS, entity_id, [res, response_state](const std::string& response_data) {
                     if (*response_state) {
                         res->end(response_data);
+                    }
+                });
+            })
+            .patch("/api/entities/ids/:id/components", [this](auto *res, auto *req) {
+                res->writeHeader("Content-Type", "application/json");
+                res->writeHeader("Access-Control-Allow-Origin", "*");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+
+                // URLパラメータからエンティティIDを取得
+                std::string id_str(req->getParameter(0));
+                uint32_t entity_id = 0;
+                try {
+                    entity_id = std::stoul(id_str);
+                } catch (...) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Invalid entity ID\"}");
+                    return;
+                }
+
+                auto response_state = std::make_shared<bool>(true);
+                auto body_buffer = std::make_shared<std::string>();
+                auto captured_entity_id = entity_id;
+
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+
+                // Read request body using onData callback
+                res->onData([this, res, response_state, body_buffer, captured_entity_id](std::string_view chunk, bool is_last) {
+                    // Append chunk to buffer (must copy since memory is reused)
+                    body_buffer->append(chunk.data(), chunk.size());
+
+                    if (is_last) {
+                        // Body fully received, queue the request
+                        queue_request(APIRequest::PATCH_ENTITY_COMPONENTS, captured_entity_id, std::move(*body_buffer),
+                            [res, response_state](const std::string& response_data) {
+                                if (*response_state) {
+                                    res->end(response_data);
+                                }
+                            });
                     }
                 });
             })
@@ -412,6 +458,51 @@ private:
         }
     }
 
+    // Update entity components from JSON request body
+    // Expected format: { "components": [ { "type_index": N, "data": { "component": {...} } }, ... ] }
+    std::string update_entity_components(uint32_t entity_id, const std::string& json_body) {
+        auto entity = static_cast<nodec::entities::Entity>(entity_id);
+        auto& registry = world_->scene().registry();
+
+        if (!registry.is_valid(entity)) {
+            return "{\"error\":\"Invalid entity\",\"id\":" + std::to_string(entity_id) + "}";
+        }
+
+        if (!scene_serialization_ || !resource_registry_) {
+            return "{\"error\":\"Scene serialization or resource registry not available\"}";
+        }
+
+        try {
+            // Parse the JSON body to extract components array
+            std::istringstream iss(json_body);
+            nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+            cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONInputArchive>
+                archive(context, iss);
+
+            // Deserialize the components array
+            std::vector<std::unique_ptr<nodec_scene_serialization::BaseSerializableComponent>> components;
+            archive(cereal::make_nvp("components", components));
+
+            // Apply each component to the entity
+            int updated_count = 0;
+            for (const auto& comp : components) {
+                if (!comp) continue;
+
+                scene_serialization_->emplace_or_replace_component(comp.get(), entity, registry);
+                ++updated_count;
+            }
+
+            logger_->info(__FILE__, __LINE__) << "Updated " << updated_count << " components on entity " << entity_id;
+
+            return "{\"success\":true,\"id\":" + std::to_string(entity_id) +
+                   ",\"updated_count\":" + std::to_string(updated_count) + "}";
+
+        } catch (const std::exception& e) {
+            logger_->error(__FILE__, __LINE__) << "Error updating entity components: " << e.what();
+            return "{\"error\":\"" + std::string(e.what()) + "\"}";
+        }
+    }
+
 public:
     // Editor::update()から呼び出される非同期リクエスト処理
     void process_pending_requests() {
@@ -434,6 +525,9 @@ public:
                     break;
                 case APIRequest::GET_RESOURCE:
                     response_data = get_resource_json(request.resource_type, request.resource_name);
+                    break;
+                case APIRequest::PATCH_ENTITY_COMPONENTS:
+                    response_data = update_entity_components(request.entity_id, request.request_body);
                     break;
                 default:
                     response_data = "{\"error\": \"Unknown request type\"}";
@@ -465,6 +559,12 @@ private:
                        std::function<void(const std::string&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, resource_type, resource_name, std::move(callback));
+    }
+
+    void queue_request(APIRequest::Type type, uint32_t entity_id, std::string body,
+                       std::function<void(const std::string&)> callback) {
+        std::lock_guard<std::mutex> lock(request_queue_mutex_);
+        request_queue_.emplace(type, entity_id, std::move(body), std::move(callback));
     }
 
 private:
