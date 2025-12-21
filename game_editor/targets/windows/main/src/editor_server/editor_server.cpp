@@ -5,6 +5,8 @@
 #include <mutex>
 #include <functional>
 #include <sstream>
+#include <set>
+#include <unordered_map>
 
 #include <nodec/logging/logging.hpp>
 #include <nodec/string_builder.hpp>
@@ -48,6 +50,38 @@ struct APIRequest {
 
     APIRequest(Type t, uint32_t id, std::string body, std::function<void(const std::string&)> callback)
         : type(t), entity_id(id), request_body(std::move(body)), response_callback(std::move(callback)) {}
+};
+
+// WebSocket per-socket data
+struct WebSocketData {
+    std::set<uint32_t> subscribed_entities;
+};
+
+// WebSocket message structure for cereal deserialization
+struct WsSubscribePayload {
+    uint32_t entity_id = 0;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("entity_id", entity_id));
+    }
+};
+
+struct WsMessage {
+    std::string event;
+    WsSubscribePayload payload;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("event", event));
+        archive(cereal::make_nvp("payload", payload));
+    }
+};
+
+// Pending WebSocket broadcast message
+struct WsBroadcastMessage {
+    uint32_t entity_id;
+    std::string message;
 };
 
 class EditorServer::Impl {
@@ -232,6 +266,32 @@ public:
                         }
                     });
             })
+            // WebSocket endpoint for real-time updates
+            .ws<WebSocketData>("/ws", {
+                .compression = uWS::DISABLED,
+                .maxPayloadLength = 16 * 1024,
+                .idleTimeout = 120,
+                .maxBackpressure = 1 * 1024 * 1024,
+                .closeOnBackpressureLimit = false,
+                .resetIdleTimeoutOnSend = true,
+                .sendPingsAutomatically = true,
+
+                .open = [this](auto *ws) {
+                    logger_->info(__FILE__, __LINE__) << "WebSocket client connected";
+                    std::lock_guard<std::mutex> lock(ws_clients_mutex_);
+                    ws_clients_.insert(ws);
+                },
+
+                .message = [this](auto *ws, std::string_view message, uWS::OpCode opCode) {
+                    handle_ws_message(ws, message);
+                },
+
+                .close = [this](auto *ws, int code, std::string_view message) {
+                    logger_->info(__FILE__, __LINE__) << "WebSocket client disconnected";
+                    std::lock_guard<std::mutex> lock(ws_clients_mutex_);
+                    ws_clients_.erase(ws);
+                }
+            })
             .listen(8080, [this](auto *socket) {
                 if (socket) {
                     listen_socket_ = socket;
@@ -255,43 +315,146 @@ public:
     }
 
     void process_pending_requests() {
-        std::lock_guard<std::mutex> lock(request_queue_mutex_);
+        // Process HTTP requests
+        {
+            std::lock_guard<std::mutex> lock(request_queue_mutex_);
 
-        while (!request_queue_.empty()) {
-            auto request = std::move(request_queue_.front());
-            request_queue_.pop();
+            while (!request_queue_.empty()) {
+                auto request = std::move(request_queue_.front());
+                request_queue_.pop();
 
-            std::string response_data;
-            switch (request.type) {
-                case APIRequest::GET_ROOT_ENTITIES:
-                    response_data = get_root_entities_json();
-                    break;
-                case APIRequest::GET_ENTITY_COMPONENTS:
-                    response_data = get_entity_components_json(request.entity_id);
-                    break;
-                case APIRequest::GET_ENTITY_INFO:
-                    response_data = get_entity_info_json(request.entity_id);
-                    break;
-                case APIRequest::GET_RESOURCE:
-                    response_data = get_resource_json(request.resource_type, request.resource_name);
-                    break;
-                case APIRequest::PATCH_ENTITY_COMPONENTS:
-                    response_data = update_entity_components(request.entity_id, request.request_body);
-                    break;
-                default:
-                    response_data = "{\"error\": \"Unknown request type\"}";
-                    break;
-            }
+                std::string response_data;
+                switch (request.type) {
+                    case APIRequest::GET_ROOT_ENTITIES:
+                        response_data = get_root_entities_json();
+                        break;
+                    case APIRequest::GET_ENTITY_COMPONENTS:
+                        response_data = get_entity_components_json(request.entity_id);
+                        break;
+                    case APIRequest::GET_ENTITY_INFO:
+                        response_data = get_entity_info_json(request.entity_id);
+                        break;
+                    case APIRequest::GET_RESOURCE:
+                        response_data = get_resource_json(request.resource_type, request.resource_name);
+                        break;
+                    case APIRequest::PATCH_ENTITY_COMPONENTS:
+                        response_data = update_entity_components(request.entity_id, request.request_body);
+                        break;
+                    default:
+                        response_data = "{\"error\": \"Unknown request type\"}";
+                        break;
+                }
 
-            if (main_loop_) {
-                main_loop_->defer([callback = std::move(request.response_callback), response_data]() {
-                    callback(response_data);
-                });
+                if (main_loop_) {
+                    main_loop_->defer([callback = std::move(request.response_callback), response_data]() {
+                        callback(response_data);
+                    });
+                }
             }
         }
+
+        // Broadcast component updates to subscribed WebSocket clients
+        broadcast_subscribed_updates();
     }
 
 private:
+    // WebSocket message handler (runs on uWS thread)
+    void handle_ws_message(uWS::WebSocket<false, true, WebSocketData>* ws, std::string_view message) {
+        try {
+            // Wrap the message for cereal deserialization
+            // cereal::JSONInputArchive requires a named root element
+            std::string wrapped_json = "{\"message\":" + std::string(message) + "}";
+            std::istringstream iss(wrapped_json);
+            cereal::JSONInputArchive archive(iss);
+
+            WsMessage msg;
+            archive(cereal::make_nvp("message", msg));
+
+            if (msg.event == "subscribe") {
+                auto* data = ws->getUserData();
+                data->subscribed_entities.insert(msg.payload.entity_id);
+
+                logger_->info(__FILE__, __LINE__) << "Client subscribed to entity " << msg.payload.entity_id;
+
+                std::string response = "{\"event\":\"subscribed\",\"payload\":{\"entity_id\":" +
+                                        std::to_string(msg.payload.entity_id) + "}}";
+                ws->send(response, uWS::OpCode::TEXT);
+
+            } else if (msg.event == "unsubscribe") {
+                auto* data = ws->getUserData();
+                data->subscribed_entities.erase(msg.payload.entity_id);
+
+                logger_->info(__FILE__, __LINE__) << "Client unsubscribed from entity " << msg.payload.entity_id;
+
+                std::string response = "{\"event\":\"unsubscribed\",\"payload\":{\"entity_id\":" +
+                                        std::to_string(msg.payload.entity_id) + "}}";
+                ws->send(response, uWS::OpCode::TEXT);
+
+            } else {
+                ws->send("{\"event\":\"error\",\"payload\":{\"message\":\"Unknown event type\"}}", uWS::OpCode::TEXT);
+            }
+
+        } catch (const std::exception& e) {
+            logger_->warn(__FILE__, __LINE__) << "Failed to parse WebSocket message: " << e.what();
+            ws->send("{\"event\":\"error\",\"payload\":{\"message\":\"Invalid JSON format\"}}", uWS::OpCode::TEXT);
+        }
+    }
+
+    // Broadcast component updates to subscribed clients
+    // Called from game thread - queues messages for uWS thread
+    void broadcast_subscribed_updates() {
+        // Early exit without lock if no pending broadcasts needed
+        {
+            std::lock_guard<std::mutex> lock(ws_clients_mutex_);
+            if (ws_clients_.empty()) return;
+        }
+
+        // Collect subscribed entity IDs (lock scope minimized)
+        std::set<uint32_t> all_subscribed_entities;
+        {
+            std::lock_guard<std::mutex> lock(ws_clients_mutex_);
+            for (auto* ws : ws_clients_) {
+                const auto* data = ws->getUserData();
+                all_subscribed_entities.insert(
+                    data->subscribed_entities.begin(),
+                    data->subscribed_entities.end()
+                );
+            }
+        }
+
+        if (all_subscribed_entities.empty()) return;
+
+        // Generate component JSON for each subscribed entity (no lock needed)
+        std::vector<WsBroadcastMessage> messages;
+        messages.reserve(all_subscribed_entities.size());
+
+        for (uint32_t entity_id : all_subscribed_entities) {
+            std::string components_json = get_entity_components_json(entity_id);
+            messages.push_back({
+                entity_id,
+                "{\"event\":\"component_update\",\"payload\":" + std::move(components_json) + "}"
+            });
+        }
+
+        // Queue messages for uWS thread
+        // The defer callback will look up valid clients at execution time
+        if (main_loop_) {
+            main_loop_->defer([this, messages = std::move(messages)]() {
+                // This runs on uWS thread - safe to access ws_clients_ and send
+                // No mutex needed here because uWS is single-threaded
+                // and close/open callbacks also run on this thread
+                for (auto* ws : ws_clients_) {
+                    const auto* data = ws->getUserData();
+                    for (const auto& msg : messages) {
+                        if (data->subscribed_entities.count(msg.entity_id) > 0) {
+                            ws->send(msg.message, uWS::OpCode::TEXT);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     std::string get_root_entities_json() {
         std::string result;
         nodec::StringBuilder json(result);
@@ -531,6 +694,10 @@ private:
     uWS::Loop* main_loop_{nullptr};
     std::queue<APIRequest> request_queue_;
     std::mutex request_queue_mutex_;
+
+    // WebSocket clients
+    std::set<uWS::WebSocket<false, true, WebSocketData>*> ws_clients_;
+    std::mutex ws_clients_mutex_;
 };
 
 EditorServer::EditorServer(nodec_world::World* world,

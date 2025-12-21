@@ -23,6 +23,7 @@ import {
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { gameEngineAPI, EntityInfo, EntityDetailsResponse } from '../api/gameEngine';
+import { useEditor } from '../contexts/EditorContext';
 
 interface SceneHierarchyProps {
   onEntitySelect?: (entityId: string) => void;
@@ -34,10 +35,10 @@ interface EntityNode extends EntityInfo {
 }
 
 export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }) => {
+  const { engineConnected, setEngineConnected } = useEditor();
   const [entities, setEntities] = useState<EntityNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [engineConnected, setEngineConnected] = useState(false);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
   const [loadingChildren, setLoadingChildren] = useState<Set<string>>(new Set());
@@ -209,10 +210,7 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="caption" color={engineConnected ? 'success.main' : 'error.main'}>
-          Engine: {engineConnected ? 'Connected' : 'Disconnected'}
-        </Typography>
+      <Box sx={{ px: 2, py: 0.5, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
         <IconButton onClick={fetchRootEntities} disabled={loading} size="small">
           <RefreshIcon />
         </IconButton>

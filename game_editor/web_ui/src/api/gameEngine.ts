@@ -121,9 +121,40 @@ export interface AnimationCurve {
 }
 
 const API_BASE_URL = 'http://localhost:8080';
+const WS_BASE_URL = 'ws://localhost:8080';
+
+// WebSocket message types
+export interface WsSubscribeMessage {
+  event: 'subscribe' | 'unsubscribe';
+  payload: { entity_id: number };
+}
+
+export interface WsComponentUpdateMessage {
+  event: 'component_update';
+  payload: {
+    id: number;
+    components: ComponentInfo[];
+  };
+}
+
+export interface WsSubscribedMessage {
+  event: 'subscribed' | 'unsubscribed';
+  payload: { entity_id: number };
+}
+
+export interface WsErrorMessage {
+  event: 'error';
+  payload: { message: string };
+}
+
+export type WsServerMessage = WsComponentUpdateMessage | WsSubscribedMessage | WsErrorMessage;
 
 export class GameEngineAPI {
   private static instance: GameEngineAPI;
+  private ws: WebSocket | null = null;
+  private wsListeners: Map<number, Set<(components: ComponentInfo[]) => void>> = new Map();
+  private wsConnecting: boolean = false;
+  private wsReconnectTimeout: NodeJS.Timeout | null = null;
 
   private constructor() {}
 
@@ -132,6 +163,144 @@ export class GameEngineAPI {
       GameEngineAPI.instance = new GameEngineAPI();
     }
     return GameEngineAPI.instance;
+  }
+
+  /**
+   * Connect to WebSocket for real-time component updates
+   */
+  private connectWebSocket(): Promise<WebSocket> {
+    return new Promise((resolve, reject) => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        resolve(this.ws);
+        return;
+      }
+
+      if (this.wsConnecting) {
+        // Wait for existing connection attempt
+        const checkConnection = setInterval(() => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            clearInterval(checkConnection);
+            resolve(this.ws);
+          }
+        }, 100);
+        return;
+      }
+
+      this.wsConnecting = true;
+      const ws = new WebSocket(`${WS_BASE_URL}/ws`);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        this.ws = ws;
+        this.wsConnecting = false;
+        resolve(ws);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg: WsServerMessage = JSON.parse(event.data);
+          if (msg.event === 'component_update') {
+            const entityId = msg.payload.id;
+            const listeners = this.wsListeners.get(entityId);
+            if (listeners) {
+              listeners.forEach(cb => cb(msg.payload.components));
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse WebSocket message:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.ws = null;
+        this.wsConnecting = false;
+        // Attempt reconnect if there are active listeners
+        if (this.wsListeners.size > 0 && !this.wsReconnectTimeout) {
+          this.wsReconnectTimeout = setTimeout(() => {
+            this.wsReconnectTimeout = null;
+            this.reconnectAndResubscribe();
+          }, 2000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        this.wsConnecting = false;
+        reject(error);
+      };
+    });
+  }
+
+  private async reconnectAndResubscribe() {
+    try {
+      await this.connectWebSocket();
+      // Re-subscribe to all entities
+      const entityIds = Array.from(this.wsListeners.keys());
+      for (const entityId of entityIds) {
+        this.sendSubscribe(entityId);
+      }
+    } catch (e) {
+      console.error('Failed to reconnect WebSocket:', e);
+    }
+  }
+
+  private sendSubscribe(entityId: number) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const msg: WsSubscribeMessage = {
+        event: 'subscribe',
+        payload: { entity_id: entityId }
+      };
+      this.ws.send(JSON.stringify(msg));
+      console.log(`Subscribed to entity ${entityId}`);
+    }
+  }
+
+  private sendUnsubscribe(entityId: number) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const msg: WsSubscribeMessage = {
+        event: 'unsubscribe',
+        payload: { entity_id: entityId }
+      };
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  /**
+   * Subscribe to real-time component updates for an entity
+   * @returns Unsubscribe function
+   */
+  async subscribeToEntityComponents(
+    entityId: string,
+    callback: (components: ComponentInfo[]) => void
+  ): Promise<() => void> {
+    const id = parseInt(entityId, 10);
+
+    // Add listener
+    if (!this.wsListeners.has(id)) {
+      this.wsListeners.set(id, new Set());
+    }
+    this.wsListeners.get(id)!.add(callback);
+
+    // Connect and subscribe
+    try {
+      await this.connectWebSocket();
+      this.sendSubscribe(id);
+    } catch (e) {
+      console.error('Failed to subscribe:', e);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      const listeners = this.wsListeners.get(id);
+      if (listeners) {
+        listeners.delete(callback);
+        if (listeners.size === 0) {
+          this.wsListeners.delete(id);
+          this.sendUnsubscribe(id);
+        }
+      }
+    };
   }
 
   /**
@@ -150,8 +319,12 @@ export class GameEngineAPI {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: RootEntitiesResponse = await response.json();
-      return data.entities;
+      const data = await response.json();
+      // Convert id to string (server returns number)
+      return data.entities.map((e: { id: number; name: string; has_children: boolean }) => ({
+        ...e,
+        id: String(e.id)
+      }));
     } catch (error) {
       console.error('Failed to fetch root entities:', error);
       throw error;

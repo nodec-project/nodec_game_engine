@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -18,6 +18,7 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   Settings as ComponentIcon,
+  Sync as SyncIcon,
 } from '@mui/icons-material';
 import { gameEngineAPI, ComponentInfo, EntityDetailsResponse, SerializableComponent } from '../api/gameEngine';
 
@@ -123,9 +124,14 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [patchError, setPatchError] = useState<string | null>(null);
+  const [isLiveUpdating, setIsLiveUpdating] = useState(false);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const isDirtyRef = useRef(false);
 
+  // Fetch entity data on selection change
   useEffect(() => {
-    if (!entityId) {
+    // Use explicit null check to handle id "0" correctly
+    if (entityId === null) {
       setComponents([]);
       setEntityDetails(null);
       return;
@@ -155,12 +161,58 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     fetchEntityData();
   }, [entityId]);
 
+  // WebSocket subscription for real-time updates
+  useEffect(() => {
+    // Cleanup previous subscription
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    if (entityId === null) {
+      setIsLiveUpdating(false);
+      return;
+    }
+
+    const subscribe = async () => {
+      try {
+        const unsubscribe = await gameEngineAPI.subscribeToEntityComponents(
+          entityId,
+          (newComponents) => {
+            // Only update if not currently editing
+            if (!isDirtyRef.current) {
+              setComponents(newComponents);
+            }
+          }
+        );
+        unsubscribeRef.current = unsubscribe;
+        setIsLiveUpdating(true);
+      } catch (err) {
+        console.error('Failed to subscribe to entity updates:', err);
+        setIsLiveUpdating(false);
+      }
+    };
+
+    subscribe();
+
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      setIsLiveUpdating(false);
+    };
+  }, [entityId]);
+
   // Update a property in the component data and commit via PATCH
   const handlePropertyChange = useCallback((
     componentIndex: number,
     propertyPath: string[],
     newValue: unknown
   ) => {
+    // Mark as dirty to prevent WebSocket updates from overwriting
+    isDirtyRef.current = true;
+
     setComponents(prev => {
       const newComponents = [...prev];
       const component = { ...newComponents[componentIndex] };
@@ -186,13 +238,14 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
 
   // Commit the component changes via PATCH
   const handleCommit = useCallback(async (componentIndex: number) => {
-    if (!entityId) return;
+    if (entityId === null) return;
 
     const component = components[componentIndex];
     const serializableComponent = gameEngineAPI.extractSerializableComponent(component);
 
     if (!serializableComponent) {
       console.warn('Cannot extract serializable component for PATCH');
+      isDirtyRef.current = false;
       return;
     }
 
@@ -205,6 +258,9 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
       }
     } catch (err) {
       setPatchError(err instanceof Error ? err.message : 'Failed to update component');
+    } finally {
+      // Allow WebSocket updates again after commit
+      isDirtyRef.current = false;
     }
   }, [entityId, components]);
 
@@ -402,7 +458,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     );
   };
 
-  if (!entityId) {
+  if (entityId === null) {
     return (
       <Paper sx={{ height: '100%', p: 2 }}>
         <Alert severity="info">
@@ -415,13 +471,25 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {entityDetails && (
-        <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Entity: {entityDetails.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            ID: {entityDetails.id}
-          </Typography>
+        <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Entity: {entityDetails.name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              ID: {entityDetails.id}
+            </Typography>
+          </Box>
+          {isLiveUpdating && (
+            <Chip
+              icon={<SyncIcon sx={{ fontSize: '1rem' }} />}
+              label="Live"
+              size="small"
+              color="success"
+              variant="outlined"
+              sx={{ height: 20, '& .MuiChip-label': { px: 0.5, fontSize: '0.7rem' } }}
+            />
+          )}
         </Box>
       )}
 
