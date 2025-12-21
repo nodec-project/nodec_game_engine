@@ -19,6 +19,7 @@ import { SceneHierarchyPanel } from './panels/SceneHierarchyPanel';
 import { ComponentInspectorPanel } from './panels/ComponentInspectorPanel';
 import { AnimationEditorPanel } from './panels/AnimationEditorPanel';
 import { EditorProvider, useEditor } from '../contexts/EditorContext';
+import { gameEngineAPI } from '../api/gameEngine';
 
 // Import dockview styles
 import '../styles/dockview-theme.css';
@@ -58,7 +59,7 @@ const PANEL_DEFINITIONS = [
 ] as const;
 
 const EditorLayoutContent: React.FC = () => {
-  const { engineConnected } = useEditor();
+  const { engineConnected, setEngineConnected } = useEditor();
   const [api, setApi] = useState<DockviewReadyEvent['api'] | null>(null);
   const [viewMenuAnchor, setViewMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -66,6 +67,18 @@ const EditorLayoutContent: React.FC = () => {
   useEffect(() => {
     document.title = 'nodec Game Editor';
   }, []);
+
+  // Subscribe to WebSocket connection state and connect immediately
+  useEffect(() => {
+    const unsubscribe = gameEngineAPI.onConnectionStateChange((connected) => {
+      setEngineConnected(connected);
+    });
+
+    // Connect to engine WebSocket on mount
+    gameEngineAPI.connect();
+
+    return unsubscribe;
+  }, [setEngineConnected]);
 
   // Component registry for panels
   const components = {

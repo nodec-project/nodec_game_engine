@@ -306,9 +306,26 @@ public:
     }
 
     ~Impl() {
-        if (listen_socket_) {
-            us_listen_socket_close(0, listen_socket_);
+        // Close all WebSocket clients and listen socket from the uWS thread
+        if (main_loop_) {
+            main_loop_->defer([this]() {
+                // Copy the set before iterating because ws->close() triggers
+                // the close callback which erases from ws_clients_ (iterator invalidation)
+                auto clients_copy = ws_clients_;
+                ws_clients_.clear();
+
+                for (auto* ws : clients_copy) {
+                    ws->close();
+                }
+
+                // Close the listen socket to stop accepting new connections
+                if (listen_socket_) {
+                    us_listen_socket_close(0, listen_socket_);
+                    listen_socket_ = nullptr;
+                }
+            });
         }
+
         if (thread_.joinable()) {
             thread_.join();
         }

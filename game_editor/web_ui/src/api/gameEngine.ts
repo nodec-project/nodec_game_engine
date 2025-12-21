@@ -155,8 +155,45 @@ export class GameEngineAPI {
   private wsListeners: Map<number, Set<(components: ComponentInfo[]) => void>> = new Map();
   private wsConnecting: boolean = false;
   private wsReconnectTimeout: NodeJS.Timeout | null = null;
+  private connectionStateListeners: Set<(connected: boolean) => void> = new Set();
 
   private constructor() {}
+
+  /**
+   * Subscribe to WebSocket connection state changes
+   * @returns Unsubscribe function
+   */
+  onConnectionStateChange(callback: (connected: boolean) => void): () => void {
+    this.connectionStateListeners.add(callback);
+    // Immediately notify current state
+    callback(this.ws !== null && this.ws.readyState === WebSocket.OPEN);
+    return () => {
+      this.connectionStateListeners.delete(callback);
+    };
+  }
+
+  private notifyConnectionState(connected: boolean) {
+    this.connectionStateListeners.forEach(cb => cb(connected));
+  }
+
+  /**
+   * Check if WebSocket is currently connected
+   */
+  isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Connect to WebSocket (public method for eager connection)
+   */
+  async connect(): Promise<void> {
+    try {
+      await this.connectWebSocket();
+    } catch (e) {
+      // Connection failed, state already notified via onclose/onerror
+      console.error('Failed to connect to engine:', e);
+    }
+  }
 
   public static getInstance(): GameEngineAPI {
     if (!GameEngineAPI.instance) {
@@ -193,6 +230,7 @@ export class GameEngineAPI {
         console.log('WebSocket connected');
         this.ws = ws;
         this.wsConnecting = false;
+        this.notifyConnectionState(true);
         resolve(ws);
       };
 
@@ -215,6 +253,7 @@ export class GameEngineAPI {
         console.log('WebSocket disconnected');
         this.ws = null;
         this.wsConnecting = false;
+        this.notifyConnectionState(false);
         // Attempt reconnect if there are active listeners
         if (this.wsListeners.size > 0 && !this.wsReconnectTimeout) {
           this.wsReconnectTimeout = setTimeout(() => {

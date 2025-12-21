@@ -22,7 +22,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
-import { gameEngineAPI, EntityInfo, EntityDetailsResponse } from '../api/gameEngine';
+import { gameEngineAPI, EntityInfo } from '../api/gameEngine';
 import { useEditor } from '../contexts/EditorContext';
 
 interface SceneHierarchyProps {
@@ -35,7 +35,7 @@ interface EntityNode extends EntityInfo {
 }
 
 export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }) => {
-  const { engineConnected, setEngineConnected } = useEditor();
+  const { engineConnected } = useEditor();
   const [entities, setEntities] = useState<EntityNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,21 +47,11 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     try {
       setLoading(true);
       setError(null);
-      
-      // Check if engine is connected
-      const isConnected = await gameEngineAPI.healthCheck();
-      setEngineConnected(isConnected);
-      
-      if (!isConnected) {
-        setError('Game engine server is not running on localhost:8080');
-        return;
-      }
 
       const rootEntities = await gameEngineAPI.getRootEntities();
       setEntities(rootEntities);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch entities');
-      setEngineConnected(false);
     } finally {
       setLoading(false);
     }
