@@ -28,7 +28,9 @@ struct APIRequest {
         GET_ENTITY_COMPONENTS,
         GET_ENTITY_INFO,
         GET_RESOURCE,
-        PATCH_ENTITY_COMPONENTS
+        PATCH_ENTITY_COMPONENTS,
+        PUT_RESOURCE,
+        GET_REGISTERED_COMPONENTS
     };
 
     Type type;
@@ -50,6 +52,11 @@ struct APIRequest {
 
     APIRequest(Type t, uint32_t id, std::string body, std::function<void(const std::string&)> callback)
         : type(t), entity_id(id), request_body(std::move(body)), response_callback(std::move(callback)) {}
+
+    // Constructor for PUT_RESOURCE (resource_type, resource_name, body)
+    APIRequest(Type t, std::string res_type, std::string res_name, std::string body, std::function<void(const std::string&)> callback)
+        : type(t), entity_id(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)),
+          request_body(std::move(body)), response_callback(std::move(callback)) {}
 };
 
 // WebSocket per-socket data
@@ -105,10 +112,23 @@ public:
                 res->writeHeader("Access-Control-Max-Age", "86400");
                 res->end();
             })
-            .get("/entities/id/:id", [](auto *res, auto *req) {
+            .get("/api/components", [this](auto *res, auto *req) {
                 res->writeHeader("Content-Type", "application/json");
                 res->writeHeader("Access-Control-Allow-Origin", "*");
-                res->end("{\"id\": 1}");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+
+                auto response_state = std::make_shared<bool>(true);
+
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+
+                queue_request(APIRequest::GET_REGISTERED_COMPONENTS, [res, response_state](const std::string& response_data) {
+                    if (*response_state) {
+                        res->end(response_data);
+                    }
+                });
             })
             .get("/api/entities/roots", [this](auto *res, auto *req) {
                 res->writeHeader("Content-Type", "application/json");
@@ -266,6 +286,63 @@ public:
                         }
                     });
             })
+            .put("/api/resources/:type/*", [this](auto *res, auto *req) {
+                res->writeHeader("Content-Type", "application/json");
+                res->writeHeader("Access-Control-Allow-Origin", "*");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+
+                std::string_view url = req->getUrl();
+                const std::string_view prefix = "/api/resources/";
+
+                if (url.substr(0, prefix.size()) != prefix) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Invalid URL format\"}");
+                    return;
+                }
+
+                std::string_view rest = url.substr(prefix.size());
+                size_t slash_pos = rest.find('/');
+                if (slash_pos == std::string_view::npos) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Missing resource name\"}");
+                    return;
+                }
+
+                std::string resource_type(rest.substr(0, slash_pos));
+                std::string resource_name(rest.substr(slash_pos + 1));
+
+                logger_->info(__FILE__, __LINE__) << "Resource PUT request: type=" << resource_type << ", name=" << resource_name;
+
+                if (resource_type.empty() || resource_name.empty()) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Missing resource type or name\"}");
+                    return;
+                }
+
+                auto response_state = std::make_shared<bool>(true);
+                auto body_buffer = std::make_shared<std::string>();
+                auto captured_type = resource_type;
+                auto captured_name = resource_name;
+
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+
+                // Read request body using onData callback
+                res->onData([this, res, response_state, body_buffer, captured_type, captured_name](std::string_view chunk, bool is_last) {
+                    body_buffer->append(chunk.data(), chunk.size());
+
+                    if (is_last) {
+                        queue_request(APIRequest::PUT_RESOURCE, captured_type, captured_name, std::move(*body_buffer),
+                            [res, response_state](const std::string& response_data) {
+                                if (*response_state) {
+                                    res->end(response_data);
+                                }
+                            });
+                    }
+                });
+            })
             // WebSocket endpoint for real-time updates
             .ws<WebSocketData>("/ws", {
                 .compression = uWS::DISABLED,
@@ -356,6 +433,12 @@ public:
                         break;
                     case APIRequest::PATCH_ENTITY_COMPONENTS:
                         response_data = update_entity_components(request.entity_id, request.request_body);
+                        break;
+                    case APIRequest::PUT_RESOURCE:
+                        response_data = update_resource_json(request.resource_type, request.resource_name, request.request_body);
+                        break;
+                    case APIRequest::GET_REGISTERED_COMPONENTS:
+                        response_data = get_registered_components_json();
                         break;
                     default:
                         response_data = "{\"error\": \"Unknown request type\"}";
@@ -507,6 +590,42 @@ private:
         } catch (const std::exception& e) {
             logger_->error(__FILE__, __LINE__) << "Error getting root entities: " << e.what();
         }
+
+        json << "]}";
+        return result;
+    }
+
+    std::string get_registered_components_json() {
+        if (!scene_serialization_ || !resource_registry_) {
+            return "{\"error\":\"Scene serialization or resource registry not available\"}";
+        }
+
+        std::string result;
+        nodec::StringBuilder json(result);
+        json << "{\"components\":[";
+
+        bool first = true;
+        nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+
+        scene_serialization_->for_each_component_serialization(
+            [&](const nodec_scene_serialization::SceneSerialization::BaseComponentSerialization& serialization) {
+                auto serializable = serialization.make_serializable_component();
+                if (!serializable) return;
+
+                if (!first) json << ",";
+                first = false;
+
+                // Serialize the empty component (ostringstream required for cereal)
+                std::ostringstream component_oss;
+                {
+                    cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONOutputArchive>
+                        archive(context, component_oss, cereal::JSONOutputArchive::Options::NoIndent());
+                    archive(cereal::make_nvp("component", serializable));
+                }
+
+                json << "{\"runtime_type_index\":" << serialization.type_info().seq_index()
+                     << ",\"data\":" << component_oss.str() << "}";
+            });
 
         json << "]}";
         return result;
@@ -677,6 +796,42 @@ private:
         }
     }
 
+    std::string update_resource_json(const std::string& resource_type, const std::string& resource_name, const std::string& json_body) {
+        if (!resource_registry_ || !scene_serialization_) {
+            return "{\"error\":\"Resource registry or scene serialization not available\"}";
+        }
+
+        try {
+            if (resource_type == "animation_clip") {
+                // Get the existing clip from the registry
+                auto clip = resource_registry_->get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
+                if (!clip) {
+                    return "{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}";
+                }
+
+                // Deserialize the incoming JSON to update the clip
+                // Expected format: { "clip": { "root_entity": { ... } } }
+                std::istringstream iss(json_body);
+                nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+                cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONInputArchive>
+                    archive(context, iss);
+
+                // Load into the existing clip (this will update the root_entity)
+                archive(cereal::make_nvp("clip", *clip));
+
+                logger_->info(__FILE__, __LINE__) << "Updated animation clip: " << resource_name;
+
+                return "{\"success\":true,\"type\":\"animation_clip\",\"name\":\"" + resource_name + "\"}";
+            }
+
+            return "{\"error\":\"Unsupported resource type for update\",\"type\":\"" + resource_type + "\"}";
+
+        } catch (const std::exception& e) {
+            logger_->error(__FILE__, __LINE__) << "Error updating resource: " << e.what();
+            return "{\"error\":\"" + std::string(e.what()) + "\"}";
+        }
+    }
+
     void queue_request(APIRequest::Type type, std::function<void(const std::string&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, std::move(callback));
@@ -697,6 +852,12 @@ private:
                        std::function<void(const std::string&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, entity_id, std::move(body), std::move(callback));
+    }
+
+    void queue_request(APIRequest::Type type, const std::string& resource_type, const std::string& resource_name,
+                       std::string body, std::function<void(const std::string&)> callback) {
+        std::lock_guard<std::mutex> lock(request_queue_mutex_);
+        request_queue_.emplace(type, resource_type, resource_name, std::move(body), std::move(callback));
     }
 
 private:
