@@ -120,6 +120,13 @@ export interface AnimationCurve {
   wrapMode: number;
 }
 
+// Polymorphic type registry for cereal serialization
+// Maps stripped polymorphic_id (without MSB) to polymorphic_name
+export type PolymorphicTypeRegistry = Map<number, string>;
+
+// cereal's MSB marker for first occurrence of a polymorphic type
+const CEREAL_MSB_32BIT = 0x80000000;
+
 const API_BASE_URL = 'http://localhost:8080';
 const WS_BASE_URL = 'ws://localhost:8080';
 
@@ -545,6 +552,72 @@ export class GameEngineAPI {
       }
     }
     return maxTime;
+  }
+
+  /**
+   * Helper: Build polymorphic type registry from AnimationClip
+   *
+   * cereal serialization uses polymorphic_id with MSB (0x80000000) set for first occurrence,
+   * and includes polymorphic_name. Subsequent occurrences use just the stripped ID without name.
+   *
+   * This function traverses the clip and builds a registry mapping stripped IDs to names.
+   */
+  buildPolymorphicTypeRegistry(clip: AnimationClipResponse): PolymorphicTypeRegistry {
+    const registry: PolymorphicTypeRegistry = new Map();
+
+    const processPlaceholder = (placeholder: AnimatedComponentPlaceholder) => {
+      const id = placeholder.polymorphic_id;
+      const name = placeholder.polymorphic_name;
+
+      // If MSB is set, this is a first occurrence with name
+      if (id >= CEREAL_MSB_32BIT && name) {
+        const strippedId = id - CEREAL_MSB_32BIT;  // Same as id & ~MSB
+        registry.set(strippedId, name);
+      }
+    };
+
+    const processEntity = (
+      entity: { components: AnimatedComponentData[]; children: AnimatedEntityChild[] }
+    ) => {
+      for (const component of entity.components) {
+        processPlaceholder(component.placeholder);
+      }
+
+      for (const child of entity.children) {
+        processEntity(child.value);
+      }
+    };
+
+    processEntity(clip.clip.root_entity);
+    return registry;
+  }
+
+  /**
+   * Helper: Get component type name from placeholder using registry
+   *
+   * @param placeholder The component placeholder from AnimationClip
+   * @param registry The polymorphic type registry built from the clip
+   * @returns Human-readable component type name
+   */
+  getComponentTypeName(placeholder: AnimatedComponentPlaceholder, registry: PolymorphicTypeRegistry): string {
+    let fullName: string | undefined = placeholder.polymorphic_name;
+
+    // If no name in placeholder, look up in registry
+    if (!fullName) {
+      const id = placeholder.polymorphic_id;
+      fullName = registry.get(id);
+    }
+
+    if (fullName) {
+      // Extract short name from full qualified name
+      // e.g., "nodec_rendering::components::SerializableImageRenderer" -> "ImageRenderer"
+      const lastPart = fullName.split('::').pop() || fullName;
+      // Remove "Serializable" prefix if present
+      return lastPart.replace(/^Serializable/, '');
+    }
+
+    // Fallback to showing the ID
+    return `Component[${placeholder.polymorphic_id}]`;
   }
 
   /**

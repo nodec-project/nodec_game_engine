@@ -28,6 +28,8 @@ import {
   AnimatedEntityChild,
   AnimatedProperty,
   AnimatedComponentPlaceholder,
+  PolymorphicTypeRegistry,
+  gameEngineAPI,
 } from '../../api/gameEngine';
 
 // Tree node types
@@ -43,6 +45,7 @@ export interface SelectedNode {
 
 interface AnimationHierarchyEditorProps {
   clipData: AnimationClipResponse;
+  typeRegistry: PolymorphicTypeRegistry;
   selectedNode: SelectedNode | null;
   onSelectNode: (node: SelectedNode | null) => void;
   onAddEntity?: () => void;
@@ -51,22 +54,9 @@ interface AnimationHierarchyEditorProps {
   onRemoveProperty?: (entityPath: string, componentIndex: number, propertyKey: string) => void;
 }
 
-// Helper to get component type name from placeholder
-const getComponentTypeName = (placeholder: AnimatedComponentPlaceholder): string => {
-  if (placeholder.polymorphic_name) {
-    // Extract short name from full qualified name
-    // e.g., "nodec_rendering::components::SerializableImageRenderer" -> "ImageRenderer"
-    const fullName = placeholder.polymorphic_name;
-    const lastPart = fullName.split('::').pop() || fullName;
-    // Remove "Serializable" prefix if present
-    return lastPart.replace(/^Serializable/, '');
-  }
-  // Fallback to polymorphic_id
-  return `Component[${placeholder.polymorphic_id}]`;
-};
-
 export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> = ({
   clipData,
+  typeRegistry,
   selectedNode,
   onSelectNode,
   onAddEntity,
@@ -166,7 +156,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
       entityPath,
       componentIndex,
     };
-    const typeName = getComponentTypeName(component.placeholder);
+    const typeName = gameEngineAPI.getComponentTypeName(component.placeholder, typeRegistry);
     const hasProperties = component.properties.length > 0;
     const expanded = isExpanded(nodeId);
 

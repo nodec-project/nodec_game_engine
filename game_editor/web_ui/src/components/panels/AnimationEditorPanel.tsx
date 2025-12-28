@@ -32,6 +32,7 @@ import {
   AnimationClipResponse,
   AnimatedEntityChild,
   Keyframe,
+  PolymorphicTypeRegistry,
 } from '../../api/gameEngine';
 import { CurveViewer, CurveData } from '../animation/CurveViewer';
 import { AnimationHierarchyEditor, SelectedNode } from '../animation/AnimationHierarchyEditor';
@@ -42,6 +43,7 @@ interface AnimationState {
   entityName: string;
   clipName: string;
   clipData: AnimationClipResponse;  // Full clip data for mutations
+  typeRegistry: PolymorphicTypeRegistry;  // Registry for polymorphic type names
   curves: AnimationCurve[];         // Flattened curves for display
   duration: number;
 }
@@ -100,7 +102,10 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         const clipResponse = await gameEngineAPI.getAnimationClip(clipName);
         console.log(clipResponse);
 
-        // Step 4: Flatten curves for UI display
+        // Step 4: Build polymorphic type registry for component name lookup
+        const typeRegistry = gameEngineAPI.buildPolymorphicTypeRegistry(clipResponse);
+
+        // Step 5: Flatten curves for UI display
         const curves = gameEngineAPI.flattenAnimationClip(clipResponse);
         const duration = gameEngineAPI.getClipDuration(curves);
 
@@ -108,6 +113,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
           entityName: `Entity_${selectedEntityId}`,
           clipName,
           clipData: clipResponse,
+          typeRegistry,
           curves,
           duration,
         });
@@ -739,6 +745,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                 <Box sx={{ flex: 1, overflow: 'hidden' }}>
                   <AnimationHierarchyEditor
                     clipData={animState.clipData}
+                    typeRegistry={animState.typeRegistry}
                     selectedNode={selectedHierarchyNode}
                     onSelectNode={setSelectedHierarchyNode}
                     onAddEntity={() => setEntityPickerOpen(true)}
