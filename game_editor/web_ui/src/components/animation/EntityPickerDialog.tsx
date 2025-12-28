@@ -40,6 +40,8 @@ interface EntityPickerDialogProps {
   onClose: () => void;
   onSelect: (entityId: string, entityName: string) => void;
   excludeEntityIds?: string[];
+  /** If provided, start hierarchy from this entity's children instead of scene roots */
+  rootEntityId?: string;
 }
 
 export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
@@ -47,6 +49,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
   onClose,
   onSelect,
   excludeEntityIds = [],
+  rootEntityId,
 }) => {
   const [rootNodes, setRootNodes] = useState<EntityTreeNode[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +58,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [selectedEntityName, setSelectedEntityName] = useState<string>('');
 
-  // Fetch root entities when dialog opens
+  // Fetch initial entities when dialog opens
   useEffect(() => {
     if (!open) {
       setSelectedEntityId(null);
@@ -63,18 +66,41 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
       return;
     }
 
-    const fetchRootEntities = async () => {
+    const fetchInitialEntities = async () => {
       try {
         setLoading(true);
         setError(null);
-        const entities = await gameEngineAPI.getRootEntities();
 
-        const nodes: EntityTreeNode[] = entities.map((e: EntityInfo) => ({
-          id: e.id,
-          name: e.name,
-          hasChildren: e.has_children,
-          loaded: false,
-        }));
+        let nodes: EntityTreeNode[] = [];
+
+        if (rootEntityId) {
+          // Start from specified entity's children
+          const rootDetails = await gameEngineAPI.getEntityDetails(rootEntityId);
+          const childIds = rootDetails.hierarchy?.children || [];
+
+          if (childIds.length > 0) {
+            nodes = await Promise.all(
+              childIds.map(async (childId: number) => {
+                const childDetails = await gameEngineAPI.getEntityDetails(String(childId));
+                return {
+                  id: childDetails.id,
+                  name: childDetails.name,
+                  hasChildren: (childDetails.hierarchy?.children?.length ?? 0) > 0,
+                  loaded: false,
+                };
+              })
+            );
+          }
+        } else {
+          // Start from scene roots
+          const entities = await gameEngineAPI.getRootEntities();
+          nodes = entities.map((e: EntityInfo) => ({
+            id: e.id,
+            name: e.name,
+            hasChildren: e.has_children,
+            loaded: false,
+          }));
+        }
 
         setRootNodes(nodes);
       } catch (err) {
@@ -84,8 +110,8 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
       }
     };
 
-    fetchRootEntities();
-  }, [open]);
+    fetchInitialEntities();
+  }, [open, rootEntityId]);
 
   // Load children for an entity
   const loadChildren = useCallback(async (node: EntityTreeNode): Promise<EntityTreeNode[]> => {
@@ -262,7 +288,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
 
         {!loading && !error && rootNodes.length === 0 && (
           <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-            No entities found in scene
+            {rootEntityId ? 'No child entities found' : 'No entities found in scene'}
           </Typography>
         )}
 

@@ -120,6 +120,19 @@ export interface AnimationCurve {
   wrapMode: number;
 }
 
+// Registered component from /api/components
+export interface RegisteredComponent {
+  runtime_type_index: number;
+  data: {
+    component: AnimatedComponentPlaceholder;
+  };
+}
+
+// Response from /api/components
+export interface RegisteredComponentsResponse {
+  components: RegisteredComponent[];
+}
+
 // Polymorphic type registry for cereal serialization
 // Maps stripped polymorphic_id (without MSB) to polymorphic_name
 export type PolymorphicTypeRegistry = Map<number, string>;
@@ -378,6 +391,30 @@ export class GameEngineAPI {
   }
 
   /**
+   * Get all registered component types from the game engine
+   */
+  async getRegisteredComponents(): Promise<RegisteredComponent[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/components`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: RegisteredComponentsResponse = await response.json();
+      return data.components;
+    } catch (error) {
+      console.error('Failed to fetch registered components:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get components for a specific entity
    */
   async getEntityComponents(entityId: string): Promise<ComponentInfo[]> {
@@ -459,6 +496,96 @@ export class GameEngineAPI {
    */
   async getAnimationClip(clipName: string): Promise<AnimationClipResponse> {
     return this.getResource<AnimationClipResponse>('animation_clip', clipName);
+  }
+
+  /**
+   * Remap polymorphic_ids in an AnimationClipResponse for cereal serialization.
+   *
+   * cereal uses MSB-based scheme for polymorphic types:
+   * - First occurrence: polymorphic_id = 0x80000000 | base_id, with polymorphic_name present
+   * - Subsequent occurrences: polymorphic_id = base_id, without polymorphic_name
+   *
+   * This function ensures the clip data is in the correct format for the server.
+   */
+  remapPolymorphicIds(clip: AnimationClipResponse): AnimationClipResponse {
+    // Map polymorphic_name to assigned base_id
+    const typeToBaseId = new Map<string, number>();
+    let nextBaseId = 1;
+
+    // Deep clone the clip to avoid mutating the original
+    const clonedClip: AnimationClipResponse = JSON.parse(JSON.stringify(clip));
+
+    // Process a component placeholder and remap its polymorphic_id
+    const processPlaceholder = (placeholder: AnimatedComponentPlaceholder): void => {
+      const typeName = placeholder.polymorphic_name;
+
+      if (!typeName) {
+        // If no polymorphic_name, try to look up by the current id
+        // This might be a subsequent occurrence that already has a base id
+        // We need to find what type it corresponds to
+        // For now, leave it as-is if no name is present
+        return;
+      }
+
+      if (typeToBaseId.has(typeName)) {
+        // Subsequent occurrence - use base id without MSB, remove polymorphic_name
+        const baseId = typeToBaseId.get(typeName)!;
+        placeholder.polymorphic_id = baseId;
+        delete placeholder.polymorphic_name;
+      } else {
+        // First occurrence - assign new base id with MSB, keep polymorphic_name
+        // Use addition instead of bitwise OR to avoid JavaScript's signed 32-bit interpretation
+        const baseId = nextBaseId++;
+        typeToBaseId.set(typeName, baseId);
+        placeholder.polymorphic_id = CEREAL_MSB_32BIT + baseId;
+        // polymorphic_name is already present, keep it
+      }
+    };
+
+    // Process all components in an entity
+    const processEntity = (entity: { components: AnimatedComponentData[]; children: AnimatedEntityChild[] }): void => {
+      for (const component of entity.components) {
+        processPlaceholder(component.placeholder);
+      }
+
+      for (const child of entity.children) {
+        processEntity(child.value);
+      }
+    };
+
+    processEntity(clonedClip.clip.root_entity);
+
+    return clonedClip;
+  }
+
+  /**
+   * Update an animation clip resource via PUT
+   * Automatically remaps polymorphic_ids for cereal serialization.
+   *
+   * @param clipName - The resource name (e.g., "org.solreno.solreno/animations/title.anim")
+   * @param clipData - The animation clip data to save
+   */
+  async updateAnimationClip(clipName: string, clipData: AnimationClipResponse): Promise<void> {
+    try {
+      // Remap polymorphic_ids before sending
+      const remappedClip = this.remapPolymorphicIds(clipData);
+
+      const response = await fetch(`${API_BASE_URL}/api/resources/animation_clip/${clipName}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(remappedClip),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+    } catch (error) {
+      console.error(`Failed to update animation clip ${clipName}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -597,7 +724,7 @@ export class GameEngineAPI {
    *
    * @param placeholder The component placeholder from AnimationClip
    * @param registry The polymorphic type registry built from the clip
-   * @returns Human-readable component type name
+   * @returns Component type name (e.g., "SerializableImageRenderer")
    */
   getComponentTypeName(placeholder: AnimatedComponentPlaceholder, registry: PolymorphicTypeRegistry): string {
     let fullName: string | undefined = placeholder.polymorphic_name;
@@ -610,10 +737,8 @@ export class GameEngineAPI {
 
     if (fullName) {
       // Extract short name from full qualified name
-      // e.g., "nodec_rendering::components::SerializableImageRenderer" -> "ImageRenderer"
-      const lastPart = fullName.split('::').pop() || fullName;
-      // Remove "Serializable" prefix if present
-      return lastPart.replace(/^Serializable/, '');
+      // e.g., "nodec_rendering::components::SerializableImageRenderer" -> "SerializableImageRenderer"
+      return fullName.split('::').pop() || fullName;
     }
 
     // Fallback to showing the ID

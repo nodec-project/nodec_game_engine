@@ -17,6 +17,8 @@ import {
   ListItemText,
   ListItemIcon,
   Checkbox,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Animation as AnimationIcon,
@@ -24,6 +26,9 @@ import {
   Warning as WarningIcon,
   Timeline as TimelineIcon,
   AccountTree as HierarchyIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material';
 import { useEditor } from '../../contexts/EditorContext';
 import {
@@ -31,12 +36,16 @@ import {
   AnimationCurve,
   AnimationClipResponse,
   AnimatedEntityChild,
+  AnimatedComponentData,
+  AnimatedComponentPlaceholder,
   Keyframe,
   PolymorphicTypeRegistry,
 } from '../../api/gameEngine';
 import { CurveViewer, CurveData } from '../animation/CurveViewer';
 import { AnimationHierarchyEditor, SelectedNode } from '../animation/AnimationHierarchyEditor';
 import { EntityPickerDialog } from '../animation/EntityPickerDialog';
+import { ComponentPickerDialog } from '../animation/ComponentPickerDialog';
+import { PropertyPickerDialog } from '../animation/PropertyPickerDialog';
 
 // Animation editing state - stores full clip for mutation
 interface AnimationState {
@@ -62,9 +71,53 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedHierarchyNode, setSelectedHierarchyNode] = useState<SelectedNode | null>(null);
   const [entityPickerOpen, setEntityPickerOpen] = useState(false);
+  const [componentPickerOpen, setComponentPickerOpen] = useState(false);
+  const [propertyPickerOpen, setPropertyPickerOpen] = useState(false);
+  // Track which entity/component we're adding to
+  const [addComponentTargetPath, setAddComponentTargetPath] = useState<string>('');
+  const [addPropertyTarget, setAddPropertyTarget] = useState<{ entityPath: string; componentIndex: number } | null>(null);
+
+  // Lock feature - when locked, don't switch entity on selection change
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockedEntityId, setLockedEntityId] = useState<string | null>(null);
+
+  // Save state
+  const [isSaving, setIsSaving] = useState(false);
+
+  // The entity ID to use for fetching animation data
+  const effectiveEntityId = isLocked ? lockedEntityId : selectedEntityId;
+
+  // Toggle lock state
+  const handleToggleLock = useCallback(() => {
+    if (isLocked) {
+      // Unlocking - clear locked entity
+      setIsLocked(false);
+      setLockedEntityId(null);
+    } else {
+      // Locking - store current entity
+      setIsLocked(true);
+      setLockedEntityId(selectedEntityId);
+    }
+  }, [isLocked, selectedEntityId]);
+
+  // Save animation clip to server
+  const handleSave = useCallback(async () => {
+    if (!animState) return;
+
+    try {
+      setIsSaving(true);
+      await gameEngineAPI.updateAnimationClip(animState.clipName, animState.clipData);
+      console.log(`Animation clip saved: ${animState.clipName}`);
+    } catch (err) {
+      console.error('Failed to save animation clip:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save animation clip');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [animState]);
 
   useEffect(() => {
-    if (!selectedEntityId) {
+    if (!effectiveEntityId) {
       setAnimState(null);
       setHasAnimator(false);
       setError(null);
@@ -77,7 +130,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         setError(null);
 
         // Step 1: Get entity components
-        const components = await gameEngineAPI.getEntityComponents(selectedEntityId);
+        const components = await gameEngineAPI.getEntityComponents(effectiveEntityId);
 
         // Step 2: Find animator clip name from components
         const clipName = gameEngineAPI.findAnimatorClipName(components);
@@ -110,7 +163,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         const duration = gameEngineAPI.getClipDuration(curves);
 
         setAnimState({
-          entityName: `Entity_${selectedEntityId}`,
+          entityName: `Entity_${effectiveEntityId}`,
           clipName,
           clipData: clipResponse,
           typeRegistry,
@@ -132,7 +185,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     };
 
     fetchAnimationData();
-  }, [selectedEntityId]);
+  }, [effectiveEntityId]);
 
   // Helper to get unique key for a curve
   const getCurveKey = (curve: AnimationCurve): string => {
@@ -580,6 +633,302 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     }
   }, [animState, selectedHierarchyNode]);
 
+  // Open component picker for a specific entity
+  const handleOpenComponentPicker = useCallback((entityPath: string) => {
+    setAddComponentTargetPath(entityPath);
+    setComponentPickerOpen(true);
+  }, []);
+
+  // Add component to entity in the animation hierarchy
+  const handleAddComponent = useCallback((placeholder: AnimatedComponentPlaceholder, displayName: string) => {
+    if (!animState) return;
+
+    // Create new component data with empty properties
+    const newComponent: AnimatedComponentData = {
+      placeholder,
+      properties: [],
+    };
+
+    // Helper to add component to entity by path
+    const addComponentToEntity = (
+      children: AnimatedEntityChild[],
+      pathParts: string[]
+    ): AnimatedEntityChild[] => {
+      if (pathParts.length === 0) return children;
+
+      const [currentName, ...restPath] = pathParts;
+
+      return children.map(child => {
+        if (child.key !== currentName) return child;
+
+        if (restPath.length === 0) {
+          // Add component at this entity
+          return {
+            ...child,
+            value: {
+              ...child.value,
+              components: [...child.value.components, newComponent],
+            },
+          };
+        }
+
+        // Recurse
+        return {
+          ...child,
+          value: {
+            ...child.value,
+            children: addComponentToEntity(child.value.children, restPath),
+          },
+        };
+      });
+    };
+
+    const pathParts = addComponentTargetPath.split('/').filter(p => p.length > 0);
+
+    let newClipData: AnimationClipResponse;
+
+    if (pathParts.length === 0) {
+      // Adding to root entity
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            components: [...animState.clipData.clip.root_entity.components, newComponent],
+          },
+        },
+      };
+    } else {
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            children: addComponentToEntity(animState.clipData.clip.root_entity.children, pathParts),
+          },
+        },
+      };
+    }
+
+    // Rebuild type registry with the new component
+    const newTypeRegistry = gameEngineAPI.buildPolymorphicTypeRegistry(newClipData);
+
+    // Re-flatten curves
+    const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
+    const newDuration = gameEngineAPI.getClipDuration(newCurves);
+
+    setAnimState({
+      ...animState,
+      clipData: newClipData,
+      typeRegistry: newTypeRegistry,
+      curves: newCurves,
+      duration: newDuration,
+    });
+  }, [animState, addComponentTargetPath]);
+
+  // Open property picker for a specific component
+  const handleOpenPropertyPicker = useCallback((entityPath: string, componentIndex: number) => {
+    setAddPropertyTarget({ entityPath, componentIndex });
+    setPropertyPickerOpen(true);
+  }, []);
+
+  // Get component data for property picker
+  const getComponentDataForPropertyPicker = useCallback((): Record<string, unknown> => {
+    if (!animState || !addPropertyTarget) return {};
+
+    const { entityPath, componentIndex } = addPropertyTarget;
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    // Helper to find component in hierarchy
+    const findComponent = (
+      children: AnimatedEntityChild[],
+      parts: string[]
+    ): AnimatedComponentData | null => {
+      if (parts.length === 0) return null;
+
+      const [currentName, ...restParts] = parts;
+
+      for (const child of children) {
+        if (child.key !== currentName) continue;
+
+        if (restParts.length === 0) {
+          // Found the entity, return the component
+          return child.value.components[componentIndex] || null;
+        }
+
+        // Recurse
+        return findComponent(child.value.children, restParts);
+      }
+
+      return null;
+    };
+
+    let component: AnimatedComponentData | null = null;
+
+    if (pathParts.length === 0) {
+      // Root entity
+      component = animState.clipData.clip.root_entity.components[componentIndex] || null;
+    } else {
+      component = findComponent(animState.clipData.clip.root_entity.children, pathParts);
+    }
+
+    if (!component?.placeholder?.ptr_wrapper?.data) {
+      return {};
+    }
+
+    return component.placeholder.ptr_wrapper.data as Record<string, unknown>;
+  }, [animState, addPropertyTarget]);
+
+  // Get already added property paths for exclusion in property picker
+  const getExcludedPropertyPaths = useCallback((): string[] => {
+    if (!animState || !addPropertyTarget) return [];
+
+    const { entityPath, componentIndex } = addPropertyTarget;
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    // Helper to find component in hierarchy
+    const findComponent = (
+      children: AnimatedEntityChild[],
+      parts: string[]
+    ): AnimatedComponentData | null => {
+      if (parts.length === 0) return null;
+
+      const [currentName, ...restParts] = parts;
+
+      for (const child of children) {
+        if (child.key !== currentName) continue;
+
+        if (restParts.length === 0) {
+          return child.value.components[componentIndex] || null;
+        }
+
+        return findComponent(child.value.children, restParts);
+      }
+
+      return null;
+    };
+
+    let component: AnimatedComponentData | null = null;
+
+    if (pathParts.length === 0) {
+      component = animState.clipData.clip.root_entity.components[componentIndex] || null;
+    } else {
+      component = findComponent(animState.clipData.clip.root_entity.children, pathParts);
+    }
+
+    if (!component) return [];
+
+    return component.properties.map(p => p.key);
+  }, [animState, addPropertyTarget]);
+
+  // Add property to component in the animation hierarchy
+  const handleAddProperty = useCallback((propertyPath: string) => {
+    if (!animState || !addPropertyTarget) return;
+
+    const { entityPath, componentIndex } = addPropertyTarget;
+
+    // Create new property with empty curve (no keyframes initially)
+    const newProperty = {
+      key: propertyPath,
+      value: {
+        curve: {
+          wrap_mode: 0,  // Once
+          keyframes: [],  // Empty - user adds keyframes manually
+        },
+      },
+    };
+
+    // Helper to add property to component by path
+    const addPropertyToComponent = (
+      children: AnimatedEntityChild[],
+      pathParts: string[],
+      compIndex: number
+    ): AnimatedEntityChild[] => {
+      if (pathParts.length === 0) return children;
+
+      const [currentName, ...restPath] = pathParts;
+
+      return children.map(child => {
+        if (child.key !== currentName) return child;
+
+        if (restPath.length === 0) {
+          // Found the entity, add property to the component
+          return {
+            ...child,
+            value: {
+              ...child.value,
+              components: child.value.components.map((comp, idx) => {
+                if (idx !== compIndex) return comp;
+                return {
+                  ...comp,
+                  properties: [...comp.properties, newProperty],
+                };
+              }),
+            },
+          };
+        }
+
+        // Recurse
+        return {
+          ...child,
+          value: {
+            ...child.value,
+            children: addPropertyToComponent(child.value.children, restPath, compIndex),
+          },
+        };
+      });
+    };
+
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    let newClipData: AnimationClipResponse;
+
+    if (pathParts.length === 0) {
+      // Adding to root entity's component
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            components: animState.clipData.clip.root_entity.components.map((comp, idx) => {
+              if (idx !== componentIndex) return comp;
+              return {
+                ...comp,
+                properties: [...comp.properties, newProperty],
+              };
+            }),
+          },
+        },
+      };
+    } else {
+      newClipData = {
+        clip: {
+          root_entity: {
+            ...animState.clipData.clip.root_entity,
+            children: addPropertyToComponent(animState.clipData.clip.root_entity.children, pathParts, componentIndex),
+          },
+        },
+      };
+    }
+
+    // Re-flatten curves
+    const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
+    const newDuration = gameEngineAPI.getClipDuration(newCurves);
+
+    // Auto-select the new curve
+    const newCurveKey = entityPath ? `${entityPath}/${propertyPath}` : propertyPath;
+
+    setSelectedCurves(prev => {
+      const next = new Set(prev);
+      next.add(newCurveKey);
+      return next;
+    });
+
+    setAnimState({
+      ...animState,
+      clipData: newClipData,
+      curves: newCurves,
+      duration: newDuration,
+    });
+  }, [animState, addPropertyTarget]);
+
   return (
     <Paper
       sx={{
@@ -618,8 +967,33 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
           {/* Entity and Clip Info Bar */}
           <Box sx={{ px: 2, pb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {/* Lock Button */}
+              <Tooltip title={isLocked ? 'Unlock (follow selection)' : 'Lock (keep current entity)'}>
+                <IconButton
+                  size="small"
+                  onClick={handleToggleLock}
+                  color={isLocked ? 'primary' : 'default'}
+                  sx={{ mr: 0.5 }}
+                >
+                  {isLocked ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+              {/* Save Button */}
+              <Tooltip title="Save animation clip">
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={handleSave}
+                    disabled={!animState || isSaving}
+                    color="primary"
+                    sx={{ mr: 0.5 }}
+                  >
+                    {isSaving ? <CircularProgress size={18} /> : <SaveIcon fontSize="small" />}
+                  </IconButton>
+                </span>
+              </Tooltip>
               <Chip
-                label={animState?.entityName || `Entity_${selectedEntityId}`}
+                label={animState?.entityName || `Entity_${effectiveEntityId}`}
                 size="small"
                 icon={<AnimationIcon />}
                 variant="outlined"
@@ -750,7 +1124,9 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                     onSelectNode={setSelectedHierarchyNode}
                     onAddEntity={() => setEntityPickerOpen(true)}
                     onRemoveEntity={handleRemoveEntity}
+                    onAddComponent={handleOpenComponentPicker}
                     onRemoveComponent={handleRemoveComponent}
+                    onAddProperty={handleOpenPropertyPicker}
                     onRemoveProperty={handleRemoveProperty}
                   />
                 </Box>
@@ -769,12 +1145,29 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         </Box>
       )}
 
-      {/* Entity Picker Dialog */}
+      {/* Entity Picker Dialog - starts from selected entity's children */}
       <EntityPickerDialog
         open={entityPickerOpen}
         onClose={() => setEntityPickerOpen(false)}
         onSelect={handleAddEntity}
         excludeEntityIds={getAnimatedEntityNames()}
+        rootEntityId={effectiveEntityId || undefined}
+      />
+
+      {/* Component Picker Dialog */}
+      <ComponentPickerDialog
+        open={componentPickerOpen}
+        onClose={() => setComponentPickerOpen(false)}
+        onSelect={handleAddComponent}
+      />
+
+      {/* Property Picker Dialog */}
+      <PropertyPickerDialog
+        open={propertyPickerOpen}
+        onClose={() => setPropertyPickerOpen(false)}
+        onSelect={handleAddProperty}
+        componentData={getComponentDataForPropertyPicker()}
+        excludePropertyPaths={getExcludedPropertyPaths()}
       />
     </Paper>
   );

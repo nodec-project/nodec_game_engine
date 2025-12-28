@@ -50,7 +50,9 @@ interface AnimationHierarchyEditorProps {
   onSelectNode: (node: SelectedNode | null) => void;
   onAddEntity?: () => void;
   onRemoveEntity?: (entityPath: string) => void;
+  onAddComponent?: (entityPath: string) => void;
   onRemoveComponent?: (entityPath: string, componentIndex: number) => void;
+  onAddProperty?: (entityPath: string, componentIndex: number) => void;
   onRemoveProperty?: (entityPath: string, componentIndex: number, propertyKey: string) => void;
 }
 
@@ -61,7 +63,9 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
   onSelectNode,
   onAddEntity,
   onRemoveEntity,
+  onAddComponent,
   onRemoveComponent,
+  onAddProperty,
   onRemoveProperty,
 }) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
@@ -165,19 +169,34 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
         <ListItem
           disablePadding
           secondaryAction={
-            onRemoveComponent && (
-              <Tooltip title="Remove component">
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveComponent(entityPath, componentIndex);
-                  }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {onAddProperty && (
+                <Tooltip title="Add property">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddProperty(entityPath, componentIndex);
+                    }}
+                  >
+                    <Add fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {onRemoveComponent && (
+                <Tooltip title="Remove component">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveComponent(entityPath, componentIndex);
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           }
         >
           <ListItemButton
@@ -245,19 +264,34 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
         <ListItem
           disablePadding
           secondaryAction={
-            onRemoveEntity && (
-              <Tooltip title="Remove entity">
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveEntity(entityPath);
-                  }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {onAddComponent && (
+                <Tooltip title="Add component">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddComponent(entityPath);
+                    }}
+                  >
+                    <Add fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {onRemoveEntity && (
+                <Tooltip title="Remove entity">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveEntity(entityPath);
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           }
         >
           <ListItemButton

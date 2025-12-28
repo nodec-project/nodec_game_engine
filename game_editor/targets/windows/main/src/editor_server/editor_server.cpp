@@ -819,7 +819,7 @@ private:
                 // Load into the existing clip (this will update the root_entity)
                 archive(cereal::make_nvp("clip", *clip));
 
-                logger_->info(__FILE__, __LINE__) << "Updated animation clip: " << resource_name;
+                logger_->info(__FILE__, __LINE__) << "Updated animation clip: " << resource_name << " " << json_body;
 
                 return "{\"success\":true,\"type\":\"animation_clip\",\"name\":\"" + resource_name + "\"}";
             }
