@@ -6,13 +6,13 @@
 
 #include <nodec_world/world.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
-#include <nodec/resource_management/resource_registry.hpp>
+#include <nodec_resources/resources.hpp>
 
 class EditorServer {
 public:
     EditorServer(nodec_world::World* world,
                  nodec_scene_serialization::SceneSerialization* scene_serialization,
-                 nodec::resource_management::ResourceRegistry* resource_registry);
+                 nodec_resources::Resources* resources);
 
     ~EditorServer();
 

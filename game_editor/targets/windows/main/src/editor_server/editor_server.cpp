@@ -5,11 +5,13 @@
 #include <mutex>
 #include <functional>
 #include <sstream>
+#include <fstream>
 #include <set>
 #include <unordered_map>
 
 #include <nodec/logging/logging.hpp>
 #include <nodec/string_builder.hpp>
+#include <nodec/concurrent/thread_pool_executor.hpp>
 #include <nodec_scene/components/hierarchy.hpp>
 #include <nodec_scene/components/name.hpp>
 #include <nodec_scene_serialization/archive_context.hpp>
@@ -95,9 +97,10 @@ class EditorServer::Impl {
 public:
     Impl(nodec_world::World* world,
          nodec_scene_serialization::SceneSerialization* scene_serialization,
-         nodec::resource_management::ResourceRegistry* resource_registry)
-        : world_(world), scene_serialization_(scene_serialization), resource_registry_(resource_registry),
-          logger_(nodec::logging::get_logger("editor_server")) {
+         nodec_resources::Resources* resources)
+        : world_(world), scene_serialization_(scene_serialization), resources_(resources),
+          logger_(nodec::logging::get_logger("editor_server")),
+          file_write_executor_(1) {
         thread_ = std::thread([this]() {
             auto app = uWS::App();
 
@@ -596,7 +599,7 @@ private:
     }
 
     std::string get_registered_components_json() {
-        if (!scene_serialization_ || !resource_registry_) {
+        if (!scene_serialization_ || !resources_) {
             return "{\"error\":\"Scene serialization or resource registry not available\"}";
         }
 
@@ -605,7 +608,7 @@ private:
         json << "{\"components\":[";
 
         bool first = true;
-        nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+        nodec_scene_serialization::ArchiveContext context(*scene_serialization_, resources_->registry());
 
         scene_serialization_->for_each_component_serialization(
             [&](const nodec_scene_serialization::SceneSerialization::BaseComponentSerialization& serialization) {
@@ -662,7 +665,7 @@ private:
 
             std::ostringstream oss;
             {
-                nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+                nodec_scene_serialization::ArchiveContext context(*scene_serialization_, resources_->registry());
                 cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONOutputArchive> archive(context, oss, cereal::JSONOutputArchive::Options::NoIndent());
                 archive(cereal::make_nvp("component", serializable));
             }
@@ -726,20 +729,20 @@ private:
     }
 
     std::string get_resource_json(const std::string& resource_type, const std::string& resource_name) {
-        if (!resource_registry_ || !scene_serialization_) {
+        if (!resources_ || !scene_serialization_) {
             return "{\"error\":\"Resource registry or scene serialization not available\"}";
         }
 
         try {
             if (resource_type == "animation_clip") {
-                auto clip = resource_registry_->get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
+                auto clip = resources_->registry().get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
                 if (!clip) {
                     return "{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}";
                 }
 
                 std::ostringstream oss;
                 {
-                    nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+                    nodec_scene_serialization::ArchiveContext context(*scene_serialization_, resources_->registry());
                     cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONOutputArchive>
                         archive(context, oss, cereal::JSONOutputArchive::Options::NoIndent());
                     archive(cereal::make_nvp("clip", *clip));
@@ -764,13 +767,13 @@ private:
             return "{\"error\":\"Invalid entity\",\"id\":" + std::to_string(entity_id) + "}";
         }
 
-        if (!scene_serialization_ || !resource_registry_) {
+        if (!scene_serialization_ || !resources_) {
             return "{\"error\":\"Scene serialization or resource registry not available\"}";
         }
 
         try {
             std::istringstream iss(json_body);
-            nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+            nodec_scene_serialization::ArchiveContext context(*scene_serialization_, resources_->registry());
             cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONInputArchive>
                 archive(context, iss);
 
@@ -797,14 +800,14 @@ private:
     }
 
     std::string update_resource_json(const std::string& resource_type, const std::string& resource_name, const std::string& json_body) {
-        if (!resource_registry_ || !scene_serialization_) {
+        if (!resources_ || !scene_serialization_) {
             return "{\"error\":\"Resource registry or scene serialization not available\"}";
         }
 
         try {
             if (resource_type == "animation_clip") {
                 // Get the existing clip from the registry
-                auto clip = resource_registry_->get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
+                auto clip = resources_->registry().get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
                 if (!clip) {
                     return "{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}";
                 }
@@ -812,14 +815,26 @@ private:
                 // Deserialize the incoming JSON to update the clip
                 // Expected format: { "clip": { "root_entity": { ... } } }
                 std::istringstream iss(json_body);
-                nodec_scene_serialization::ArchiveContext context(*scene_serialization_, *resource_registry_);
+                nodec_scene_serialization::ArchiveContext context(*scene_serialization_, resources_->registry());
                 cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONInputArchive>
                     archive(context, iss);
 
                 // Load into the existing clip (this will update the root_entity)
                 archive(cereal::make_nvp("clip", *clip));
 
-                logger_->info(__FILE__, __LINE__) << "Updated animation clip: " << resource_name << " " << json_body;
+                // Write json_body directly to file in background thread
+                std::string file_path = resources_->resource_path() + "/" + resource_name;
+                file_write_executor_.submit([file_path, json_body, logger = logger_]() {
+                    std::ofstream ofs(file_path);
+                    if (ofs) {
+                        ofs << json_body;
+                        logger->info(__FILE__, __LINE__) << "Saved animation clip to file: " << file_path;
+                    } else {
+                        logger->error(__FILE__, __LINE__) << "Failed to open file for writing: " << file_path;
+                    }
+                });
+
+                logger_->info(__FILE__, __LINE__) << "Updated animation clip: " << resource_name;
 
                 return "{\"success\":true,\"type\":\"animation_clip\",\"name\":\"" + resource_name + "\"}";
             }
@@ -863,7 +878,7 @@ private:
 private:
     nodec_world::World* world_;
     nodec_scene_serialization::SceneSerialization* scene_serialization_;
-    nodec::resource_management::ResourceRegistry* resource_registry_;
+    nodec_resources::Resources* resources_;
     std::shared_ptr<nodec::logging::Logger> logger_;
     us_listen_socket_t* listen_socket_{nullptr};
     std::thread thread_;
@@ -876,12 +891,15 @@ private:
     // WebSocket clients
     std::set<uWS::WebSocket<false, true, WebSocketData>*> ws_clients_;
     std::mutex ws_clients_mutex_;
+
+    // File writing executor (1 thread for sequential writes)
+    nodec::concurrent::ThreadPoolExecutor file_write_executor_;
 };
 
 EditorServer::EditorServer(nodec_world::World* world,
                            nodec_scene_serialization::SceneSerialization* scene_serialization,
-                           nodec::resource_management::ResourceRegistry* resource_registry)
-    : impl_(std::make_unique<Impl>(world, scene_serialization, resource_registry)) {
+                           nodec_resources::Resources* resources)
+    : impl_(std::make_unique<Impl>(world, scene_serialization, resources)) {
 }
 
 EditorServer::~EditorServer() = default;

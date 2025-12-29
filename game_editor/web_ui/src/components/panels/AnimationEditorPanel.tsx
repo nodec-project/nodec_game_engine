@@ -237,6 +237,94 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     return animState.curves.findIndex(c => getCurveKey(c) === curveId);
   }, [animState?.curves]);
 
+  // Helper to update keyframes in clipData for a given entityPath and propertyPath
+  const updateClipDataKeyframes = useCallback((
+    clipData: AnimationClipResponse,
+    entityPath: string,
+    propertyPath: string,
+    newKeyframes: Keyframe[]
+  ): AnimationClipResponse => {
+    const pathParts = entityPath.split('/').filter(p => p.length > 0);
+
+    // Helper to update keyframes in an entity's components
+    const updateInComponents = (components: AnimatedComponentData[]): AnimatedComponentData[] => {
+      return components.map(comp => {
+        const propIndex = comp.properties.findIndex(p => p.key === propertyPath);
+        if (propIndex === -1) return comp;
+        return {
+          ...comp,
+          properties: comp.properties.map((p, idx) => {
+            if (idx !== propIndex) return p;
+            return {
+              ...p,
+              value: {
+                curve: {
+                  ...p.value.curve,
+                  keyframes: newKeyframes,
+                },
+              },
+            };
+          }),
+        };
+      });
+    };
+
+    // Helper to update recursively in children
+    const updateInChildren = (
+      children: AnimatedEntityChild[],
+      parts: string[]
+    ): AnimatedEntityChild[] => {
+      if (parts.length === 0) return children;
+
+      const [currentName, ...restParts] = parts;
+
+      return children.map(child => {
+        if (child.key !== currentName) return child;
+
+        if (restParts.length === 0) {
+          // Found the target entity, update its components
+          return {
+            ...child,
+            value: {
+              ...child.value,
+              components: updateInComponents(child.value.components),
+            },
+          };
+        }
+
+        // Recurse
+        return {
+          ...child,
+          value: {
+            ...child.value,
+            children: updateInChildren(child.value.children, restParts),
+          },
+        };
+      });
+    };
+
+    if (pathParts.length === 0) {
+      // Root entity
+      return {
+        clip: {
+          root_entity: {
+            ...clipData.clip.root_entity,
+            components: updateInComponents(clipData.clip.root_entity.components),
+          },
+        },
+      };
+    }
+
+    return {
+      clip: {
+        root_entity: {
+          ...clipData.clip.root_entity,
+          children: updateInChildren(clipData.clip.root_entity.children, pathParts),
+        },
+      },
+    };
+  }, []);
+
   // Keyframe mutation handlers
   const handleKeyframeUpdate = useCallback((curveId: string, keyframeIndex: number, keyframe: Keyframe) => {
     if (!animState) return;
@@ -244,23 +332,35 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     const curveIndex = findCurveIndex(curveId);
     if (curveIndex === -1) return;
 
+    // Get the curve to extract entityPath and propertyPath
+    const curve = animState.curves[curveIndex];
+
     // Update the curves array immutably
     const newCurves = [...animState.curves];
-    const curve = { ...newCurves[curveIndex] };
-    const newKeyframes = [...curve.keyframes];
+    const newCurve = { ...newCurves[curveIndex] };
+    const newKeyframes = [...newCurve.keyframes];
     newKeyframes[keyframeIndex] = keyframe;
-    curve.keyframes = newKeyframes;
-    newCurves[curveIndex] = curve;
+    newCurve.keyframes = newKeyframes;
+    newCurves[curveIndex] = newCurve;
+
+    // Also update clipData
+    const newClipData = updateClipDataKeyframes(
+      animState.clipData,
+      curve.entityPath,
+      curve.propertyPath,
+      newKeyframes
+    );
 
     // Recalculate duration
     const duration = gameEngineAPI.getClipDuration(newCurves);
 
     setAnimState({
       ...animState,
+      clipData: newClipData,
       curves: newCurves,
       duration,
     });
-  }, [animState, findCurveIndex]);
+  }, [animState, findCurveIndex, updateClipDataKeyframes]);
 
   const handleKeyframeAdd = useCallback((curveId: string, keyframe: Keyframe) => {
     if (!animState) return;
@@ -268,24 +368,36 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     const curveIndex = findCurveIndex(curveId);
     if (curveIndex === -1) return;
 
+    // Get the curve to extract entityPath and propertyPath
+    const curve = animState.curves[curveIndex];
+
     // Update the curves array immutably
     const newCurves = [...animState.curves];
-    const curve = { ...newCurves[curveIndex] };
+    const newCurve = { ...newCurves[curveIndex] };
 
     // Insert keyframe in sorted order by time
-    const newKeyframes = [...curve.keyframes, keyframe].sort((a, b) => a.time - b.time);
-    curve.keyframes = newKeyframes;
-    newCurves[curveIndex] = curve;
+    const newKeyframes = [...newCurve.keyframes, keyframe].sort((a, b) => a.time - b.time);
+    newCurve.keyframes = newKeyframes;
+    newCurves[curveIndex] = newCurve;
+
+    // Also update clipData
+    const newClipData = updateClipDataKeyframes(
+      animState.clipData,
+      curve.entityPath,
+      curve.propertyPath,
+      newKeyframes
+    );
 
     // Recalculate duration
     const duration = gameEngineAPI.getClipDuration(newCurves);
 
     setAnimState({
       ...animState,
+      clipData: newClipData,
       curves: newCurves,
       duration,
     });
-  }, [animState, findCurveIndex]);
+  }, [animState, findCurveIndex, updateClipDataKeyframes]);
 
   const handleKeyframeDelete = useCallback((curveId: string, keyframeIndex: number) => {
     if (!animState) return;
@@ -293,22 +405,34 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     const curveIndex = findCurveIndex(curveId);
     if (curveIndex === -1) return;
 
+    // Get the curve to extract entityPath and propertyPath
+    const curve = animState.curves[curveIndex];
+
     // Update the curves array immutably
     const newCurves = [...animState.curves];
-    const curve = { ...newCurves[curveIndex] };
-    const newKeyframes = curve.keyframes.filter((_, i) => i !== keyframeIndex);
-    curve.keyframes = newKeyframes;
-    newCurves[curveIndex] = curve;
+    const newCurve = { ...newCurves[curveIndex] };
+    const newKeyframes = newCurve.keyframes.filter((_, i) => i !== keyframeIndex);
+    newCurve.keyframes = newKeyframes;
+    newCurves[curveIndex] = newCurve;
+
+    // Also update clipData
+    const newClipData = updateClipDataKeyframes(
+      animState.clipData,
+      curve.entityPath,
+      curve.propertyPath,
+      newKeyframes
+    );
 
     // Recalculate duration
     const duration = gameEngineAPI.getClipDuration(newCurves);
 
     setAnimState({
       ...animState,
+      clipData: newClipData,
       curves: newCurves,
       duration,
     });
-  }, [animState, findCurveIndex]);
+  }, [animState, findCurveIndex, updateClipDataKeyframes]);
 
   // Get list of entity names already in the animation (for exclusion in picker)
   const getAnimatedEntityNames = useCallback((): string[] => {

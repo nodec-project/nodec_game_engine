@@ -195,9 +195,9 @@ void Editor::setup() {
     
     // Initialize EditorServer
     // Use shared pointers from Engine
-    editor_server_.reset(new EditorServer(&engine_->world_module(), 
+    editor_server_.reset(new EditorServer(&engine_->world_module(),
                                           &engine_->scene_serialization(),
-                                          &engine_->resources().registry()));
+                                          &engine_->resources()));
 
     // TODO: Restore the previous workspace.
     //  * Last opened windows.
