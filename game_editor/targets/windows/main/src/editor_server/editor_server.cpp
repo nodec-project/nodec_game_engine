@@ -23,6 +23,25 @@
 #include <nodec_animation/resources/animation_clip.hpp>
 #include <nodec_animation/serialization/resources/animation_clip.hpp>
 
+// API response with HTTP status
+struct APIResponse {
+    std::string status;  // HTTP status string, e.g., "200 OK", "400 Bad Request", "500 Internal Server Error"
+    std::string body;
+
+    static APIResponse ok(std::string body) {
+        return {"200 OK", std::move(body)};
+    }
+    static APIResponse bad_request(std::string body) {
+        return {"400 Bad Request", std::move(body)};
+    }
+    static APIResponse not_found(std::string body) {
+        return {"404 Not Found", std::move(body)};
+    }
+    static APIResponse internal_error(std::string body) {
+        return {"500 Internal Server Error", std::move(body)};
+    }
+};
+
 // API request info
 struct APIRequest {
     enum Type {
@@ -40,23 +59,23 @@ struct APIRequest {
     std::string resource_type;
     std::string resource_name;
     std::string request_body;
-    std::function<void(const std::string&)> response_callback;
+    std::function<void(const APIResponse&)> response_callback;
     bool is_valid = true;
 
-    APIRequest(Type t, std::function<void(const std::string&)> callback)
+    APIRequest(Type t, std::function<void(const APIResponse&)> callback)
         : type(t), entity_id(0), response_callback(std::move(callback)) {}
 
-    APIRequest(Type t, uint32_t id, std::function<void(const std::string&)> callback)
+    APIRequest(Type t, uint32_t id, std::function<void(const APIResponse&)> callback)
         : type(t), entity_id(id), response_callback(std::move(callback)) {}
 
-    APIRequest(Type t, std::string res_type, std::string res_name, std::function<void(const std::string&)> callback)
+    APIRequest(Type t, std::string res_type, std::string res_name, std::function<void(const APIResponse&)> callback)
         : type(t), entity_id(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)), response_callback(std::move(callback)) {}
 
-    APIRequest(Type t, uint32_t id, std::string body, std::function<void(const std::string&)> callback)
+    APIRequest(Type t, uint32_t id, std::string body, std::function<void(const APIResponse&)> callback)
         : type(t), entity_id(id), request_body(std::move(body)), response_callback(std::move(callback)) {}
 
     // Constructor for PUT_RESOURCE (resource_type, resource_name, body)
-    APIRequest(Type t, std::string res_type, std::string res_name, std::string body, std::function<void(const std::string&)> callback)
+    APIRequest(Type t, std::string res_type, std::string res_name, std::string body, std::function<void(const APIResponse&)> callback)
         : type(t), entity_id(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)),
           request_body(std::move(body)), response_callback(std::move(callback)) {}
 };
@@ -127,9 +146,10 @@ public:
                     *response_state = false;
                 });
 
-                queue_request(APIRequest::GET_REGISTERED_COMPONENTS, [res, response_state](const std::string& response_data) {
+                queue_request(APIRequest::GET_REGISTERED_COMPONENTS, [res, response_state](const APIResponse& response) {
                     if (*response_state) {
-                        res->end(response_data);
+                        res->writeStatus(response.status);
+                        res->end(response.body);
                     }
                 });
             })
@@ -145,9 +165,10 @@ public:
                     *response_state = false;
                 });
 
-                queue_request(APIRequest::GET_ROOT_ENTITIES, [res, response_state](const std::string& response_data) {
+                queue_request(APIRequest::GET_ROOT_ENTITIES, [res, response_state](const APIResponse& response) {
                     if (*response_state) {
-                        res->end(response_data);
+                        res->writeStatus(response.status);
+                        res->end(response.body);
                     }
                 });
             })
@@ -172,9 +193,10 @@ public:
                     *response_state = false;
                 });
 
-                queue_request(APIRequest::GET_ENTITY_COMPONENTS, entity_id, [res, response_state](const std::string& response_data) {
+                queue_request(APIRequest::GET_ENTITY_COMPONENTS, entity_id, [res, response_state](const APIResponse& response) {
                     if (*response_state) {
-                        res->end(response_data);
+                        res->writeStatus(response.status);
+                        res->end(response.body);
                     }
                 });
             })
@@ -208,9 +230,10 @@ public:
 
                     if (is_last) {
                         queue_request(APIRequest::PATCH_ENTITY_COMPONENTS, captured_entity_id, std::move(*body_buffer),
-                            [res, response_state](const std::string& response_data) {
+                            [res, response_state](const APIResponse& response) {
                                 if (*response_state) {
-                                    res->end(response_data);
+                                    res->writeStatus(response.status);
+                                    res->end(response.body);
                                 }
                             });
                     }
@@ -237,9 +260,10 @@ public:
                     *response_state = false;
                 });
 
-                queue_request(APIRequest::GET_ENTITY_INFO, entity_id, [res, response_state](const std::string& response_data) {
+                queue_request(APIRequest::GET_ENTITY_INFO, entity_id, [res, response_state](const APIResponse& response) {
                     if (*response_state) {
-                        res->end(response_data);
+                        res->writeStatus(response.status);
+                        res->end(response.body);
                     }
                 });
             })
@@ -283,9 +307,10 @@ public:
                 });
 
                 queue_request(APIRequest::GET_RESOURCE, resource_type, resource_name,
-                    [res, response_state](const std::string& response_data) {
+                    [res, response_state](const APIResponse& response) {
                         if (*response_state) {
-                            res->end(response_data);
+                            res->writeStatus(response.status);
+                            res->end(response.body);
                         }
                     });
             })
@@ -338,9 +363,10 @@ public:
 
                     if (is_last) {
                         queue_request(APIRequest::PUT_RESOURCE, captured_type, captured_name, std::move(*body_buffer),
-                            [res, response_state](const std::string& response_data) {
+                            [res, response_state](const APIResponse& response) {
                                 if (*response_state) {
-                                    res->end(response_data);
+                                    res->writeStatus(response.status);
+                                    res->end(response.body);
                                 }
                             });
                     }
@@ -420,37 +446,37 @@ public:
                 auto request = std::move(request_queue_.front());
                 request_queue_.pop();
 
-                std::string response_data;
+                APIResponse response;
                 switch (request.type) {
                     case APIRequest::GET_ROOT_ENTITIES:
-                        response_data = get_root_entities_json();
+                        response = get_root_entities_json();
                         break;
                     case APIRequest::GET_ENTITY_COMPONENTS:
-                        response_data = get_entity_components_json(request.entity_id);
+                        response = get_entity_components_json(request.entity_id);
                         break;
                     case APIRequest::GET_ENTITY_INFO:
-                        response_data = get_entity_info_json(request.entity_id);
+                        response = get_entity_info_json(request.entity_id);
                         break;
                     case APIRequest::GET_RESOURCE:
-                        response_data = get_resource_json(request.resource_type, request.resource_name);
+                        response = get_resource_json(request.resource_type, request.resource_name);
                         break;
                     case APIRequest::PATCH_ENTITY_COMPONENTS:
-                        response_data = update_entity_components(request.entity_id, request.request_body);
+                        response = update_entity_components(request.entity_id, request.request_body);
                         break;
                     case APIRequest::PUT_RESOURCE:
-                        response_data = update_resource_json(request.resource_type, request.resource_name, request.request_body);
+                        response = update_resource_json(request.resource_type, request.resource_name, request.request_body);
                         break;
                     case APIRequest::GET_REGISTERED_COMPONENTS:
-                        response_data = get_registered_components_json();
+                        response = get_registered_components_json();
                         break;
                     default:
-                        response_data = "{\"error\": \"Unknown request type\"}";
+                        response = APIResponse::bad_request("{\"error\": \"Unknown request type\"}");
                         break;
                 }
 
                 if (main_loop_) {
-                    main_loop_->defer([callback = std::move(request.response_callback), response_data]() {
-                        callback(response_data);
+                    main_loop_->defer([callback = std::move(request.response_callback), response = std::move(response)]() {
+                        callback(response);
                     });
                 }
             }
@@ -532,10 +558,10 @@ private:
         messages.reserve(all_subscribed_entities.size());
 
         for (uint32_t entity_id : all_subscribed_entities) {
-            std::string components_json = get_entity_components_json(entity_id);
+            auto response = get_entity_components_json(entity_id);
             messages.push_back({
                 entity_id,
-                "{\"event\":\"component_update\",\"payload\":" + std::move(components_json) + "}"
+                "{\"event\":\"component_update\",\"payload\":" + std::move(response.body) + "}"
             });
         }
 
@@ -558,7 +584,7 @@ private:
         }
     }
 
-    std::string get_root_entities_json() {
+    APIResponse get_root_entities_json() {
         std::string result;
         nodec::StringBuilder json(result);
         json << "{\"entities\":[";
@@ -592,15 +618,16 @@ private:
 
         } catch (const std::exception& e) {
             logger_->error(__FILE__, __LINE__) << "Error getting root entities: " << e.what();
+            return APIResponse::internal_error("{\"error\":\"" + std::string(e.what()) + "\"}");
         }
 
         json << "]}";
-        return result;
+        return APIResponse::ok(result);
     }
 
-    std::string get_registered_components_json() {
+    APIResponse get_registered_components_json() {
         if (!scene_serialization_ || !resources_) {
-            return "{\"error\":\"Scene serialization or resource registry not available\"}";
+            return APIResponse::internal_error("{\"error\":\"Scene serialization or resource registry not available\"}");
         }
 
         std::string result;
@@ -631,15 +658,15 @@ private:
             });
 
         json << "]}";
-        return result;
+        return APIResponse::ok(result);
     }
 
-    std::string get_entity_components_json(uint32_t entity_id) {
+    APIResponse get_entity_components_json(uint32_t entity_id) {
         auto entity = static_cast<nodec::entities::Entity>(entity_id);
         auto& registry = world_->scene().registry();
 
         if (!registry.is_valid(entity)) {
-            return "{\"error\":\"Invalid entity\"}";
+            return APIResponse::not_found("{\"error\":\"Invalid entity\"}");
         }
 
         std::string result;
@@ -676,15 +703,15 @@ private:
         });
 
         json << "]}";
-        return result;
+        return APIResponse::ok(result);
     }
 
-    std::string get_entity_info_json(uint32_t entity_id) {
+    APIResponse get_entity_info_json(uint32_t entity_id) {
         auto entity = static_cast<nodec::entities::Entity>(entity_id);
         auto& registry = world_->scene().registry();
 
         if (!registry.is_valid(entity)) {
-            return "{\"error\":\"Invalid entity\"}";
+            return APIResponse::not_found("{\"error\":\"Invalid entity\"}");
         }
 
         std::string result;
@@ -725,19 +752,19 @@ private:
         }
 
         json << "}";
-        return result;
+        return APIResponse::ok(result);
     }
 
-    std::string get_resource_json(const std::string& resource_type, const std::string& resource_name) {
+    APIResponse get_resource_json(const std::string& resource_type, const std::string& resource_name) {
         if (!resources_ || !scene_serialization_) {
-            return "{\"error\":\"Resource registry or scene serialization not available\"}";
+            return APIResponse::internal_error("{\"error\":\"Resource registry or scene serialization not available\"}");
         }
 
         try {
             if (resource_type == "animation_clip") {
                 auto clip = resources_->registry().get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
                 if (!clip) {
-                    return "{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}";
+                    return APIResponse::not_found("{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}");
                 }
 
                 std::ostringstream oss;
@@ -748,27 +775,27 @@ private:
                     archive(cereal::make_nvp("clip", *clip));
                 }
 
-                return oss.str();
+                return APIResponse::ok(oss.str());
             }
 
-            return "{\"error\":\"Unsupported resource type\",\"type\":\"" + resource_type + "\"}";
+            return APIResponse::bad_request("{\"error\":\"Unsupported resource type\",\"type\":\"" + resource_type + "\"}");
 
         } catch (const std::exception& e) {
             logger_->error(__FILE__, __LINE__) << "Error getting resource: " << e.what();
-            return "{\"error\":\"" + std::string(e.what()) + "\"}";
+            return APIResponse::internal_error("{\"error\":\"" + std::string(e.what()) + "\"}");
         }
     }
 
-    std::string update_entity_components(uint32_t entity_id, const std::string& json_body) {
+    APIResponse update_entity_components(uint32_t entity_id, const std::string& json_body) {
         auto entity = static_cast<nodec::entities::Entity>(entity_id);
         auto& registry = world_->scene().registry();
 
         if (!registry.is_valid(entity)) {
-            return "{\"error\":\"Invalid entity\",\"id\":" + std::to_string(entity_id) + "}";
+            return APIResponse::not_found("{\"error\":\"Invalid entity\",\"id\":" + std::to_string(entity_id) + "}");
         }
 
         if (!scene_serialization_ || !resources_) {
-            return "{\"error\":\"Scene serialization or resource registry not available\"}";
+            return APIResponse::internal_error("{\"error\":\"Scene serialization or resource registry not available\"}");
         }
 
         try {
@@ -790,18 +817,18 @@ private:
 
             logger_->info(__FILE__, __LINE__) << "Updated " << updated_count << " components on entity " << entity_id;
 
-            return "{\"success\":true,\"id\":" + std::to_string(entity_id) +
-                   ",\"updated_count\":" + std::to_string(updated_count) + "}";
+            return APIResponse::ok("{\"success\":true,\"id\":" + std::to_string(entity_id) +
+                   ",\"updated_count\":" + std::to_string(updated_count) + "}");
 
         } catch (const std::exception& e) {
             logger_->error(__FILE__, __LINE__) << "Error updating entity components: " << e.what();
-            return "{\"error\":\"" + std::string(e.what()) + "\"}";
+            return APIResponse::bad_request("{\"error\":\"" + std::string(e.what()) + "\"}");
         }
     }
 
-    std::string update_resource_json(const std::string& resource_type, const std::string& resource_name, const std::string& json_body) {
+    APIResponse update_resource_json(const std::string& resource_type, const std::string& resource_name, const std::string& json_body) {
         if (!resources_ || !scene_serialization_) {
-            return "{\"error\":\"Resource registry or scene serialization not available\"}";
+            return APIResponse::internal_error("{\"error\":\"Resource registry or scene serialization not available\"}");
         }
 
         try {
@@ -809,7 +836,7 @@ private:
                 // Get the existing clip from the registry
                 auto clip = resources_->registry().get_resource_direct<nodec_animation::resources::AnimationClip>(resource_name);
                 if (!clip) {
-                    return "{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}";
+                    return APIResponse::not_found("{\"error\":\"Animation clip not found\",\"name\":\"" + resource_name + "\"}");
                 }
 
                 // Deserialize the incoming JSON to update the clip
@@ -836,41 +863,41 @@ private:
 
                 logger_->info(__FILE__, __LINE__) << "Updated animation clip: " << resource_name;
 
-                return "{\"success\":true,\"type\":\"animation_clip\",\"name\":\"" + resource_name + "\"}";
+                return APIResponse::ok("{\"success\":true,\"type\":\"animation_clip\",\"name\":\"" + resource_name + "\"}");
             }
 
-            return "{\"error\":\"Unsupported resource type for update\",\"type\":\"" + resource_type + "\"}";
+            return APIResponse::bad_request("{\"error\":\"Unsupported resource type for update\",\"type\":\"" + resource_type + "\"}");
 
         } catch (const std::exception& e) {
             logger_->error(__FILE__, __LINE__) << "Error updating resource: " << e.what();
-            return "{\"error\":\"" + std::string(e.what()) + "\"}";
+            return APIResponse::bad_request("{\"error\":\"" + std::string(e.what()) + "\"}");
         }
     }
 
-    void queue_request(APIRequest::Type type, std::function<void(const std::string&)> callback) {
+    void queue_request(APIRequest::Type type, std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, std::move(callback));
     }
 
-    void queue_request(APIRequest::Type type, uint32_t entity_id, std::function<void(const std::string&)> callback) {
+    void queue_request(APIRequest::Type type, uint32_t entity_id, std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, entity_id, std::move(callback));
     }
 
     void queue_request(APIRequest::Type type, const std::string& resource_type, const std::string& resource_name,
-                       std::function<void(const std::string&)> callback) {
+                       std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, resource_type, resource_name, std::move(callback));
     }
 
     void queue_request(APIRequest::Type type, uint32_t entity_id, std::string body,
-                       std::function<void(const std::string&)> callback) {
+                       std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, entity_id, std::move(body), std::move(callback));
     }
 
     void queue_request(APIRequest::Type type, const std::string& resource_type, const std::string& resource_name,
-                       std::string body, std::function<void(const std::string&)> callback) {
+                       std::string body, std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, resource_type, resource_name, std::move(body), std::move(callback));
     }

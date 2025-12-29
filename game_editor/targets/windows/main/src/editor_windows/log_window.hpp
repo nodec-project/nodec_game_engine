@@ -1,5 +1,5 @@
-#ifndef LOG_WINDOW_HPP_
-#define LOG_WINDOW_HPP_
+#ifndef NODEC_GAME_EDITOR__EDITOR_WINDOWS__LOG_WINDOW_HPP_
+#define NODEC_GAME_EDITOR__EDITOR_WINDOWS__LOG_WINDOW_HPP_
 
 #include <iomanip>
 #include <mutex>
@@ -17,7 +17,9 @@
 #include <nodec/vector2.hpp>
 
 class LogWindow final : public imessentials::BaseWindow {
-    const int MAX_RECORDS = 100;
+    static constexpr int MAX_RECORDS = 100;
+    static constexpr float MIN_DETAILS_HEIGHT = 50.0f;
+    static constexpr float SPLITTER_THICKNESS = 4.0f;
 
     struct RecordEntry {
         RecordEntry(std::uint32_t id, nodec::logging::Level level, std::string &&formatted_text)
@@ -33,7 +35,8 @@ public:
     LogWindow()
         : BaseWindow("Log", nodec::Vector2f(500, 400)),
           start_time_(std::chrono::system_clock::now()),
-          auto_scroll_(true){};
+          auto_scroll_(true),
+          details_height_(100.0f) {}
 
     void on_gui() override {
         using namespace nodec;
@@ -68,7 +71,12 @@ public:
         filter_.Draw("Filter", -100.0f);
 
         ImGui::Separator();
-        ImGui::BeginChild("Entries", ImVec2(0, -100), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+
+        // Calculate available height for entries (excluding details, splitter, and toolbar)
+        const float available_height = ImGui::GetContentRegionAvail().y;
+        const float entries_height = available_height - details_height_ - SPLITTER_THICKNESS;
+
+        ImGui::BeginChild("Entries", ImVec2(0, entries_height), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
         if (clear) record_entries_.clear();
 
@@ -122,10 +130,33 @@ public:
 
         ImGui::EndChild();
 
-        ImGui::Separator();
+        // Horizontal splitter
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 0.3f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.7f, 0.7f, 0.7f));
+        ImGui::Button("##Splitter", ImVec2(-1, SPLITTER_THICKNESS));
+        ImGui::PopStyleColor(3);
 
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+        }
+        if (ImGui::IsItemActive()) {
+            const float delta = ImGui::GetIO().MouseDelta.y;
+            details_height_ -= delta;
+            // Clamp details height
+            const float max_details_height = available_height - MIN_DETAILS_HEIGHT - SPLITTER_THICKNESS;
+            if (details_height_ < MIN_DETAILS_HEIGHT) details_height_ = MIN_DETAILS_HEIGHT;
+            if (details_height_ > max_details_height) details_height_ = max_details_height;
+        }
+
+        // Details panel with selectable text (InputTextMultiline in ReadOnly mode)
         ImGui::BeginChild("Details", ImVec2(0, 0), false);
-        ImGui::TextWrapped(selected_entry_text_.c_str());
+        ImGui::InputTextMultiline(
+            "##DetailsText",
+            const_cast<char *>(selected_entry_text_.c_str()),
+            selected_entry_text_.size() + 1,
+            ImVec2(-1, -1),
+            ImGuiInputTextFlags_ReadOnly);
         ImGui::EndChild();
     }
 
@@ -158,6 +189,7 @@ private:
     std::uint32_t selected_id_{0xFFFFFFFF};
     std::string selected_entry_text_;
     bool auto_scroll_;
+    float details_height_;
     ImGuiTextFilter filter_;
 };
 

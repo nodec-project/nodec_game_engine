@@ -499,55 +499,78 @@ export class GameEngineAPI {
   }
 
   /**
+   * Restore polymorphic_name for all placeholders using the type registry.
+   * Call this once after receiving clip data from the server.
+   * Modifies clip in-place for performance (no deep clone).
+   *
+   * @param clip - The clip to restore names in (modified in-place)
+   * @param typeRegistry - Registry mapping base_id -> polymorphic_name
+   */
+  restorePolymorphicNames(clip: AnimationClipResponse, typeRegistry: PolymorphicTypeRegistry): void {
+    const processEntity = (entity: { components: AnimatedComponentData[]; children: AnimatedEntityChild[] }): void => {
+      for (const component of entity.components) {
+        const placeholder = component.placeholder;
+        if (!placeholder.polymorphic_name) {
+          // Restore name from registry
+          const baseId = placeholder.polymorphic_id >= CEREAL_MSB_32BIT
+            ? placeholder.polymorphic_id - CEREAL_MSB_32BIT
+            : placeholder.polymorphic_id;
+          const typeName = typeRegistry.get(baseId);
+          if (typeName) {
+            placeholder.polymorphic_name = typeName;
+          }
+        }
+      }
+      for (const child of entity.children) {
+        processEntity(child.value);
+      }
+    };
+
+    processEntity(clip.clip.root_entity);
+  }
+
+  /**
    * Remap polymorphic_ids in an AnimationClipResponse for cereal serialization.
    *
    * cereal uses MSB-based scheme for polymorphic types:
-   * - First occurrence: polymorphic_id = 0x80000000 | base_id, with polymorphic_name present
+   * - First occurrence: polymorphic_id = 0x80000000 + base_id, with polymorphic_name present
    * - Subsequent occurrences: polymorphic_id = base_id, without polymorphic_name
    *
-   * This function ensures the clip data is in the correct format for the server.
+   * Precondition: All placeholders must have polymorphic_name set.
+   * Call restorePolymorphicNames() after loading clip data to ensure this.
    */
   remapPolymorphicIds(clip: AnimationClipResponse): AnimationClipResponse {
-    // Map polymorphic_name to assigned base_id
-    const typeToBaseId = new Map<string, number>();
-    let nextBaseId = 1;
-
-    // Deep clone the clip to avoid mutating the original
+    // Deep clone to avoid mutating the original (needed for Save)
     const clonedClip: AnimationClipResponse = JSON.parse(JSON.stringify(clip));
 
-    // Process a component placeholder and remap its polymorphic_id
+    const typeToNewBaseId = new Map<string, number>();
+    let nextBaseId = 1;
+
     const processPlaceholder = (placeholder: AnimatedComponentPlaceholder): void => {
       const typeName = placeholder.polymorphic_name;
 
       if (!typeName) {
-        // If no polymorphic_name, try to look up by the current id
-        // This might be a subsequent occurrence that already has a base id
-        // We need to find what type it corresponds to
-        // For now, leave it as-is if no name is present
+        // This should not happen if restorePolymorphicNames was called after loading
+        console.warn(`Missing polymorphic_name for polymorphic_id ${placeholder.polymorphic_id}`);
         return;
       }
 
-      if (typeToBaseId.has(typeName)) {
+      if (typeToNewBaseId.has(typeName)) {
         // Subsequent occurrence - use base id without MSB, remove polymorphic_name
-        const baseId = typeToBaseId.get(typeName)!;
-        placeholder.polymorphic_id = baseId;
+        placeholder.polymorphic_id = typeToNewBaseId.get(typeName)!;
         delete placeholder.polymorphic_name;
       } else {
         // First occurrence - assign new base id with MSB, keep polymorphic_name
-        // Use addition instead of bitwise OR to avoid JavaScript's signed 32-bit interpretation
-        const baseId = nextBaseId++;
-        typeToBaseId.set(typeName, baseId);
-        placeholder.polymorphic_id = CEREAL_MSB_32BIT + baseId;
-        // polymorphic_name is already present, keep it
+        const newBaseId = nextBaseId++;
+        typeToNewBaseId.set(typeName, newBaseId);
+        placeholder.polymorphic_id = CEREAL_MSB_32BIT + newBaseId;
       }
     };
 
-    // Process all components in an entity
     const processEntity = (entity: { components: AnimatedComponentData[]; children: AnimatedEntityChild[] }): void => {
       for (const component of entity.components) {
         processPlaceholder(component.placeholder);
       }
-
       for (const child of entity.children) {
         processEntity(child.value);
       }

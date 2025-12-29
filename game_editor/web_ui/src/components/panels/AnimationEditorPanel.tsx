@@ -158,6 +158,9 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         // Step 4: Build polymorphic type registry for component name lookup
         const typeRegistry = gameEngineAPI.buildPolymorphicTypeRegistry(clipResponse);
 
+        // Step 4.5: Restore polymorphic_name for all placeholders (ensures Save works after deletions)
+        gameEngineAPI.restorePolymorphicNames(clipResponse, typeRegistry);
+
         // Step 5: Flatten curves for UI display
         const curves = gameEngineAPI.flattenAnimationClip(clipResponse);
         const duration = gameEngineAPI.getClipDuration(curves);
@@ -834,6 +837,9 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
 
     // Rebuild type registry with the new component
     const newTypeRegistry = gameEngineAPI.buildPolymorphicTypeRegistry(newClipData);
+
+    // Restore polymorphic_name for all placeholders
+    gameEngineAPI.restorePolymorphicNames(newClipData, newTypeRegistry);
 
     // Re-flatten curves
     const newCurves = gameEngineAPI.flattenAnimationClip(newClipData);
