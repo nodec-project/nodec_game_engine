@@ -4,6 +4,7 @@
 
 #include <nodec/gfx/gfx.hpp>
 #include <nodec/stopwatch.hpp>
+#include <nodec_scene/components/name.hpp>
 #include <nodec_scene_editor/components/selected.hpp>
 
 #include <DirectXMath.h>
@@ -187,6 +188,63 @@ void SceneViewWindow::on_gui() {
         gizmo_mode_ = ImGuizmo::WORLD;
     }
 
+    // Camera follow mode UI
+    {
+        using namespace nodec_rendering::components;
+
+        ImGui::Separator();
+
+        // Build list of camera entities
+        std::vector<std::pair<nodec::entities::Entity, std::string>> camera_entities;
+        camera_entities.push_back({nodec::entities::null_entity, "(None)"});
+
+        auto camera_view = scene_.registry().view<Camera, LocalToWorld>();
+        for (auto entity : camera_view) {
+            auto *name = scene_.registry().try_get_component<Name>(entity);
+            std::string display_name = name ? name->value : ("Entity " + std::to_string(static_cast<uint32_t>(entity)));
+            camera_entities.push_back({entity, display_name});
+        }
+
+        // Find current selection index
+        int current_idx = 0;
+        for (size_t i = 0; i < camera_entities.size(); ++i) {
+            if (camera_entities[i].first == follow_camera_entity_) {
+                current_idx = static_cast<int>(i);
+                break;
+            }
+        }
+
+        // Combo box for camera selection
+        ImGui::Text("Follow Camera:");
+        ImGui::SameLine();
+        ImGui::PushItemWidth(150);
+        if (ImGui::BeginCombo("##FollowCamera", camera_entities[current_idx].second.c_str())) {
+            for (size_t i = 0; i < camera_entities.size(); ++i) {
+                bool is_selected = (current_idx == static_cast<int>(i));
+                if (ImGui::Selectable(camera_entities[i].second.c_str(), is_selected)) {
+                    follow_camera_entity_ = camera_entities[i].first;
+                    // Enable follow mode when a camera is selected
+                    follow_camera_enabled_ = (follow_camera_entity_ != nodec::entities::null_entity);
+                }
+                if (is_selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+
+        // Follow toggle checkbox
+        ImGui::SameLine();
+        if (follow_camera_entity_ != nodec::entities::null_entity) {
+            if (ImGui::Checkbox("Follow", &follow_camera_enabled_)) {
+                // Checkbox toggled
+            }
+        }
+
+        ImGui::Separator();
+    }
+
     ImGui::BeginChild("SceneRender", ImVec2(view_width_, view_height_), false, ImGuiWindowFlags_NoMove);
     {
         const auto view_aspect = static_cast<float>(view_width_) / view_height_;
@@ -213,71 +271,97 @@ void SceneViewWindow::on_gui() {
         gfx::TRSComponents camera_trs;
         gfx::decompose_trs(view_inverse_, camera_trs);
 
+        // Camera follow mode: use selected camera's transform
+        bool is_following = false;
+        if (follow_camera_enabled_ && follow_camera_entity_ != nodec::entities::null_entity) {
+            // Check if entity is still valid (may become invalid after scene reload)
+            if (!scene_.registry().is_valid(follow_camera_entity_)) {
+                follow_camera_enabled_ = false;
+                follow_camera_entity_ = nodec::entities::null_entity;
+            } else {
+                auto *follow_local_to_world = scene_.registry().try_get_component<LocalToWorld>(follow_camera_entity_);
+                if (follow_local_to_world) {
+                    is_following = true;
+                    view_inverse_ = follow_local_to_world->value;
+                    gfx::decompose_trs(view_inverse_, camera_trs);
+                } else {
+                    // Entity exists but has no LocalToWorld, disable follow mode
+                    follow_camera_enabled_ = false;
+                    follow_camera_entity_ = nodec::entities::null_entity;
+                }
+            }
+        }
+
         const auto forward = gfx::rotate(Vector3f(0.f, 0.f, 1.f), camera_trs.rotation);
         const auto right = gfx::rotate(Vector3f(1.f, 0.f, 0.f), camera_trs.rotation);
         const auto up = gfx::rotate(Vector3f(0.f, 1.f, 0.f), camera_trs.rotation);
 
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
-            scene_view_dragging_ = true;
-        }
-
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle) && ImGui::IsWindowHovered()) {
-            scene_view_dragging_ = true;
-        }
-
-        if (scene_view_dragging_) {
-            {
-                // XXX: This code prevent other items captures the mouse event while dragging.
-                // But, I dont understand why this code works:)
-                auto *window = ImGui::GetCurrentWindow();
-                ImGui::SetActiveID(ImGui::GetID("SceneViewDragging"), window);
-            }
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
-                constexpr float SCALE_FACTOR = 0.2f;
-                const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
-
-                // Apply rotation around the local right vector after current rotation.
-                camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
-
-                // And apply rotation around the world up vector.
-                camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
-
-                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
+        // Manual camera controls (disabled when following)
+        if (!is_following) {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && ImGui::IsWindowHovered()) {
+                scene_view_dragging_ = true;
             }
 
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-                constexpr float SCALE_FACTOR = 0.02f;
-                const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
-
-                // The mouse moving right, the camera moving left.
-                camera_trs.translation -= right * delta.x * SCALE_FACTOR;
-                camera_trs.translation += up * delta.y * SCALE_FACTOR;
-
-                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Middle) && ImGui::IsWindowHovered()) {
+                scene_view_dragging_ = true;
             }
 
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
-                scene_view_dragging_ = false;
-                // カメラ回転時に変更フラグをセット
-                camera_pose_changed = true;
-            }
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
-                scene_view_dragging_ = false;
-                // カメラ移動時に変更フラグをセット
-                camera_pose_changed = true;
-            }
-        }
+            if (scene_view_dragging_) {
+                {
+                    // XXX: This code prevent other items captures the mouse event while dragging.
+                    // But, I dont understand why this code works:)
+                    auto *window = ImGui::GetCurrentWindow();
+                    ImGui::SetActiveID(ImGui::GetID("SceneViewDragging"), window);
+                }
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+                    constexpr float SCALE_FACTOR = 0.2f;
+                    const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Right);
 
-        if (ImGui::IsWindowHovered()) {
-            if (io.MouseWheel != 0.0f) {
-                camera_trs.translation += forward * io.MouseWheel;
-                // ホイール操作時に変更フラグをセット（連続操作でスパムさせない）
-                camera_pose_changed = true;
+                    // Apply rotation around the local right vector after current rotation.
+                    camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.y * SCALE_FACTOR, right) * camera_trs.rotation;
+
+                    // And apply rotation around the world up vector.
+                    camera_trs.rotation = gfx::quaternion_from_angle_axis(delta.x * SCALE_FACTOR, Vector3f(0.f, 1.f, 0.f)) * camera_trs.rotation;
+
+                    ImGui::ResetMouseDragDelta(ImGuiMouseButton_Right);
+                }
+
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+                    constexpr float SCALE_FACTOR = 0.02f;
+                    const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+
+                    // The mouse moving right, the camera moving left.
+                    camera_trs.translation -= right * delta.x * SCALE_FACTOR;
+                    camera_trs.translation += up * delta.y * SCALE_FACTOR;
+
+                    ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+                }
+
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+                    scene_view_dragging_ = false;
+                    // カメラ回転時に変更フラグをセット
+                    camera_pose_changed = true;
+                }
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
+                    scene_view_dragging_ = false;
+                    // カメラ移動時に変更フラグをセット
+                    camera_pose_changed = true;
+                }
+            }
+
+            if (ImGui::IsWindowHovered()) {
+                if (io.MouseWheel != 0.0f) {
+                    camera_trs.translation += forward * io.MouseWheel;
+                    // ホイール操作時に変更フラグをセット（連続操作でスパムさせない）
+                    camera_pose_changed = true;
+                }
             }
         }
 
         {
-            view_inverse_ = gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
+            if (!is_following) {
+                view_inverse_ = gfx::trs(camera_trs.translation, camera_trs.rotation, camera_trs.scale);
+            }
             view_ = math::inv(view_inverse_);
 
             camera_state_.update_transform(view_inverse_);

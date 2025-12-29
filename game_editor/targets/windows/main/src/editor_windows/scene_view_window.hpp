@@ -99,6 +99,10 @@ private:
     ImGuizmo::MODE gizmo_mode_{ImGuizmo::LOCAL};
 
     bool scene_view_dragging_{false};
+
+    // Camera follow mode
+    nodec::entities::Entity follow_camera_entity_{nodec::entities::null_entity};
+    bool follow_camera_enabled_{false};
 };
 
 #endif
