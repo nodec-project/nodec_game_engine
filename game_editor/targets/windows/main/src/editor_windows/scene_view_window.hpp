@@ -21,6 +21,7 @@
 #include "../scene_gizmo_impl.hpp"
 #include "../scene_gizmo_renderer.hpp"
 #include "../editor_config_archive.hpp"
+#include "picking_renderer.hpp"
 
 struct SceneViewSettings : BaseEditorConfigBlock {
     int width{640};
@@ -89,6 +90,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shader_resource_view_;
 
     std::unique_ptr<SceneGizmoRenderer> scene_gizmo_renderer_;
+    std::unique_ptr<PickingRenderer> picking_renderer_;
 
     nodec::Matrix4x4f projection_;
     nodec::Matrix4x4f view_;

@@ -90,6 +90,7 @@ SceneViewWindow::SceneViewWindow(
 
     rendering_context_.reset(new SceneRenderingContext(view_width_, view_height_, gfx));
     scene_gizmo_renderer_.reset(new SceneGizmoRenderer(gfx, resources));
+    picking_renderer_ = std::make_unique<PickingRenderer>(gfx, view_width_, view_height_);
 
     {
         using namespace nodec_rendering::components;
@@ -373,6 +374,9 @@ void SceneViewWindow::on_gui() {
             //nodec::logging::info(__FILE__, __LINE__)
             //    << "Frame time: "
             //    << std::chrono::duration_cast<std::chrono::milliseconds>(sw.elapsed()) << " ms";
+
+            // Render picking buffer for mouse selection
+            picking_renderer_->render(scene_, view_, projection_);
         }
 
         {
@@ -389,6 +393,36 @@ void SceneViewWindow::on_gui() {
 
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, view_width_, view_height_);
+
+        // Mouse click entity selection using GPU picking
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)
+            && ImGui::IsItemHovered()
+            && !ImGuizmo::IsUsing()
+            && !ImGuizmo::IsOver()
+            && !scene_view_dragging_) {
+
+            using namespace nodec_scene_editor::components;
+
+            // Calculate local mouse position relative to the image
+            ImVec2 mouse_pos = ImGui::GetMousePos();
+            ImVec2 item_min = ImGui::GetItemRectMin();
+            int local_x = static_cast<int>(mouse_pos.x - item_min.x);
+            int local_y = static_cast<int>(mouse_pos.y - item_min.y);
+
+            // Pick entity at mouse position
+            auto picked_entity = picking_renderer_->pick(local_x, local_y);
+
+            // Clear previous selection
+            auto selected_view = scene_.registry().view<Selected>();
+            for (auto entity : selected_view) {
+                scene_.registry().remove_component<Selected>(entity);
+            }
+
+            // Select picked entity
+            if (picked_entity != nodec::entities::null_entity) {
+                scene_.registry().emplace_component<Selected>(picked_entity);
+            }
+        }
 
         // ImGuizmo::DrawGrid(view_.m, projection_.m, Matrix4x4f::identity.m, 100.f);
         // ImGuizmo::ViewManipulate(view_.m, 0.8f, ImVec2(view_manipulate_right - 128, view_manipulate_top), ImVec2(128, 128), 0x10101010);
@@ -473,7 +507,10 @@ void SceneViewWindow::resize_view(Graphics &gfx, UINT width, UINT height) {
     // 4. レンダリングコンテキストの再生成
     rendering_context_.reset(new SceneRenderingContext(view_width_, view_height_, gfx));
 
-    // 5. プロジェクションマトリックスの更新
+    // 5. ピッキングレンダラーのリサイズ
+    picking_renderer_->resize(view_width_, view_height_);
+
+    // 6. プロジェクションマトリックスの更新
     {
         using namespace nodec_rendering::components;
         using namespace DirectX;
