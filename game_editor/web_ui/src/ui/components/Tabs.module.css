@@ -57,17 +57,38 @@
   background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
 }
 
-.tab[data-selected] {
+.tab:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+/* Selected state - Base UI uses data-selected attribute */
+.tab[data-selected],
+.tab[data-selected=""],
+.tab[data-selected="true"],
+.tab[aria-selected="true"] {
   color: var(--md-sys-color-primary);
 }
 
-.tab[data-selected]::after {
+.tab[data-selected]::after,
+.tab[data-selected=""]::after,
+.tab[data-selected="true"]::after,
+.tab[aria-selected="true"]::after {
   background-color: var(--md-sys-color-primary);
 }
 
-.tab:disabled {
+/* Selected + hover state */
+.tab[data-selected]:hover,
+.tab[aria-selected="true"]:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+}
+
+.tab:disabled,
+.tab[data-disabled] {
   opacity: var(--md-sys-state-disabled-opacity);
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Icon positions */

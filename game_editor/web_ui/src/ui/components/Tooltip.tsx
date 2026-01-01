@@ -39,7 +39,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       <TooltipPrimitive.Root>
         <TooltipPrimitive.Trigger render={children} />
         <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Positioner side={placement} sideOffset={8}>
+          <TooltipPrimitive.Positioner side={placement} sideOffset={8} className={styles.positioner}>
             <TooltipPrimitive.Popup className={styles.tooltip}>
               {title}
             </TooltipPrimitive.Popup>
