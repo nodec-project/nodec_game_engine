@@ -1,47 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Surface, Alert, Spinner, IconButton, Collapse, List, Typography } from '@/ui';
+import { Surface, Alert, Spinner, IconButton, Collapse, List, Typography, Icon } from '@/ui';
 import { gameEngineAPI, EntityInfo } from '../api/gameEngine';
 import { useEditor } from '../contexts/EditorContext';
 import styles from './SceneHierarchy.module.css';
-
-// Icons
-const FolderIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-  </svg>
-);
-
-const FolderOpenIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
-  </svg>
-);
-
-const EntityIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-  </svg>
-);
-
-const RefreshIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-  </svg>
-);
-
-const ExpandMoreIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z" />
-  </svg>
-);
-
-const ChevronRightIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-  </svg>
-);
 
 interface SceneHierarchyProps {
   onEntitySelect?: (entityId: string) => void;
@@ -192,19 +155,19 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
                 {isLoadingChildren ? (
                   <Spinner size={16} />
                 ) : isExpanded ? (
-                  <ExpandMoreIcon />
+                  <Icon name="expand_more" size={18} />
                 ) : (
-                  <ChevronRightIcon />
+                  <Icon name="chevron_right" size={18} />
                 )}
               </IconButton>
             ) : (
-              <EntityIcon />
+              <Icon name="description" size={18} />
             )}
           </div>
           <span className={nameClasses}>{entity.name}</span>
           {entity.has_children && (
             <div className={styles.folderIcon}>
-              {isExpanded ? <FolderOpenIcon /> : <FolderIcon />}
+              {isExpanded ? <Icon name="folder_open" size={18} /> : <Icon name="folder" size={18} />}
             </div>
           )}
         </div>
@@ -223,7 +186,7 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     <Surface className={styles.container}>
       <div className={styles.header}>
         <IconButton onClick={fetchRootEntities} disabled={loading} size="small">
-          <RefreshIcon />
+          <Icon name="refresh" size={18} />
         </IconButton>
       </div>
 

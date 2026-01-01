@@ -9,7 +9,7 @@ import {
   IDockviewHeaderActionsProps,
   SerializedDockview,
 } from 'dockview';
-import { IconButton, Tooltip, Chip, Menu } from '@/ui';
+import { IconButton, Tooltip, Chip, Menu, Icon } from '@/ui';
 import { SceneHierarchyPanel } from './panels/SceneHierarchyPanel';
 import { ComponentInspectorPanel } from './panels/ComponentInspectorPanel';
 import { AnimationEditorPanel } from './panels/AnimationEditorPanel';
@@ -19,25 +19,6 @@ import styles from './EditorLayout.module.css';
 
 // Import dockview styles
 import '../styles/dockview-theme.css';
-
-// Icons
-const FloatIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={styles.floatButtonIcon}>
-    <path d="M19 7h-8v6h8V7zm-2 4h-4V9h4v2zm4-8H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" />
-  </svg>
-);
-
-const ViewIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={styles.viewButtonIcon}>
-    <path d="M3 5v14h19V5H3zm2 2h15v4H5V7zm0 10v-4h4v4H5zm6 0v-4h9v4h-9z" />
-  </svg>
-);
-
-const CircleIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <circle cx="12" cy="12" r="8" />
-  </svg>
-);
 
 // Right header actions - adds float button to panel headers
 const RightHeaderActions: React.FC<IDockviewHeaderActionsProps> = ({ containerApi, group }) => {
@@ -56,7 +37,7 @@ const RightHeaderActions: React.FC<IDockviewHeaderActionsProps> = ({ containerAp
         onClick={handleFloat}
         className={styles.floatButton}
       >
-        <FloatIcon />
+        <Icon name="picture_in_picture" size={18} />
       </IconButton>
     </Tooltip>
   );
@@ -109,7 +90,6 @@ const EditorLayoutContent: React.FC = () => {
 
   // Open a panel
   const openPanel = useCallback((panelId: string, component: string, title: string) => {
-    console.log('[EditorLayout] openPanel called:', { panelId, component, title, hasApi: !!api });
     if (!api) return;
 
     // Check if panel already exists
@@ -130,7 +110,6 @@ const EditorLayoutContent: React.FC = () => {
 
   // Initialize dockview layout
   const onReady = (event: DockviewReadyEvent) => {
-    console.log('Dockview ready');
     setApi(event.api);
 
     // Check for saved layout in localStorage
@@ -268,7 +247,7 @@ const EditorLayoutContent: React.FC = () => {
           <Menu
             trigger={
               <button className={styles.viewButton}>
-                <ViewIcon />
+                <Icon name="view_quilt" size={18} />
                 View
               </button>
             }
@@ -287,7 +266,7 @@ const EditorLayoutContent: React.FC = () => {
           </Menu>
         </div>
         <Chip
-          icon={<CircleIcon className={`${styles.connectionIcon} ${connectionIconClass}`} />}
+          icon={<Icon name="circle" size={10} fill className={`${styles.connectionIcon} ${connectionIconClass}`} />}
           className={`${styles.connectionChip} ${connectionChipClass}`}
         >
           {engineConnected ? 'Engine Connected' : 'Engine Disconnected'}

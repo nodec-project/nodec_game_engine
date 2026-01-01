@@ -14,8 +14,8 @@ import {
   ListItemIcon,
   ListItemText,
   TextField,
+  Icon,
 } from '@/ui';
-import { TimelineIcon, SearchIcon } from '@/ui/icons';
 import styles from './PropertyPickerDialog.module.css';
 
 interface PropertyPickerDialogProps {
@@ -106,7 +106,7 @@ export const PropertyPickerDialog: React.FC<PropertyPickerDialogProps> = ({
             placeholder="Search properties..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            leadingIcon={<SearchIcon size={18} />}
+            leadingIcon={<Icon name="search" size={18} />}
           />
         </div>
 
@@ -132,7 +132,7 @@ export const PropertyPickerDialog: React.FC<PropertyPickerDialogProps> = ({
                     onClick={() => setSelectedProperty(path)}
                   >
                     <ListItemIcon className={styles.propertyIcon}>
-                      <TimelineIcon />
+                      <Icon name="timeline" />
                     </ListItemIcon>
                     <ListItemText
                       primary={<span className={styles.propertyPath}>{path}</span>}

@@ -2,6 +2,7 @@
 
 import React, { forwardRef } from 'react';
 import { Checkbox as CheckboxPrimitive } from '@base-ui/react/checkbox';
+import { Icon } from './Icon';
 import styles from './Checkbox.module.css';
 
 export interface CheckboxProps {
@@ -26,18 +27,6 @@ export interface CheckboxProps {
   /** Additional class name */
   className?: string;
 }
-
-const CheckIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-  </svg>
-);
-
-const IndeterminateIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19 13H5v-2h14v2z" />
-  </svg>
-);
 
 export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
   (
@@ -76,7 +65,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
         className={`${styles.checkbox} ${styles[size]} ${styles[color]} ${className || ''}`}
       >
         <CheckboxPrimitive.Indicator className={styles.indicator}>
-          {indeterminate ? <IndeterminateIcon /> : <CheckIcon />}
+          {indeterminate ? <Icon name="remove" size={18} /> : <Icon name="check" size={18} />}
         </CheckboxPrimitive.Indicator>
       </CheckboxPrimitive.Root>
     );

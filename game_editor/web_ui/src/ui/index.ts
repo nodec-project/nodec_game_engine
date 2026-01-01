@@ -8,12 +8,14 @@
  * 1. Import styles in your app root:
  *    import '@/ui/styles/tokens.css';
  *    import '@/ui/styles/base.css';
+ *    import '@/ui/styles/icons.css';
  *
  * 2. Import components:
- *    import { Button, IconButton, Tooltip } from '@/ui';
+ *    import { Button, Icon, IconButton, Tooltip } from '@/ui';
  */
 
 // Components
+export { Icon, type IconProps } from './components/Icon';
 export { IconButton, type IconButtonProps } from './components/IconButton';
 export { Button, type ButtonProps } from './components/Button';
 export { Tooltip, type TooltipProps } from './components/Tooltip';
@@ -72,6 +74,3 @@ export {
   type TabPanelProps,
 } from './components/Tabs';
 export { Checkbox, type CheckboxProps } from './components/Checkbox';
-
-// Icons
-export * from './icons';

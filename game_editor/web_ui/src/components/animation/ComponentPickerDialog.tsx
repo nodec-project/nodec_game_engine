@@ -16,8 +16,8 @@ import {
   ListItemIcon,
   ListItemText,
   TextField,
+  Icon,
 } from '@/ui';
-import { ExtensionIcon, SearchIcon } from '@/ui/icons';
 import {
   gameEngineAPI,
   RegisteredComponent,
@@ -114,7 +114,7 @@ export const ComponentPickerDialog: React.FC<ComponentPickerDialogProps> = ({
             placeholder="Search components..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            leadingIcon={<SearchIcon size={18} />}
+            leadingIcon={<Icon name="search" size={18} />}
           />
         </div>
 
@@ -149,7 +149,7 @@ export const ComponentPickerDialog: React.FC<ComponentPickerDialogProps> = ({
                     onClick={() => setSelectedComponent(comp)}
                   >
                     <ListItemIcon className={styles.componentIcon}>
-                      <ExtensionIcon />
+                      <Icon name="extension" />
                     </ListItemIcon>
                     <ListItemText primary={displayName} />
                   </ListItemButton>

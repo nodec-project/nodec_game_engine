@@ -1,6 +1,7 @@
 import './globals.css'
 import '@/ui/styles/tokens.css'
 import '@/ui/styles/base.css'
+import '@/ui/styles/icons.css'
 import { AppLayout } from './app-layout'
 
 export const metadata = {

@@ -17,13 +17,8 @@ import {
   ListItemText,
   Collapse,
   IconButton,
+  Icon,
 } from '@/ui';
-import {
-  ExpandMoreIcon,
-  ChevronRightIcon,
-  FolderIcon,
-  FolderOpenIcon,
-} from '@/ui/icons';
 import { gameEngineAPI, EntityInfo } from '../../api/gameEngine';
 import styles from './EntityPickerDialog.module.css';
 
@@ -237,14 +232,14 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
                     handleToggleExpand(node, path);
                   }}
                 >
-                  {isExpanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                  {isExpanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />}
                 </IconButton>
               ) : (
                 <span className={styles.spacer} />
               )}
             </ListItemIcon>
             <ListItemIcon className={`${styles.entityIcon} ${isExcluded ? styles.iconDisabled : styles.iconPrimary}`}>
-              {isExpanded ? <FolderOpenIcon /> : <FolderIcon />}
+              {isExpanded ? <Icon name="folder_open" /> : <Icon name="folder" />}
             </ListItemIcon>
             <ListItemText
               primary={node.name}

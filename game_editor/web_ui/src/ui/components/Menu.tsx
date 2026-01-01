@@ -76,11 +76,8 @@ const MenuItem: React.FC<MenuItemProps> = ({
     .filter(Boolean)
     .join(' ');
 
-  // Handle click with proper event propagation
   const handleClick = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
-    console.log('[MenuItem] handleClick called, disabled:', disabled);
     if (!disabled && onClick) {
-      console.log('[MenuItem] calling user onClick callback');
       onClick(event);
     }
   }, [disabled, onClick]);

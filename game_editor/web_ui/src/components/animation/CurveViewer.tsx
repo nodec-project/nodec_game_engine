@@ -1,16 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Typography, IconButton, Tooltip } from '@/ui';
-import {
-  ZoomInIcon,
-  ZoomOutIcon,
-  FitScreenIcon,
-  PlayArrowIcon,
-  PauseIcon,
-  AddIcon,
-  DeleteIcon,
-} from '@/ui/icons';
+import { Typography, IconButton, Tooltip, Icon } from '@/ui';
 import styles from './CurveViewer.module.css';
 
 // Keyframe data
@@ -425,25 +416,25 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
 
         <Tooltip title="Play">
           <IconButton size="small" onClick={() => setIsPlaying(!isPlaying)}>
-            {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+            {isPlaying ? <Icon name="pause" /> : <Icon name="play_arrow" />}
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Zoom In">
           <IconButton size="small" onClick={handleZoomIn}>
-            <ZoomInIcon />
+            <Icon name="zoom_in" />
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Zoom Out">
           <IconButton size="small" onClick={handleZoomOut}>
-            <ZoomOutIcon />
+            <Icon name="zoom_out" />
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Fit to Screen">
           <IconButton size="small" onClick={handleFitScreen}>
-            <FitScreenIcon />
+            <Icon name="fit_screen" />
           </IconButton>
         </Tooltip>
 
@@ -457,7 +448,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
                 color={isAddMode ? 'primary' : 'default'}
                 disabled={selectedCurveIndex === null}
               >
-                <AddIcon />
+                <Icon name="add" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Delete Selected Keyframe">
@@ -467,7 +458,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
                 disabled={selectedKeyframe === null}
                 color="error"
               >
-                <DeleteIcon />
+                <Icon name="delete" />
               </IconButton>
             </Tooltip>
           </>

@@ -11,16 +11,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Icon,
 } from '@/ui';
-import {
-  AddIcon,
-  DeleteIcon,
-  ExpandMoreIcon,
-  ChevronRightIcon,
-  FolderIcon,
-  ExtensionIcon,
-  TimelineIcon,
-} from '@/ui/icons';
 import {
   AnimationClipResponse,
   AnimatedComponentData,
@@ -125,7 +117,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                   onRemoveProperty(entityPath, componentIndex, prop.key);
                 }}
               >
-                <DeleteIcon />
+                <Icon name="delete" />
               </IconButton>
             </Tooltip>
           )
@@ -140,7 +132,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
             <span className={styles.spacer} />
           </ListItemIcon>
           <ListItemIcon>
-            <TimelineIcon />
+            <Icon name="timeline" />
           </ListItemIcon>
           <ListItemText
             primary={prop.key}
@@ -182,7 +174,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onAddProperty(entityPath, componentIndex);
                     }}
                   >
-                    <AddIcon />
+                    <Icon name="add" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -195,7 +187,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onRemoveComponent(entityPath, componentIndex);
                     }}
                   >
-                    <DeleteIcon />
+                    <Icon name="delete" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -216,14 +208,14 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                     toggleExpand(nodeId);
                   }}
                 >
-                  {expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                  {expanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />}
                 </IconButton>
               ) : (
                 <span className={styles.spacer} />
               )}
             </ListItemIcon>
             <ListItemIcon>
-              <ExtensionIcon />
+              <Icon name="extension" />
             </ListItemIcon>
             <ListItemText
               primary={typeName}
@@ -274,7 +266,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onAddComponent(entityPath);
                     }}
                   >
-                    <AddIcon />
+                    <Icon name="add" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -287,7 +279,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onRemoveEntity(entityPath);
                     }}
                   >
-                    <DeleteIcon />
+                    <Icon name="delete" />
                   </IconButton>
                 </Tooltip>
               )}
@@ -308,14 +300,14 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                     toggleExpand(nodeId);
                   }}
                 >
-                  {expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
+                  {expanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />}
                 </IconButton>
               ) : (
                 <span className={styles.spacer} />
               )}
             </ListItemIcon>
             <ListItemIcon>
-              <FolderIcon />
+              <Icon name="folder" />
             </ListItemIcon>
             <ListItemText
               primary={entityName}
@@ -353,13 +345,13 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
           <ListItemButton onClick={() => toggleExpand('root')}>
             <ListItemIcon className={styles.expandIcon}>
               {hasContent ? (
-                expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />
+                expanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />
               ) : (
                 <span className={styles.spacer} />
               )}
             </ListItemIcon>
             <ListItemIcon>
-              <FolderIcon />
+              <Icon name="folder" />
             </ListItemIcon>
             <ListItemText
               primary="Root Entity"
@@ -393,7 +385,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
         {onAddEntity && (
           <Tooltip title="Add Entity">
             <IconButton size="small" onClick={onAddEntity}>
-              <AddIcon />
+              <Icon name="add" />
             </IconButton>
           </Tooltip>
         )}

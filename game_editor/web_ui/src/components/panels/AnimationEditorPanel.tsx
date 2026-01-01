@@ -21,17 +21,8 @@ import {
   Checkbox,
   IconButton,
   Tooltip,
+  Icon,
 } from '@/ui';
-import {
-  AnimationIcon,
-  ClipIcon,
-  WarningIcon,
-  TimelineIcon,
-  HierarchyIcon,
-  LockIcon,
-  LockOpenIcon,
-  SaveIcon,
-} from '@/ui/icons';
 import { useEditor } from '../../contexts/EditorContext';
 import styles from './AnimationEditorPanel.module.css';
 import {
@@ -1098,7 +1089,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                   onClick={handleToggleLock}
                   color={isLocked ? 'primary' : 'default'}
                 >
-                  {isLocked ? <LockIcon /> : <LockOpenIcon />}
+                  {isLocked ? <Icon name="lock" /> : <Icon name="lock_open" />}
                 </IconButton>
               </Tooltip>
               {/* Save Button */}
@@ -1110,14 +1101,14 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                     disabled={!animState || isSaving}
                     color="primary"
                   >
-                    {isSaving ? <Spinner size="small" /> : <SaveIcon />}
+                    {isSaving ? <Spinner size="small" /> : <Icon name="save" />}
                   </IconButton>
                 </span>
               </Tooltip>
               <Chip
                 label={animState?.entityName || `Entity_${effectiveEntityId}`}
                 size="small"
-                icon={<AnimationIcon />}
+                icon={<Icon name="movie" />}
                 variant="outlined"
               />
               {animState && (
@@ -1125,7 +1116,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                   <Chip
                     label={animState.clipName}
                     size="small"
-                    icon={<ClipIcon />}
+                    icon={<Icon name="movie" />}
                     variant="outlined"
                   />
                   <Chip
@@ -1149,8 +1140,8 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
             <div className={styles.tabContainer}>
               <Tabs value={tabValue} onChange={handleTabChange}>
                 <TabList>
-                  <Tab value={0} label="Curves" icon={<TimelineIcon />} iconPosition="start" />
-                  <Tab value={1} label="Hierarchy" icon={<HierarchyIcon />} iconPosition="start" />
+                  <Tab value={0} label="Curves" icon={<Icon name="timeline" />} iconPosition="start" />
+                  <Tab value={1} label="Hierarchy" icon={<Icon name="account_tree" />} iconPosition="start" />
                 </TabList>
 
                 <TabPanel value={0}>
@@ -1227,7 +1218,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
             </div>
           ) : (
             <div className={styles.noClipContainer}>
-              <Alert severity="info" icon={<WarningIcon />}>
+              <Alert severity="info" icon={<Icon name="warning" />}>
                 No animation clip assigned to this Animator
               </Alert>
             </div>

@@ -2,14 +2,8 @@
 
 import React, { forwardRef } from 'react';
 import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion';
+import { Icon } from './Icon';
 import styles from './Accordion.module.css';
-
-// Default expand icon
-const ExpandMoreIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-    <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z" />
-  </svg>
-);
 
 // Accordion Root
 export interface AccordionProps {
@@ -120,7 +114,7 @@ export const AccordionHeader = forwardRef<HTMLButtonElement, AccordionHeaderProp
         >
           <span className={styles.accordionTriggerContent}>{children}</span>
           <span className={styles.expandIcon}>
-            {expandIcon || <ExpandMoreIcon />}
+            {expandIcon || <Icon name="expand_more" />}
           </span>
         </AccordionPrimitive.Trigger>
       </AccordionPrimitive.Header>
