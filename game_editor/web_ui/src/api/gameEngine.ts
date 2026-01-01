@@ -268,7 +268,7 @@ export class GameEngineAPI {
 
         // Fetch and cache registered components BEFORE notifying connected state
         try {
-          const components = await this.fetchRegisteredComponents();
+          const components = await this.getRegisteredComponents();
           this.registeredComponentsCache = components;
           console.log(`Cached ${components.length} registered components`);
         } catch (e) {
@@ -417,9 +417,17 @@ export class GameEngineAPI {
   }
 
   /**
-   * Fetch all registered component types from the game engine (internal use)
+   * Get cached registered components (fetched on WebSocket connect)
+   * Returns null if not yet fetched (WebSocket not connected)
    */
-  private async fetchRegisteredComponents(): Promise<RegisteredComponent[]> {
+  get registeredComponents(): RegisteredComponent[] | null {
+    return this.registeredComponentsCache;
+  }
+
+  /**
+   * Get all registered component types from the game engine via API
+   */
+  async getRegisteredComponents(): Promise<RegisteredComponent[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/components`, {
         method: 'GET',
@@ -715,14 +723,6 @@ export class GameEngineAPI {
       console.error(`Failed to remove component ${typeIndex} from entity ${entityId}:`, error);
       throw error;
     }
-  }
-
-  /**
-   * Get registered components (cached on WebSocket connect)
-   * Returns null if not yet fetched (WebSocket not connected)
-   */
-  getRegisteredComponents(): RegisteredComponent[] | null {
-    return this.registeredComponentsCache;
   }
 
   /**

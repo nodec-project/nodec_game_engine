@@ -127,7 +127,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   // Load registered components from cache when connection state changes
   useEffect(() => {
     const updateRegisteredComponents = () => {
-      const cached = gameEngineAPI.getRegisteredComponents();
+      const cached = gameEngineAPI.registeredComponents;
       if (cached) {
         setRegisteredComponents(cached);
       }
