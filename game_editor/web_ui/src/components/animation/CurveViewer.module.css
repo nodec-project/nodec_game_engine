@@ -1,0 +1,92 @@
+/**
+ * CurveViewer styles
+ */
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--md-sys-color-outline-variant);
+  margin: 0 8px;
+}
+
+.timeDisplay {
+  margin-left: auto;
+}
+
+.selectedDisplay {
+  margin-left: 16px;
+  color: var(--md-sys-color-primary);
+}
+
+.canvasContainer {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.cursorGrabbing {
+  cursor: grabbing;
+}
+
+.cursorCell {
+  cursor: cell;
+}
+
+.cursorCrosshair {
+  cursor: crosshair;
+}
+
+.curveList {
+  padding: 8px;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  max-height: 100px;
+  overflow: auto;
+}
+
+.curveListTitle {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.curveListItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.curveChip {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid;
+  background-color: transparent;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.curveChip:hover {
+  opacity: 0.8;
+}
+
+.curveChipSelected {
+  color: #fff;
+}

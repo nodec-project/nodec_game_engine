@@ -3,34 +3,37 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { IDockviewPanelProps } from 'dockview';
 import {
-  Box,
   Typography,
   Alert,
-  CircularProgress,
-  Paper,
+  Spinner,
+  Surface,
   Chip,
   Divider,
   Tabs,
+  TabList,
   Tab,
+  TabPanel,
   List,
   ListItem,
-  ListItemText,
+  ListItemButton,
   ListItemIcon,
+  ListItemText,
   Checkbox,
   IconButton,
   Tooltip,
-} from '@mui/material';
+} from '@/ui';
 import {
-  Animation as AnimationIcon,
-  MovieFilter as ClipIcon,
-  Warning as WarningIcon,
-  Timeline as TimelineIcon,
-  AccountTree as HierarchyIcon,
-  Lock as LockIcon,
-  LockOpen as LockOpenIcon,
-  Save as SaveIcon,
-} from '@mui/icons-material';
+  AnimationIcon,
+  ClipIcon,
+  WarningIcon,
+  TimelineIcon,
+  HierarchyIcon,
+  LockIcon,
+  LockOpenIcon,
+  SaveIcon,
+} from '@/ui/icons';
 import { useEditor } from '../../contexts/EditorContext';
+import styles from './AnimationEditorPanel.module.css';
 import {
   gameEngineAPI,
   AnimationCurve,
@@ -66,7 +69,7 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
   const [hasAnimator, setHasAnimator] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState<string | number>(0);
   const [selectedCurves, setSelectedCurves] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedHierarchyNode, setSelectedHierarchyNode] = useState<SelectedNode | null>(null);
@@ -203,8 +206,8 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
     return curve.propertyPath;
   };
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+  const handleTabChange = (_event: React.SyntheticEvent, value: string | number) => {
+    setTabValue(value);
   };
 
   const handleCurveToggle = (curveKey: string) => {
@@ -1060,52 +1063,42 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
   }, [animState, addPropertyTarget]);
 
   return (
-    <Paper
-      sx={{
-        height: '100%',
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-
+    <Surface className={styles.container}>
       {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
+        <div className={styles.loadingContainer}>
+          <Spinner size="medium" />
+        </div>
       )}
 
       {!loading && !selectedEntityId && (
-        <Box sx={{ p: 2 }}>
+        <div className={styles.alertContainer}>
           <Alert severity="info">
             Select an entity to view animation information
           </Alert>
-        </Box>
+        </div>
       )}
 
       {!loading && selectedEntityId && error && !hasAnimator && (
-        <Box sx={{ p: 2 }}>
+        <div className={styles.alertContainer}>
           <Alert severity="warning">
             {error}
           </Alert>
-        </Box>
+        </div>
       )}
 
       {!loading && hasAnimator && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div className={styles.contentContainer}>
           {/* Entity and Clip Info Bar */}
-          <Box sx={{ px: 2, pb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <div className={styles.infoBar}>
+            <div className={styles.infoBarContent}>
               {/* Lock Button */}
               <Tooltip title={isLocked ? 'Unlock (follow selection)' : 'Lock (keep current entity)'}>
                 <IconButton
                   size="small"
                   onClick={handleToggleLock}
                   color={isLocked ? 'primary' : 'default'}
-                  sx={{ mr: 0.5 }}
                 >
-                  {isLocked ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
+                  {isLocked ? <LockIcon /> : <LockOpenIcon />}
                 </IconButton>
               </Tooltip>
               {/* Save Button */}
@@ -1116,9 +1109,8 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                     onClick={handleSave}
                     disabled={!animState || isSaving}
                     color="primary"
-                    sx={{ mr: 0.5 }}
                   >
-                    {isSaving ? <CircularProgress size={18} /> : <SaveIcon fontSize="small" />}
+                    {isSaving ? <Spinner size="small" /> : <SaveIcon />}
                   </IconButton>
                 </span>
               </Tooltip>
@@ -1148,131 +1140,99 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
                   />
                 </>
               )}
-            </Box>
-          </Box>
+            </div>
+          </div>
 
           <Divider />
 
           {animState ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <Tabs
-                value={tabValue}
-                onChange={handleTabChange}
-                sx={{
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  minHeight: 40,
-                  '& .MuiTab-root': { minHeight: 40 }
-                }}
-              >
-                <Tab label="Curves" icon={<TimelineIcon />} iconPosition="start" />
-                <Tab label="Hierarchy" icon={<HierarchyIcon />} iconPosition="start" />
+            <div className={styles.tabContainer}>
+              <Tabs value={tabValue} onChange={handleTabChange}>
+                <TabList>
+                  <Tab value={0} label="Curves" icon={<TimelineIcon />} iconPosition="start" />
+                  <Tab value={1} label="Hierarchy" icon={<HierarchyIcon />} iconPosition="start" />
+                </TabList>
+
+                <TabPanel value={0}>
+                  <div className={styles.curvesPanelContainer}>
+                    {/* Curve Selection List */}
+                    <div className={styles.curveSelectionPanel}>
+                      <Typography variant="titleSmall" className={styles.curveSelectionTitle}>
+                        Select Curves to Display
+                      </Typography>
+                      <List dense className={styles.curveSelectionList}>
+                        {animState.curves.map((curve, index) => {
+                          const curveKey = getCurveKey(curve);
+                          return (
+                            <ListItem key={index}>
+                              <ListItemButton onClick={() => handleCurveToggle(curveKey)}>
+                                <ListItemIcon>
+                                  <Checkbox
+                                    checked={selectedCurves.has(curveKey)}
+                                    size="small"
+                                  />
+                                </ListItemIcon>
+                                <ListItemText
+                                  primary={getCurveDisplayName(curve)}
+                                  secondary={`${curve.keyframes.length} keys`}
+                                />
+                              </ListItemButton>
+                            </ListItem>
+                          );
+                        })}
+                      </List>
+                    </div>
+
+                    {/* Curve Viewer */}
+                    <div className={styles.curveViewerContainer}>
+                      {getFilteredCurves().length > 0 ? (
+                        <CurveViewer
+                          curves={getCurvesForViewer()}
+                          duration={animState.duration}
+                          currentTime={currentTime}
+                          editable={true}
+                          onTimeChange={setCurrentTime}
+                          onKeyframeUpdate={handleKeyframeUpdate}
+                          onKeyframeAdd={handleKeyframeAdd}
+                          onKeyframeDelete={handleKeyframeDelete}
+                        />
+                      ) : (
+                        <div className={styles.emptyState}>
+                          <Typography variant="bodyMedium" color="onSurfaceVariant">
+                            Select curves from the list to visualize them
+                          </Typography>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabPanel>
+
+                <TabPanel value={1}>
+                  <div className={styles.hierarchyContainer}>
+                    <AnimationHierarchyEditor
+                      clipData={animState.clipData}
+                      typeRegistry={animState.typeRegistry}
+                      selectedNode={selectedHierarchyNode}
+                      onSelectNode={setSelectedHierarchyNode}
+                      onAddEntity={() => setEntityPickerOpen(true)}
+                      onRemoveEntity={handleRemoveEntity}
+                      onAddComponent={handleOpenComponentPicker}
+                      onRemoveComponent={handleRemoveComponent}
+                      onAddProperty={handleOpenPropertyPicker}
+                      onRemoveProperty={handleRemoveProperty}
+                    />
+                  </div>
+                </TabPanel>
               </Tabs>
-
-              {tabValue === 0 && (
-                <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                  {/* Curve Selection List */}
-                  <Paper sx={{
-                    width: 280,
-                    borderRight: 1,
-                    borderColor: 'divider',
-                    borderRadius: 0,
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}>
-                    <Typography variant="subtitle2" sx={{ p: 1 }}>
-                      Select Curves to Display
-                    </Typography>
-                    <List dense sx={{ flex: 1, overflow: 'auto' }}>
-                      {animState.curves.map((curve, index) => {
-                        const curveKey = getCurveKey(curve);
-                        return (
-                          <ListItem
-                            key={index}
-                            onClick={() => handleCurveToggle(curveKey)}
-                            sx={{ cursor: 'pointer' }}
-                          >
-                            <ListItemIcon sx={{ minWidth: 32 }}>
-                              <Checkbox
-                                edge="start"
-                                checked={selectedCurves.has(curveKey)}
-                                size="small"
-                              />
-                            </ListItemIcon>
-                            <ListItemText
-                              primary={getCurveDisplayName(curve)}
-                              primaryTypographyProps={{ fontSize: '0.875rem' }}
-                              secondary={`${curve.keyframes.length} keys`}
-                              secondaryTypographyProps={{ fontSize: '0.75rem' }}
-                            />
-                          </ListItem>
-                        );
-                      })}
-                    </List>
-                  </Paper>
-
-                  {/* Curve Viewer */}
-                  <Box sx={{ flex: 1, p: 2 }}>
-                    {getFilteredCurves().length > 0 ? (
-                      <CurveViewer
-                        curves={getCurvesForViewer()}
-                        duration={animState.duration}
-                        currentTime={currentTime}
-                        editable={true}
-                        onTimeChange={setCurrentTime}
-                        onKeyframeUpdate={handleKeyframeUpdate}
-                        onKeyframeAdd={handleKeyframeAdd}
-                        onKeyframeDelete={handleKeyframeDelete}
-                      />
-                    ) : (
-                      <Box
-                        sx={{
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '2px dashed',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography variant="body2" color="text.secondary">
-                          Select curves from the list to visualize them
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-              )}
-
-              {tabValue === 1 && (
-                <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                  <AnimationHierarchyEditor
-                    clipData={animState.clipData}
-                    typeRegistry={animState.typeRegistry}
-                    selectedNode={selectedHierarchyNode}
-                    onSelectNode={setSelectedHierarchyNode}
-                    onAddEntity={() => setEntityPickerOpen(true)}
-                    onRemoveEntity={handleRemoveEntity}
-                    onAddComponent={handleOpenComponentPicker}
-                    onRemoveComponent={handleRemoveComponent}
-                    onAddProperty={handleOpenPropertyPicker}
-                    onRemoveProperty={handleRemoveProperty}
-                  />
-                </Box>
-              )}
-            </Box>
+            </div>
           ) : (
-            <Box sx={{ p: 2, flex: 1 }}>
-              <Alert
-                severity="info"
-                icon={<WarningIcon />}
-              >
+            <div className={styles.noClipContainer}>
+              <Alert severity="info" icon={<WarningIcon />}>
                 No animation clip assigned to this Animator
               </Alert>
-            </Box>
+            </div>
           )}
-        </Box>
+        </div>
       )}
 
       {/* Entity Picker Dialog - starts from selected entity's children */}
@@ -1299,6 +1259,6 @@ export const AnimationEditorPanel: React.FC<IDockviewPanelProps<AnimationEditorP
         componentData={getComponentDataForPropertyPicker()}
         excludePropertyPaths={getExcludedPropertyPaths()}
       />
-    </Paper>
+    </Surface>
   );
 };

@@ -51,11 +51,14 @@ struct APIRequest {
         GET_RESOURCE,
         PATCH_ENTITY_COMPONENTS,
         PUT_RESOURCE,
-        GET_REGISTERED_COMPONENTS
+        GET_REGISTERED_COMPONENTS,
+        POST_ENTITY_COMPONENT,
+        DELETE_ENTITY_COMPONENT
     };
 
     Type type;
     uint32_t entity_id;
+    uint32_t type_index;  // For DELETE_ENTITY_COMPONENT
     std::string resource_type;
     std::string resource_name;
     std::string request_body;
@@ -63,21 +66,25 @@ struct APIRequest {
     bool is_valid = true;
 
     APIRequest(Type t, std::function<void(const APIResponse&)> callback)
-        : type(t), entity_id(0), response_callback(std::move(callback)) {}
+        : type(t), entity_id(0), type_index(0), response_callback(std::move(callback)) {}
 
     APIRequest(Type t, uint32_t id, std::function<void(const APIResponse&)> callback)
-        : type(t), entity_id(id), response_callback(std::move(callback)) {}
+        : type(t), entity_id(id), type_index(0), response_callback(std::move(callback)) {}
 
     APIRequest(Type t, std::string res_type, std::string res_name, std::function<void(const APIResponse&)> callback)
-        : type(t), entity_id(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)), response_callback(std::move(callback)) {}
+        : type(t), entity_id(0), type_index(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)), response_callback(std::move(callback)) {}
 
     APIRequest(Type t, uint32_t id, std::string body, std::function<void(const APIResponse&)> callback)
-        : type(t), entity_id(id), request_body(std::move(body)), response_callback(std::move(callback)) {}
+        : type(t), entity_id(id), type_index(0), request_body(std::move(body)), response_callback(std::move(callback)) {}
 
     // Constructor for PUT_RESOURCE (resource_type, resource_name, body)
     APIRequest(Type t, std::string res_type, std::string res_name, std::string body, std::function<void(const APIResponse&)> callback)
-        : type(t), entity_id(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)),
+        : type(t), entity_id(0), type_index(0), resource_type(std::move(res_type)), resource_name(std::move(res_name)),
           request_body(std::move(body)), response_callback(std::move(callback)) {}
+
+    // Constructor for DELETE_ENTITY_COMPONENT (entity_id, type_index)
+    APIRequest(Type t, uint32_t id, uint32_t type_idx, std::function<void(const APIResponse&)> callback)
+        : type(t), entity_id(id), type_index(type_idx), response_callback(std::move(callback)) {}
 };
 
 // WebSocket per-socket data
@@ -238,6 +245,77 @@ public:
                             });
                     }
                 });
+            })
+            .post("/api/entities/ids/:id/components", [this](auto *res, auto *req) {
+                res->writeHeader("Content-Type", "application/json");
+                res->writeHeader("Access-Control-Allow-Origin", "*");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+
+                std::string id_str(req->getParameter(0));
+                uint32_t entity_id = 0;
+                try {
+                    entity_id = std::stoul(id_str);
+                } catch (...) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Invalid entity ID\"}");
+                    return;
+                }
+
+                auto response_state = std::make_shared<bool>(true);
+                auto body_buffer = std::make_shared<std::string>();
+                auto captured_entity_id = entity_id;
+
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+
+                // Read request body using onData callback
+                res->onData([this, res, response_state, body_buffer, captured_entity_id](std::string_view chunk, bool is_last) {
+                    body_buffer->append(chunk.data(), chunk.size());
+
+                    if (is_last) {
+                        queue_request(APIRequest::POST_ENTITY_COMPONENT, captured_entity_id, std::move(*body_buffer),
+                            [res, response_state](const APIResponse& response) {
+                                if (*response_state) {
+                                    res->writeStatus(response.status);
+                                    res->end(response.body);
+                                }
+                            });
+                    }
+                });
+            })
+            .del("/api/entities/ids/:id/components/:type_index", [this](auto *res, auto *req) {
+                res->writeHeader("Content-Type", "application/json");
+                res->writeHeader("Access-Control-Allow-Origin", "*");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+
+                std::string id_str(req->getParameter(0));
+                std::string type_index_str(req->getParameter(1));
+                uint32_t entity_id = 0;
+                uint32_t type_index = 0;
+                try {
+                    entity_id = std::stoul(id_str);
+                    type_index = std::stoul(type_index_str);
+                } catch (...) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Invalid entity ID or type index\"}");
+                    return;
+                }
+
+                auto response_state = std::make_shared<bool>(true);
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+
+                queue_request(APIRequest::DELETE_ENTITY_COMPONENT, entity_id, type_index,
+                    [res, response_state](const APIResponse& response) {
+                        if (*response_state) {
+                            res->writeStatus(response.status);
+                            res->end(response.body);
+                        }
+                    });
             })
             .get("/api/entities/ids/:id", [this](auto *res, auto *req) {
                 res->writeHeader("Content-Type", "application/json");
@@ -468,6 +546,12 @@ public:
                         break;
                     case APIRequest::GET_REGISTERED_COMPONENTS:
                         response = get_registered_components_json();
+                        break;
+                    case APIRequest::POST_ENTITY_COMPONENT:
+                        response = add_entity_component(request.entity_id, request.request_body);
+                        break;
+                    case APIRequest::DELETE_ENTITY_COMPONENT:
+                        response = remove_entity_component(request.entity_id, request.type_index);
                         break;
                     default:
                         response = APIResponse::bad_request("{\"error\": \"Unknown request type\"}");
@@ -826,6 +910,75 @@ private:
         }
     }
 
+    APIResponse add_entity_component(uint32_t entity_id, const std::string& json_body) {
+        auto entity = static_cast<nodec::entities::Entity>(entity_id);
+        auto& registry = world_->scene().registry();
+
+        if (!registry.is_valid(entity)) {
+            return APIResponse::not_found("{\"error\":\"Invalid entity\",\"id\":" + std::to_string(entity_id) + "}");
+        }
+
+        if (!scene_serialization_ || !resources_) {
+            return APIResponse::internal_error("{\"error\":\"Scene serialization or resource registry not available\"}");
+        }
+
+        try {
+            // Expected format: { "component": { "polymorphic_id": ..., "ptr_wrapper": ... } }
+            std::istringstream iss(json_body);
+            nodec_scene_serialization::ArchiveContext context(*scene_serialization_, resources_->registry());
+            cereal::UserDataAdapter<nodec_scene_serialization::ArchiveContext, cereal::JSONInputArchive>
+                archive(context, iss);
+
+            std::unique_ptr<nodec_scene_serialization::BaseSerializableComponent> component;
+            archive(cereal::make_nvp("component", component));
+
+            if (!component) {
+                return APIResponse::bad_request("{\"error\":\"Failed to deserialize component\"}");
+            }
+
+            scene_serialization_->emplace_or_replace_component(component.get(), entity, registry);
+
+            logger_->info(__FILE__, __LINE__) << "Added component to entity " << entity_id;
+
+            return APIResponse::ok("{\"success\":true,\"id\":" + std::to_string(entity_id) + "}");
+
+        } catch (const std::exception& e) {
+            logger_->error(__FILE__, __LINE__) << "Error adding entity component: " << e.what();
+            return APIResponse::bad_request("{\"error\":\"" + std::string(e.what()) + "\"}");
+        }
+    }
+
+    APIResponse remove_entity_component(uint32_t entity_id, uint32_t type_index) {
+        auto entity = static_cast<nodec::entities::Entity>(entity_id);
+        auto& registry = world_->scene().registry();
+
+        if (!registry.is_valid(entity)) {
+            return APIResponse::not_found("{\"error\":\"Invalid entity\",\"id\":" + std::to_string(entity_id) + "}");
+        }
+
+        if (!scene_serialization_) {
+            return APIResponse::internal_error("{\"error\":\"Scene serialization not available\"}");
+        }
+
+        try {
+            bool removed = scene_serialization_->remove_component_by_type_index(
+                static_cast<nodec::type_seq_index_type>(type_index), entity, registry);
+
+            if (!removed) {
+                return APIResponse::not_found("{\"error\":\"Component type not found\",\"type_index\":" + std::to_string(type_index) + "}");
+            }
+
+            logger_->info(__FILE__, __LINE__) << "Removed component (type_index=" << type_index << ") from entity " << entity_id;
+
+            return APIResponse::ok("{\"success\":true,\"id\":" + std::to_string(entity_id) +
+                   ",\"type_index\":" + std::to_string(type_index) + "}");
+
+        } catch (const std::exception& e) {
+            logger_->error(__FILE__, __LINE__) << "Error removing entity component: " << e.what();
+            return APIResponse::bad_request("{\"error\":\"" + std::string(e.what()) + "\"}");
+        }
+    }
+
     APIResponse update_resource_json(const std::string& resource_type, const std::string& resource_name, const std::string& json_body) {
         if (!resources_ || !scene_serialization_) {
             return APIResponse::internal_error("{\"error\":\"Resource registry or scene serialization not available\"}");
@@ -900,6 +1053,12 @@ private:
                        std::string body, std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, resource_type, resource_name, std::move(body), std::move(callback));
+    }
+
+    void queue_request(APIRequest::Type type, uint32_t entity_id, uint32_t type_index,
+                       std::function<void(const APIResponse&)> callback) {
+        std::lock_guard<std::mutex> lock(request_queue_mutex_);
+        request_queue_.emplace(type, entity_id, type_index, std::move(callback));
     }
 
 private:

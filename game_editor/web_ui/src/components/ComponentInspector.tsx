@@ -2,30 +2,43 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Box,
-  Typography,
-  Paper,
+  Surface,
   Alert,
-  CircularProgress,
+  Spinner,
   Divider,
   Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  AccordionItem,
+  AccordionHeader,
+  AccordionPanel,
   Chip,
   TextField,
-  Grid,
-} from '@mui/material';
-import {
-  ExpandMore as ExpandMoreIcon,
-  Settings as ComponentIcon,
-  Sync as SyncIcon,
-} from '@mui/icons-material';
+  Typography,
+} from '@/ui';
 import { gameEngineAPI, ComponentInfo, EntityDetailsResponse, SerializableComponent } from '../api/gameEngine';
+import styles from './ComponentInspector.module.css';
+
+// Icons
+const ExpandMoreIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+    <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z" />
+  </svg>
+);
+
+const ComponentIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={styles.componentIcon}>
+    <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+  </svg>
+);
+
+const SyncIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+  </svg>
+);
 
 // Helper to extract component display name from polymorphic_name
 const getComponentDisplayName = (polymorphicName: string | undefined): string => {
   if (!polymorphicName) return 'Unknown Component';
-  // Extract last part after :: (e.g., "SerializableLocalTransform" from "nodec_scene::components::SerializableLocalTransform")
   const parts = polymorphicName.split('::');
   return parts[parts.length - 1];
 };
@@ -68,7 +81,6 @@ const EditablePropertyField: React.FC<EditablePropertyFieldProps> = ({
   const [localValue, setLocalValue] = useState(String(value));
   const [isDirty, setIsDirty] = useState(false);
 
-  // Update local value when prop changes (but not if we're editing)
   useEffect(() => {
     if (!isDirty) {
       setLocalValue(String(value));
@@ -108,12 +120,7 @@ const EditablePropertyField: React.FC<EditablePropertyFieldProps> = ({
       onKeyDown={handleKeyDown}
       variant="outlined"
       fullWidth
-      sx={{
-        mt: 0.5,
-        '& .MuiOutlinedInput-root': isDirty ? {
-          '& fieldset': { borderColor: 'warning.main' },
-        } : {},
-      }}
+      dirty={isDirty}
     />
   );
 };
@@ -127,10 +134,9 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   const [isLiveUpdating, setIsLiveUpdating] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const isDirtyRef = useRef(false);
+  const [expandedAccordions, setExpandedAccordions] = useState<string[]>(['component-0']);
 
-  // Fetch entity data on selection change
   useEffect(() => {
-    // Use explicit null check to handle id "0" correctly
     if (entityId === null) {
       setComponents([]);
       setEntityDetails(null);
@@ -143,7 +149,6 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
         setError(null);
         setPatchError(null);
 
-        // Fetch both entity details and components in parallel
         const [details, comps] = await Promise.all([
           gameEngineAPI.getEntityDetails(entityId),
           gameEngineAPI.getEntityComponents(entityId),
@@ -161,9 +166,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     fetchEntityData();
   }, [entityId]);
 
-  // WebSocket subscription for real-time updates
   useEffect(() => {
-    // Cleanup previous subscription
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
@@ -179,7 +182,6 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
         const unsubscribe = await gameEngineAPI.subscribeToEntityComponents(
           entityId,
           (newComponents) => {
-            // Only update if not currently editing
             if (!isDirtyRef.current) {
               setComponents(newComponents);
             }
@@ -204,26 +206,21 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     };
   }, [entityId]);
 
-  // Update a property in the component data and commit via PATCH
   const handlePropertyChange = useCallback((
     componentIndex: number,
     propertyPath: string[],
     newValue: unknown
   ) => {
-    // Mark as dirty to prevent WebSocket updates from overwriting
     isDirtyRef.current = true;
 
     setComponents(prev => {
       const newComponents = [...prev];
       const component = { ...newComponents[componentIndex] };
 
-      // Deep clone the data
       if (component.data) {
         const clonedData: Record<string, unknown> = JSON.parse(JSON.stringify(component.data));
         component.data = clonedData;
 
-        // Navigate to the property and update it
-        // Path is like: component.ptr_wrapper.data.{propertyKey}
         let current: Record<string, unknown> = clonedData;
         for (let i = 0; i < propertyPath.length - 1; i++) {
           current = current[propertyPath[i]] as Record<string, unknown>;
@@ -236,7 +233,6 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     });
   }, []);
 
-  // Commit the component changes via PATCH
   const handleCommit = useCallback(async (componentIndex: number) => {
     if (entityId === null) return;
 
@@ -259,35 +255,33 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     } catch (err) {
       setPatchError(err instanceof Error ? err.message : 'Failed to update component');
     } finally {
-      // Allow WebSocket updates again after commit
       isDirtyRef.current = false;
     }
   }, [entityId, components]);
 
-  // Render editable properties for ptr_wrapper.data
   const renderEditableData = (
     data: Record<string, unknown>,
     componentIndex: number,
     basePath: string[] = []
   ): React.ReactNode => {
     return (
-      <Box sx={{ pl: basePath.length > 0 ? 2 : 0 }}>
+      <div className={basePath.length > 0 ? styles.nestedData : undefined}>
         {Object.entries(data).map(([key, value]) => {
           const currentPath = [...basePath, key];
 
           if (value === null || value === undefined) {
             return (
-              <Box key={key} sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary">
+              <div key={key} className={styles.fieldContainer}>
+                <Typography variant="body-small" color="secondary">
                   {key}: <em>null</em>
                 </Typography>
-              </Box>
+              </div>
             );
           }
 
           if (isPrimitiveValue(value)) {
             return (
-              <Box key={key} sx={{ mb: 1 }}>
+              <div key={key} className={styles.fieldContainer}>
                 <EditablePropertyField
                   label={key}
                   value={value}
@@ -298,19 +292,19 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                   )}
                   onCommit={() => handleCommit(componentIndex)}
                 />
-              </Box>
+              </div>
             );
           }
 
           if (Array.isArray(value)) {
             return (
-              <Box key={key} sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary">
+              <div key={key} className={styles.fieldContainer}>
+                <Typography variant="body-small" color="secondary">
                   {key}: [{value.length} items]
                 </Typography>
-                <Box sx={{ pl: 2 }}>
+                <div className={styles.nestedData}>
                   {value.map((item, index) => (
-                    <Box key={index} sx={{ mb: 0.5 }}>
+                    <div key={index} className={styles.arrayItem}>
                       {isPrimitiveValue(item) ? (
                         <EditablePropertyField
                           label={`[${index}]`}
@@ -327,35 +321,34 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                           onCommit={() => handleCommit(componentIndex)}
                         />
                       ) : (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="body-small" color="secondary">
                           [{index}]: {typeof item === 'object' ? JSON.stringify(item) : String(item)}
                         </Typography>
                       )}
-                    </Box>
+                    </div>
                   ))}
-                </Box>
-              </Box>
+                </div>
+              </div>
             );
           }
 
           if (typeof value === 'object') {
             return (
-              <Box key={key} sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+              <div key={key} className={styles.fieldContainer}>
+                <Typography variant="body-small" color="secondary" className={styles.propertyLabelBold}>
                   {key}:
                 </Typography>
                 {renderEditableData(value as Record<string, unknown>, componentIndex, currentPath)}
-              </Box>
+              </div>
             );
           }
 
           return null;
         })}
-      </Box>
+      </div>
     );
   };
 
-  // Render a serializable component with editable properties
   const renderSerializableComponent = (
     component: ComponentInfo,
     componentIndex: number
@@ -363,7 +356,6 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     const serializableComponent = gameEngineAPI.extractSerializableComponent(component);
 
     if (!serializableComponent) {
-      // Fall back to read-only display for non-serializable components
       return renderReadOnlyData(component.data);
     }
 
@@ -371,46 +363,43 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     const editableData = serializableComponent.ptr_wrapper?.data || {};
 
     return (
-      <Accordion key={componentIndex} defaultExpanded={componentIndex === 0}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ComponentIcon fontSize="small" />
-            <Typography>{displayName}</Typography>
-            <Chip
-              label={`Type: ${component.type_index}`}
-              size="small"
-              variant="outlined"
-            />
-          </Box>
-        </AccordionSummary>
-        <AccordionDetails>
+      <AccordionItem key={componentIndex} value={`component-${componentIndex}`}>
+        <AccordionHeader expandIcon={<ExpandMoreIcon />}>
+          <div className={styles.componentHeader}>
+            <ComponentIcon />
+            <span className={styles.componentName}>{displayName}</span>
+            <Chip size="small" variant="outlined" className={styles.typeChip}>
+              Type: {component.type_index}
+            </Chip>
+          </div>
+        </AccordionHeader>
+        <AccordionPanel>
           {Object.keys(editableData).length > 0 ? (
             renderEditableData(editableData, componentIndex)
           ) : (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body-medium" color="secondary">
               No editable properties
             </Typography>
           )}
-        </AccordionDetails>
-      </Accordion>
+        </AccordionPanel>
+      </AccordionItem>
     );
   };
 
-  // Render read-only data for non-serializable components
   const renderReadOnlyData = (data: unknown): React.ReactNode => {
     if (data === null || data === undefined) {
-      return <Typography variant="body2" color="text.secondary">No data</Typography>;
+      return <Typography variant="body-medium" color="secondary">No data</Typography>;
     }
 
     if (typeof data === 'object' && !Array.isArray(data)) {
       return (
-        <Box sx={{ pl: 2 }}>
+        <div className={styles.nestedData}>
           {Object.entries(data).map(([key, value]) => (
-            <Box key={key} sx={{ mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+            <div key={key} className={styles.fieldContainer}>
+              <Typography variant="body-small" color="secondary">
                 {key}:
               </Typography>
-              <Box sx={{ pl: 2 }}>
+              <div className={styles.nestedData}>
                 {typeof value === 'object' ? (
                   renderReadOnlyData(value)
                 ) : (
@@ -420,30 +409,29 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                     variant="outlined"
                     fullWidth
                     disabled
-                    sx={{ mt: 0.5 }}
                   />
                 )}
-              </Box>
-            </Box>
+              </div>
+            </div>
           ))}
-        </Box>
+        </div>
       );
     }
 
     if (Array.isArray(data)) {
       return (
-        <Box sx={{ pl: 2 }}>
+        <div className={styles.nestedData}>
           {data.map((item, index) => (
-            <Box key={index} sx={{ mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
+            <div key={index} className={styles.fieldContainer}>
+              <Typography variant="body-small" color="secondary">
                 [{index}]
               </Typography>
-              <Box sx={{ pl: 2 }}>
+              <div className={styles.nestedData}>
                 {renderReadOnlyData(item)}
-              </Box>
-            </Box>
+              </div>
+            </div>
           ))}
-        </Box>
+        </div>
       );
     }
 
@@ -460,104 +448,94 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
 
   if (entityId === null) {
     return (
-      <Paper sx={{ height: '100%', p: 2 }}>
+      <Surface className={styles.noEntityContainer}>
         <Alert severity="info">
           Select an entity to view its components
         </Alert>
-      </Paper>
+      </Surface>
     );
   }
 
   return (
-    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Surface className={styles.container}>
       {entityDetails && (
-        <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Entity: {entityDetails.name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              ID: {entityDetails.id}
-            </Typography>
-          </Box>
+        <div className={styles.header}>
+          <div className={styles.entityInfo}>
+            <span className={styles.entityName}>Entity: {entityDetails.name}</span>
+            <span className={styles.entityId}>ID: {entityDetails.id}</span>
+          </div>
           {isLiveUpdating && (
             <Chip
-              icon={<SyncIcon sx={{ fontSize: '1rem' }} />}
-              label="Live"
+              icon={<SyncIcon className={styles.liveChipIcon} />}
               size="small"
-              color="success"
               variant="outlined"
-              sx={{ height: 20, '& .MuiChip-label': { px: 0.5, fontSize: '0.7rem' } }}
-            />
+              className={styles.liveChip}
+            >
+              Live
+            </Chip>
           )}
-        </Box>
+        </div>
       )}
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+      <div className={styles.content}>
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
+          <div className={styles.loadingContainer}>
+            <Spinner />
+          </div>
         )}
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+          <div className={styles.alertContainer}>
+            <Alert severity="error">{error}</Alert>
+          </div>
         )}
 
         {!loading && !error && entityDetails && (
           <>
             {/* Entity Details */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
+            <div className={styles.section}>
+              <Typography variant="title-small" className={styles.sectionTitle}>
                 Entity Properties
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
+              <div className={styles.formGrid}>
+                <TextField
+                  label="Name"
+                  value={entityDetails.name}
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  disabled
+                />
+                {entityDetails.hierarchy?.parent !== null && entityDetails.hierarchy?.parent !== undefined && (
                   <TextField
-                    label="Name"
-                    value={entityDetails.name}
+                    label="Parent ID"
+                    value={String(entityDetails.hierarchy.parent)}
                     variant="outlined"
                     size="small"
                     fullWidth
                     disabled
                   />
-                </Grid>
-                {entityDetails.hierarchy?.parent !== null && entityDetails.hierarchy?.parent !== undefined && (
-                  <Grid item xs={12}>
-                    <TextField
-                      label="Parent ID"
-                      value={entityDetails.hierarchy.parent}
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                      disabled
-                    />
-                  </Grid>
                 )}
                 {entityDetails.hierarchy?.children && entityDetails.hierarchy.children.length > 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">
-                      Children: {entityDetails.hierarchy.children.length}
-                    </Typography>
-                  </Grid>
+                  <span className={styles.childrenCount}>
+                    Children: {entityDetails.hierarchy.children.length}
+                  </span>
                 )}
-              </Grid>
-            </Box>
+              </div>
+            </div>
 
-            <Divider sx={{ my: 2 }} />
+            <Divider className={styles.divider} />
 
             {/* Components */}
-            <Box>
-              <Typography variant="subtitle1" gutterBottom>
+            <div className={styles.section}>
+              <Typography variant="title-small" className={styles.sectionTitle}>
                 Components ({components.length})
               </Typography>
 
               {patchError && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPatchError(null)}>
-                  {patchError}
-                </Alert>
+                <div className={styles.alertContainer}>
+                  <Alert severity="error">{patchError}</Alert>
+                </div>
               )}
 
               {components.length === 0 ? (
@@ -565,14 +543,19 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                   No components found for this entity
                 </Alert>
               ) : (
-                components.map((component, index) =>
-                  renderSerializableComponent(component, index)
-                )
+                <Accordion
+                  value={expandedAccordions}
+                  onValueChange={setExpandedAccordions}
+                >
+                  {components.map((component, index) =>
+                    renderSerializableComponent(component, index)
+                  )}
+                </Accordion>
               )}
-            </Box>
+            </div>
           </>
         )}
-      </Box>
-    </Paper>
+      </div>
+    </Surface>
   );
 };

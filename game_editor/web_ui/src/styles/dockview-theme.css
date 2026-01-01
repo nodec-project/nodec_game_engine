@@ -96,3 +96,8 @@
   outline: 1px solid var(--dv-focus-border);
   outline-offset: -1px;
 }
+
+/* Watermark should not block click events */
+.dockview-theme-dark .dv-watermark-container {
+  pointer-events: none;
+}

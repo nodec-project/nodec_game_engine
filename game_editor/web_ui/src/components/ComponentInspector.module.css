@@ -1,0 +1,162 @@
+/**
+ * ComponentInspector styles
+ */
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--md-sys-color-surface);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+.noEntityContainer {
+  height: 100%;
+  padding: 16px;
+}
+
+/* Header */
+.header {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.entityInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.entityName {
+  font-size: var(--md-sys-typescale-title-small-size);
+  font-weight: var(--md-sys-typescale-title-small-weight);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.entityId {
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Live chip */
+.liveChip {
+  height: 20px;
+  font-size: 11px;
+  padding: 0 4px;
+  background-color: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+  border-color: #4caf50;
+}
+
+.liveChipIcon {
+  width: 12px;
+  height: 12px;
+  margin-right: 2px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Content area */
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+/* Loading state */
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+/* Section */
+.section {
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-size: var(--md-sys-typescale-title-small-size);
+  font-weight: var(--md-sys-typescale-title-small-weight);
+  color: var(--md-sys-color-on-surface);
+  margin-bottom: 12px;
+}
+
+/* Form grid */
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Nested data */
+.nestedData {
+  padding-left: 16px;
+}
+
+/* Property label */
+.propertyLabel {
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+  margin-bottom: 4px;
+}
+
+.propertyLabelBold {
+  font-weight: 600;
+}
+
+/* Array display */
+.arrayItem {
+  margin-bottom: 4px;
+}
+
+/* Component accordion */
+.componentHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.componentIcon {
+  width: 20px;
+  height: 20px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.componentName {
+  font-size: var(--md-sys-typescale-body-large-size);
+  color: var(--md-sys-color-on-surface);
+}
+
+/* Alerts */
+.alertContainer {
+  margin-bottom: 16px;
+}
+
+/* Editable field container */
+.fieldContainer {
+  margin-bottom: 8px;
+}
+
+/* Divider */
+.divider {
+  margin: 16px 0;
+}
+
+/* Type chip in accordion header */
+.typeChip {
+  font-size: 11px;
+  height: 20px;
+}
+
+/* Children count */
+.childrenCount {
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+}

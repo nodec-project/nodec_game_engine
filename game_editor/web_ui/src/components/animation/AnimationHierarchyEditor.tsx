@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  Box,
   Typography,
   IconButton,
   Tooltip,
@@ -12,25 +11,25 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-} from '@mui/material';
+} from '@/ui';
 import {
-  Add,
-  Delete,
-  ExpandMore,
-  ChevronRight,
-  Folder as EntityIcon,
-  Extension as ComponentIcon,
-  Timeline as PropertyIcon,
-} from '@mui/icons-material';
+  AddIcon,
+  DeleteIcon,
+  ExpandMoreIcon,
+  ChevronRightIcon,
+  FolderIcon,
+  ExtensionIcon,
+  TimelineIcon,
+} from '@/ui/icons';
 import {
   AnimationClipResponse,
   AnimatedComponentData,
   AnimatedEntityChild,
   AnimatedProperty,
-  AnimatedComponentPlaceholder,
   PolymorphicTypeRegistry,
   gameEngineAPI,
 } from '../../api/gameEngine';
+import styles from './AnimationHierarchyEditor.module.css';
 
 // Tree node types
 type NodeType = 'entity' | 'component' | 'property';
@@ -93,6 +92,11 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
     return true;
   };
 
+  // Get indent style for depth
+  const getIndentStyle = (depth: number): React.CSSProperties => ({
+    paddingLeft: `${depth * 16}px`,
+  });
+
   // Render a property node
   const renderProperty = (
     entityPath: string,
@@ -111,7 +115,6 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
     return (
       <ListItem
         key={`${entityPath}:${componentIndex}:${prop.key}`}
-        disablePadding
         secondaryAction={
           onRemoveProperty && (
             <Tooltip title="Remove property">
@@ -122,25 +125,26 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                   onRemoveProperty(entityPath, componentIndex, prop.key);
                 }}
               >
-                <Delete fontSize="small" />
+                <DeleteIcon />
               </IconButton>
             </Tooltip>
           )
         }
       >
         <ListItemButton
-          sx={{ pl: depth * 2 }}
+          style={getIndentStyle(depth)}
           selected={isSelected(node)}
           onClick={() => onSelectNode(node)}
         >
-          <ListItemIcon sx={{ minWidth: 32 }}>
-            <PropertyIcon fontSize="small" color="action" />
+          <ListItemIcon className={styles.expandIcon}>
+            <span className={styles.spacer} />
+          </ListItemIcon>
+          <ListItemIcon>
+            <TimelineIcon />
           </ListItemIcon>
           <ListItemText
             primary={prop.key}
             secondary={`${keyCount} keys`}
-            primaryTypographyProps={{ fontSize: '0.875rem' }}
-            secondaryTypographyProps={{ fontSize: '0.75rem' }}
           />
         </ListItemButton>
       </ListItem>
@@ -167,9 +171,8 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
     return (
       <React.Fragment key={nodeId}>
         <ListItem
-          disablePadding
           secondaryAction={
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <div className={styles.actionButtons}>
               {onAddProperty && (
                 <Tooltip title="Add property">
                   <IconButton
@@ -179,7 +182,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onAddProperty(entityPath, componentIndex);
                     }}
                   >
-                    <Add fontSize="small" />
+                    <AddIcon />
                   </IconButton>
                 </Tooltip>
               )}
@@ -192,19 +195,19 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onRemoveComponent(entityPath, componentIndex);
                     }}
                   >
-                    <Delete fontSize="small" />
+                    <DeleteIcon />
                   </IconButton>
                 </Tooltip>
               )}
-            </Box>
+            </div>
           }
         >
           <ListItemButton
-            sx={{ pl: depth * 2 }}
+            style={getIndentStyle(depth)}
             selected={isSelected(node)}
             onClick={() => onSelectNode(node)}
           >
-            <ListItemIcon sx={{ minWidth: 24 }}>
+            <ListItemIcon className={styles.expandIcon}>
               {hasProperties ? (
                 <IconButton
                   size="small"
@@ -213,26 +216,24 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                     toggleExpand(nodeId);
                   }}
                 >
-                  {expanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+                  {expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
                 </IconButton>
               ) : (
-                <Box sx={{ width: 24 }} />
+                <span className={styles.spacer} />
               )}
             </ListItemIcon>
-            <ListItemIcon sx={{ minWidth: 32 }}>
-              <ComponentIcon fontSize="small" color="primary" />
+            <ListItemIcon>
+              <ExtensionIcon />
             </ListItemIcon>
             <ListItemText
               primary={typeName}
               secondary={`${component.properties.length} properties`}
-              primaryTypographyProps={{ fontSize: '0.875rem' }}
-              secondaryTypographyProps={{ fontSize: '0.75rem' }}
             />
           </ListItemButton>
         </ListItem>
         {hasProperties && (
           <Collapse in={expanded}>
-            <List disablePadding>
+            <List dense>
               {component.properties.map((prop) =>
                 renderProperty(entityPath, componentIndex, prop, depth + 1)
               )}
@@ -262,9 +263,8 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
     return (
       <React.Fragment key={entityPath}>
         <ListItem
-          disablePadding
           secondaryAction={
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <div className={styles.actionButtons}>
               {onAddComponent && (
                 <Tooltip title="Add component">
                   <IconButton
@@ -274,7 +274,7 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onAddComponent(entityPath);
                     }}
                   >
-                    <Add fontSize="small" />
+                    <AddIcon />
                   </IconButton>
                 </Tooltip>
               )}
@@ -287,19 +287,19 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                       onRemoveEntity(entityPath);
                     }}
                   >
-                    <Delete fontSize="small" />
+                    <DeleteIcon />
                   </IconButton>
                 </Tooltip>
               )}
-            </Box>
+            </div>
           }
         >
           <ListItemButton
-            sx={{ pl: depth * 2 }}
+            style={getIndentStyle(depth)}
             selected={isSelected(node)}
             onClick={() => onSelectNode(node)}
           >
-            <ListItemIcon sx={{ minWidth: 24 }}>
+            <ListItemIcon className={styles.expandIcon}>
               {hasContent ? (
                 <IconButton
                   size="small"
@@ -308,26 +308,24 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                     toggleExpand(nodeId);
                   }}
                 >
-                  {expanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+                  {expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
                 </IconButton>
               ) : (
-                <Box sx={{ width: 24 }} />
+                <span className={styles.spacer} />
               )}
             </ListItemIcon>
-            <ListItemIcon sx={{ minWidth: 32 }}>
-              <EntityIcon fontSize="small" color="secondary" />
+            <ListItemIcon>
+              <FolderIcon />
             </ListItemIcon>
             <ListItemText
               primary={entityName}
               secondary={`${entity.components.length} components`}
-              primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 500 }}
-              secondaryTypographyProps={{ fontSize: '0.75rem' }}
             />
           </ListItemButton>
         </ListItem>
         {hasContent && (
           <Collapse in={expanded}>
-            <List disablePadding>
+            <List dense>
               {/* Render components */}
               {entity.components.map((comp, idx) =>
                 renderComponent(entityPath, idx, comp, depth + 1)
@@ -351,29 +349,27 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
 
     return (
       <>
-        <ListItem disablePadding>
+        <ListItem>
           <ListItemButton onClick={() => toggleExpand('root')}>
-            <ListItemIcon sx={{ minWidth: 24 }}>
+            <ListItemIcon className={styles.expandIcon}>
               {hasContent ? (
-                expanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />
+                expanded ? <ExpandMoreIcon /> : <ChevronRightIcon />
               ) : (
-                <Box sx={{ width: 24 }} />
+                <span className={styles.spacer} />
               )}
             </ListItemIcon>
-            <ListItemIcon sx={{ minWidth: 32 }}>
-              <EntityIcon fontSize="small" color="secondary" />
+            <ListItemIcon>
+              <FolderIcon />
             </ListItemIcon>
             <ListItemText
               primary="Root Entity"
               secondary={`${root.components.length} components, ${root.children.length} children`}
-              primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }}
-              secondaryTypographyProps={{ fontSize: '0.75rem' }}
             />
           </ListItemButton>
         </ListItem>
         {hasContent && (
           <Collapse in={expanded}>
-            <List disablePadding>
+            <List dense>
               {/* Root components */}
               {root.components.map((comp, idx) =>
                 renderComponent('', idx, comp, 1)
@@ -390,52 +386,36 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
   };
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className={styles.container}>
       {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          p: 1,
-          borderBottom: 1,
-          borderColor: 'divider',
-        }}
-      >
-        <Typography variant="subtitle2">Animation Hierarchy</Typography>
+      <div className={styles.header}>
+        <Typography variant="titleSmall">Animation Hierarchy</Typography>
         {onAddEntity && (
           <Tooltip title="Add Entity">
             <IconButton size="small" onClick={onAddEntity}>
-              <Add fontSize="small" />
+              <AddIcon />
             </IconButton>
           </Tooltip>
         )}
-      </Box>
+      </div>
 
       {/* Tree View */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <List dense disablePadding>
+      <div className={styles.treeContainer}>
+        <List dense>
           {renderRootEntity()}
         </List>
-      </Box>
+      </div>
 
       {/* Selected Node Info */}
       {selectedNode && (
-        <Box
-          sx={{
-            p: 1,
-            borderTop: 1,
-            borderColor: 'divider',
-            backgroundColor: 'action.hover',
-          }}
-        >
-          <Typography variant="caption" color="text.secondary">
+        <div className={styles.selectedInfo}>
+          <Typography variant="labelSmall" color="onSurfaceVariant">
             Selected: {selectedNode.type} - {selectedNode.entityPath || 'root'}
             {selectedNode.componentIndex !== undefined && ` [${selectedNode.componentIndex}]`}
             {selectedNode.propertyKey && ` > ${selectedNode.propertyKey}`}
           </Typography>
-        </Box>
+        </div>
       )}
-    </Box>
+    </div>
   );
 };

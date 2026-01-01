@@ -7,9 +7,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Box,
   Typography,
-  CircularProgress,
+  Spinner,
   Alert,
   List,
   ListItem,
@@ -18,14 +17,15 @@ import {
   ListItemText,
   Collapse,
   IconButton,
-} from '@mui/material';
+} from '@/ui';
 import {
-  ExpandMore,
-  ChevronRight,
-  Folder as EntityIcon,
-  FolderOpen as EntityOpenIcon,
-} from '@mui/icons-material';
-import { gameEngineAPI, EntityInfo, EntityDetailsResponse } from '../../api/gameEngine';
+  ExpandMoreIcon,
+  ChevronRightIcon,
+  FolderIcon,
+  FolderOpenIcon,
+} from '@/ui/icons';
+import { gameEngineAPI, EntityInfo } from '../../api/gameEngine';
+import styles from './EntityPickerDialog.module.css';
 
 interface EntityTreeNode {
   id: string;
@@ -208,6 +208,11 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
     }
   };
 
+  // Get indent style for depth
+  const getIndentStyle = (depth: number): React.CSSProperties => ({
+    paddingLeft: `${depth * 16}px`,
+  });
+
   // Render an entity node
   const renderNode = (node: EntityTreeNode, path: string[], depth: number) => {
     const isExcluded = excludeEntityIds.includes(node.id);
@@ -216,14 +221,14 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
 
     return (
       <React.Fragment key={node.id}>
-        <ListItem disablePadding>
+        <ListItem>
           <ListItemButton
-            sx={{ pl: depth * 2 }}
+            style={getIndentStyle(depth)}
             selected={isSelected}
             disabled={isExcluded}
             onClick={() => !isExcluded && handleSelectEntity(node.id, node.name)}
           >
-            <ListItemIcon sx={{ minWidth: 24 }}>
+            <ListItemIcon className={styles.expandIcon}>
               {node.hasChildren ? (
                 <IconButton
                   size="small"
@@ -232,34 +237,25 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
                     handleToggleExpand(node, path);
                   }}
                 >
-                  {isExpanded ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+                  {isExpanded ? <ExpandMoreIcon /> : <ChevronRightIcon />}
                 </IconButton>
               ) : (
-                <Box sx={{ width: 24 }} />
+                <span className={styles.spacer} />
               )}
             </ListItemIcon>
-            <ListItemIcon sx={{ minWidth: 32 }}>
-              {isExpanded ? (
-                <EntityOpenIcon fontSize="small" color={isExcluded ? 'disabled' : 'primary'} />
-              ) : (
-                <EntityIcon fontSize="small" color={isExcluded ? 'disabled' : 'primary'} />
-              )}
+            <ListItemIcon className={`${styles.entityIcon} ${isExcluded ? styles.iconDisabled : styles.iconPrimary}`}>
+              {isExpanded ? <FolderOpenIcon /> : <FolderIcon />}
             </ListItemIcon>
             <ListItemText
               primary={node.name}
               secondary={isExcluded ? 'Already in animation' : undefined}
-              primaryTypographyProps={{
-                fontSize: '0.875rem',
-                color: isExcluded ? 'text.disabled' : 'text.primary',
-              }}
-              secondaryTypographyProps={{ fontSize: '0.75rem' }}
             />
           </ListItemButton>
         </ListItem>
 
         {node.hasChildren && node.children && (
           <Collapse in={isExpanded}>
-            <List disablePadding>
+            <List dense>
               {node.children.map(child =>
                 renderNode(child, [...path, child.id], depth + 1)
               )}
@@ -271,45 +267,45 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose}>
       <DialogTitle>Select Entity to Animate</DialogTitle>
       <DialogContent dividers>
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
+          <div className={styles.loadingContainer}>
+            <Spinner />
+          </div>
         )}
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+          <div className={styles.alertContainer}>
+            <Alert severity="error">{error}</Alert>
+          </div>
         )}
 
         {!loading && !error && rootNodes.length === 0 && (
-          <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+          <Typography color="onSurfaceVariant" className={styles.emptyMessage}>
             {rootEntityId ? 'No child entities found' : 'No entities found in scene'}
           </Typography>
         )}
 
         {!loading && !error && rootNodes.length > 0 && (
-          <List dense sx={{ maxHeight: 400, overflow: 'auto' }}>
+          <List dense className={styles.listContainer}>
             {rootNodes.map(node => renderNode(node, [node.id], 0))}
           </List>
         )}
 
         {selectedEntityId && (
-          <Box sx={{ mt: 2, p: 1, backgroundColor: 'action.selected', borderRadius: 1 }}>
-            <Typography variant="body2">
+          <div className={styles.selectedContainer}>
+            <Typography variant="bodySmall">
               Selected: <strong>{selectedEntityName}</strong>
             </Typography>
-          </Box>
+          </div>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="text" onClick={onClose}>Cancel</Button>
         <Button
-          variant="contained"
+          variant="filled"
           onClick={handleConfirm}
           disabled={!selectedEntityId}
         >

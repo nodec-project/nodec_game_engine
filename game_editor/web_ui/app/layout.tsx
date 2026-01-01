@@ -1,13 +1,11 @@
 import './globals.css'
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
-import { ThemeProvider } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
+import '@/ui/styles/tokens.css'
+import '@/ui/styles/base.css'
 import { AppLayout } from './app-layout'
-import { theme } from '../src/lib/theme'
 
 export const metadata = {
-  title: 'Service Host - Plugin Manager',
-  description: 'Manage and monitor your plugins with Service Host',
+  title: 'nodec Game Editor',
+  description: 'Game editor for nodec game engine',
 }
 
 export default function RootLayout({
@@ -18,12 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AppRouterCacheProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <AppLayout>{children}</AppLayout>
-          </ThemeProvider>
-        </AppRouterCacheProvider>
+        <AppLayout>{children}</AppLayout>
       </body>
     </html>
   )

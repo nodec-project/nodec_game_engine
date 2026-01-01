@@ -1,0 +1,159 @@
+/**
+ * Alert styles
+ * Based on Material Design 3 banner/snackbar concepts
+ */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--md-sys-spacing-3);
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4);
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-family: var(--md-sys-typescale-font-family);
+  font-size: var(--md-sys-typescale-body-medium-size);
+  line-height: var(--md-sys-typescale-body-medium-line-height);
+}
+
+/* Severity variants */
+.info {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 15%, var(--md-sys-color-surface));
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+}
+
+.info .icon {
+  color: var(--md-sys-color-primary);
+}
+
+.success {
+  background-color: color-mix(in srgb, #4caf50 15%, var(--md-sys-color-surface));
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid color-mix(in srgb, #4caf50 40%, transparent);
+}
+
+.success .icon {
+  color: #81c784;
+}
+
+.warning {
+  background-color: color-mix(in srgb, #ff9800 15%, var(--md-sys-color-surface));
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid color-mix(in srgb, #ff9800 40%, transparent);
+}
+
+.warning .icon {
+  color: #ffb74d;
+}
+
+.error {
+  background-color: color-mix(in srgb, var(--md-sys-color-error) 15%, var(--md-sys-color-surface));
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-error) 40%, transparent);
+}
+
+.error .icon {
+  color: var(--md-sys-color-error);
+}
+
+/* Elements */
+.icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--md-sys-typescale-title-small-size);
+  font-weight: var(--md-sys-typescale-title-small-weight);
+  margin-bottom: var(--md-sys-spacing-1);
+}
+
+.message {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.actions {
+  display: flex;
+  gap: var(--md-sys-spacing-2);
+  margin-top: var(--md-sys-spacing-2);
+}
+
+.closeButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: background-color var(--md-sys-motion-duration-short2);
+}
+
+.closeButton:hover {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* Filled variant (more prominent) */
+.filled.info {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border: none;
+}
+
+.filled.info .icon,
+.filled.info .closeButton {
+  color: var(--md-sys-color-on-primary);
+}
+
+.filled.info .message {
+  color: color-mix(in srgb, var(--md-sys-color-on-primary) 85%, transparent);
+}
+
+.filled.success {
+  background-color: #4caf50;
+  color: #ffffff;
+  border: none;
+}
+
+.filled.success .icon,
+.filled.success .closeButton,
+.filled.success .message {
+  color: #ffffff;
+}
+
+.filled.warning {
+  background-color: #ff9800;
+  color: #000000;
+  border: none;
+}
+
+.filled.warning .icon,
+.filled.warning .closeButton,
+.filled.warning .message {
+  color: #000000;
+}
+
+.filled.error {
+  background-color: var(--md-sys-color-error);
+  color: var(--md-sys-color-on-error);
+  border: none;
+}
+
+.filled.error .icon,
+.filled.error .closeButton {
+  color: var(--md-sys-color-on-error);
+}
+
+.filled.error .message {
+  color: color-mix(in srgb, var(--md-sys-color-on-error) 85%, transparent);
+}

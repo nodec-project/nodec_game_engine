@@ -1,0 +1,94 @@
+/**
+ * AnimationEditorPanel styles
+ */
+
+.container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--md-sys-color-surface);
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.alertContainer {
+  padding: 16px;
+}
+
+.contentContainer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.infoBar {
+  padding: 0 16px 8px 16px;
+}
+
+.infoBarContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.curvesPanelContainer {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.curveSelectionPanel {
+  width: 280px;
+  border-right: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--md-sys-color-surface-container);
+}
+
+.curveSelectionTitle {
+  padding: 8px;
+}
+
+.curveSelectionList {
+  flex: 1;
+  overflow: auto;
+}
+
+.curveViewerContainer {
+  flex: 1;
+  padding: 16px;
+}
+
+.emptyState {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+}
+
+.hierarchyContainer {
+  flex: 1;
+  overflow: hidden;
+}
+
+.noClipContainer {
+  padding: 16px;
+  flex: 1;
+}
+
+.tabContainer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}

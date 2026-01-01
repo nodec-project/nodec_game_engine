@@ -9,20 +9,35 @@ import {
   IDockviewHeaderActionsProps,
   SerializedDockview,
 } from 'dockview';
-import { IconButton, Tooltip, Chip, Button, Menu, MenuItem } from '@mui/material';
-import {
-  PictureInPictureAlt as FloatIcon,
-  Circle as CircleIcon,
-  ViewQuilt as ViewIcon,
-} from '@mui/icons-material';
+import { IconButton, Tooltip, Chip, Menu } from '@/ui';
 import { SceneHierarchyPanel } from './panels/SceneHierarchyPanel';
 import { ComponentInspectorPanel } from './panels/ComponentInspectorPanel';
 import { AnimationEditorPanel } from './panels/AnimationEditorPanel';
 import { EditorProvider, useEditor } from '../contexts/EditorContext';
 import { gameEngineAPI } from '../api/gameEngine';
+import styles from './EditorLayout.module.css';
 
 // Import dockview styles
 import '../styles/dockview-theme.css';
+
+// Icons
+const FloatIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={styles.floatButtonIcon}>
+    <path d="M19 7h-8v6h8V7zm-2 4h-4V9h4v2zm4-8H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z" />
+  </svg>
+);
+
+const ViewIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={styles.viewButtonIcon}>
+    <path d="M3 5v14h19V5H3zm2 2h15v4H5V7zm0 10v-4h4v4H5zm6 0v-4h9v4h-9z" />
+  </svg>
+);
+
+const CircleIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <circle cx="12" cy="12" r="8" />
+  </svg>
+);
 
 // Right header actions - adds float button to panel headers
 const RightHeaderActions: React.FC<IDockviewHeaderActionsProps> = ({ containerApi, group }) => {
@@ -39,13 +54,9 @@ const RightHeaderActions: React.FC<IDockviewHeaderActionsProps> = ({ containerAp
       <IconButton
         size="small"
         onClick={handleFloat}
-        sx={{
-          color: '#cccccc',
-          padding: '2px',
-          '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-        }}
+        className={styles.floatButton}
       >
-        <FloatIcon fontSize="small" sx={{ fontSize: 16 }} />
+        <FloatIcon />
       </IconButton>
     </Tooltip>
   );
@@ -61,7 +72,6 @@ const PANEL_DEFINITIONS = [
 const EditorLayoutContent: React.FC = () => {
   const { engineConnected, setEngineConnected } = useEditor();
   const [api, setApi] = useState<DockviewReadyEvent['api'] | null>(null);
-  const [viewMenuAnchor, setViewMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Set browser tab title
   useEffect(() => {
@@ -99,6 +109,7 @@ const EditorLayoutContent: React.FC = () => {
 
   // Open a panel
   const openPanel = useCallback((panelId: string, component: string, title: string) => {
+    console.log('[EditorLayout] openPanel called:', { panelId, component, title, hasApi: !!api });
     if (!api) return;
 
     // Check if panel already exists
@@ -115,8 +126,6 @@ const EditorLayoutContent: React.FC = () => {
       component,
       title,
     });
-
-    setViewMenuAnchor(null);
   }, [api]);
 
   // Initialize dockview layout
@@ -154,9 +163,9 @@ const EditorLayoutContent: React.FC = () => {
       id: 'inspector',
       component: 'componentInspector',
       title: 'Inspector',
-      position: { 
+      position: {
         referencePanel: hierarchyPanel,
-        direction: 'right' 
+        direction: 'right'
       },
     });
 
@@ -165,9 +174,9 @@ const EditorLayoutContent: React.FC = () => {
       id: 'animation',
       component: 'animationEditor',
       title: 'Animation',
-      position: { 
+      position: {
         referencePanel: hierarchyPanel,
-        direction: 'below' 
+        direction: 'below'
       },
     });
 
@@ -215,9 +224,9 @@ const EditorLayoutContent: React.FC = () => {
             id: 'inspector',
             component: 'componentInspector',
             title: 'Inspector',
-            position: { 
+            position: {
               referencePanel: hierarchyPanel,
-              direction: 'right' 
+              direction: 'right'
             },
           });
 
@@ -226,9 +235,9 @@ const EditorLayoutContent: React.FC = () => {
             id: 'animation',
             component: 'animationEditor',
             title: 'Animation',
-            position: { 
+            position: {
               referencePanel: hierarchyPanel,
-              direction: 'below' 
+              direction: 'below'
             },
           });
 
@@ -242,94 +251,51 @@ const EditorLayoutContent: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [api]);
 
+  const connectionChipClass = engineConnected
+    ? styles.connectionChipConnected
+    : styles.connectionChipDisconnected;
+
+  const connectionIconClass = engineConnected
+    ? styles.connectionIconConnected
+    : styles.connectionIconDisconnected;
+
   return (
-    <div style={{ 
-      height: '100vh', 
-      width: '100vw',
-      display: 'flex',
-      flexDirection: 'column',
-      backgroundColor: '#1e1e1e'
-    }}>
+    <div className={styles.container}>
       {/* Toolbar */}
-      <div style={{
-        height: '35px',
-        backgroundColor: '#2d2d30',
-        borderBottom: '1px solid #3e3e42',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 12px',
-        color: '#cccccc',
-        fontSize: '13px',
-        fontWeight: 500
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className={styles.toolbar}>
+        <div className={styles.toolbarLeft}>
           <span>nodec Game Editor</span>
-          <Button
-            size="small"
-            startIcon={<ViewIcon sx={{ fontSize: 16 }} />}
-            onClick={(e) => setViewMenuAnchor(e.currentTarget)}
-            sx={{
-              color: '#cccccc',
-              textTransform: 'none',
-              fontSize: '12px',
-              minWidth: 'auto',
-              padding: '2px 8px',
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-            }}
-          >
-            View
-          </Button>
           <Menu
-            anchorEl={viewMenuAnchor}
-            open={Boolean(viewMenuAnchor)}
-            onClose={() => setViewMenuAnchor(null)}
-            sx={{
-              '& .MuiPaper-root': {
-                backgroundColor: '#2d2d30',
-                color: '#cccccc',
-                border: '1px solid #3e3e42',
-              }
-            }}
+            trigger={
+              <button className={styles.viewButton}>
+                <ViewIcon />
+                View
+              </button>
+            }
+            placement="bottom-start"
           >
             {PANEL_DEFINITIONS.map((panel) => (
-              <MenuItem
+              <Menu.Item
                 key={panel.id}
                 onClick={() => openPanel(panel.id, panel.component, panel.title)}
                 disabled={isPanelOpen(panel.id)}
-                sx={{
-                  fontSize: '13px',
-                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                  '&.Mui-disabled': { color: '#666666' }
-                }}
+                className={isPanelOpen(panel.id) ? styles.menuItemDisabled : styles.menuItem}
               >
                 {panel.title}
-              </MenuItem>
+              </Menu.Item>
             ))}
           </Menu>
         </div>
         <Chip
-          icon={<CircleIcon sx={{ fontSize: 10 }} />}
-          label={engineConnected ? 'Engine Connected' : 'Engine Disconnected'}
-          size="small"
-          sx={{
-            height: 22,
-            backgroundColor: engineConnected ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
-            color: engineConnected ? '#81c784' : '#e57373',
-            border: `1px solid ${engineConnected ? '#4caf50' : '#f44336'}`,
-            '& .MuiChip-icon': {
-              color: engineConnected ? '#4caf50' : '#f44336',
-            },
-            '& .MuiChip-label': {
-              fontSize: '11px',
-              px: 1,
-            },
-          }}
-        />
+          icon={<CircleIcon className={`${styles.connectionIcon} ${connectionIconClass}`} />}
+          className={`${styles.connectionChip} ${connectionChipClass}`}
+        >
+          {engineConnected ? 'Engine Connected' : 'Engine Disconnected'}
+        </Chip>
       </div>
 
       {/* Dockview container */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div className={styles.dockviewContainer}>
         <DockviewReact
           components={components}
           onReady={onReady}

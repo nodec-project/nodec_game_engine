@@ -1,0 +1,72 @@
+/**
+ * Tooltip styles
+ * Based on Material Design 3 tooltip specification
+ * Uses Base UI data attributes for animation states
+ */
+
+.tooltip {
+  max-width: 200px;
+  padding: var(--md-sys-spacing-1) var(--md-sys-spacing-2);
+  background-color: var(--md-sys-color-inverse-surface);
+  color: var(--md-sys-color-inverse-on-surface);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  font-family: var(--md-sys-typescale-font-family);
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: var(--md-sys-typescale-body-small-line-height);
+  font-weight: var(--md-sys-typescale-body-small-weight);
+  box-shadow: var(--md-sys-elevation-2);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  z-index: var(--md-sys-zindex-tooltip);
+}
+
+/* Animation using Base UI data attributes */
+.tooltip[data-open] {
+  animation: tooltipEnter var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard) forwards;
+}
+
+.tooltip[data-closed] {
+  animation: tooltipExit var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard) forwards;
+}
+
+@keyframes tooltipEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tooltipExit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* Rich tooltip variant */
+.rich {
+  max-width: 320px;
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4);
+  background-color: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+.richTitle {
+  font-size: var(--md-sys-typescale-title-small-size);
+  font-weight: var(--md-sys-typescale-title-small-weight);
+  margin-bottom: var(--md-sys-spacing-1);
+}
+
+.richContent {
+  font-size: var(--md-sys-typescale-body-medium-size);
+  color: var(--md-sys-color-on-surface-variant);
+}

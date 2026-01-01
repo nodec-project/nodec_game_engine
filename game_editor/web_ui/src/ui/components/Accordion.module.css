@@ -1,0 +1,126 @@
+/**
+ * Accordion styles using Base UI
+ * Based on Material Design 3 expansion panel specification
+ */
+
+.accordion {
+  background-color: var(--md-sys-color-surface);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+/* Outlined variant */
+.outlined {
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Accordion Item */
+.accordionItem {
+  overflow: hidden;
+}
+
+.accordionItem + .accordionItem {
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Accordion Header */
+.accordionHeader {
+  margin: 0;
+}
+
+/* Accordion Trigger (clickable header) */
+.accordionTrigger {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4);
+  font-family: var(--md-sys-typescale-font-family);
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--md-sys-typescale-body-large-line-height);
+  color: var(--md-sys-color-on-surface);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.accordionTrigger:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.accordionTrigger:focus-visible {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  outline: none;
+}
+
+/* Disabled state via Base UI data attribute */
+.accordionTrigger[data-disabled] {
+  cursor: not-allowed;
+  opacity: var(--md-sys-state-disabled-opacity);
+}
+
+.accordionTrigger[data-disabled]:hover {
+  background-color: transparent;
+}
+
+.accordionTriggerContent {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-2);
+  min-width: 0;
+}
+
+/* Expand icon */
+.expandIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-surface-variant);
+  transition: transform var(--md-sys-motion-duration-medium1) var(--md-sys-motion-easing-standard);
+}
+
+/* Rotate icon when open via Base UI data attribute on trigger */
+.accordionTrigger[data-panel-open] .expandIcon {
+  transform: rotate(180deg);
+}
+
+/* Accordion Panel (collapsible content) */
+.accordionPanel {
+  overflow: hidden;
+}
+
+/* Animation for panel open/close using Base UI data attributes */
+.accordionPanel[data-open] {
+  animation: expandHeight var(--md-sys-motion-duration-medium1) var(--md-sys-motion-easing-emphasized-decelerate);
+}
+
+.accordionPanel[data-closed] {
+  animation: collapseHeight var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-emphasized-accelerate);
+}
+
+.accordionPanel > div {
+  padding: 0 var(--md-sys-spacing-4) var(--md-sys-spacing-4);
+}
+
+/* Disabled accordion root */
+.accordionDisabled {
+  opacity: var(--md-sys-state-disabled-opacity);
+}
+
+@keyframes expandHeight {
+  from {
+    height: 0;
+  }
+}
+
+@keyframes collapseHeight {
+  to {
+    height: 0;
+  }
+}

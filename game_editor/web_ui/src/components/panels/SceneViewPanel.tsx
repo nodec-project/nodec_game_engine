@@ -2,33 +2,23 @@
 
 import React from 'react';
 import { IDockviewPanelProps } from 'dockview';
-import { Box, Typography } from '@mui/material';
+import { Typography } from '@/ui';
+import styles from './SceneViewPanel.module.css';
 
 export interface SceneViewPanelProps {
   // Placeholder for future scene view properties
   cameraMode?: 'perspective' | 'orthographic';
 }
 
-export const SceneViewPanel: React.FC<IDockviewPanelProps<SceneViewPanelProps>> = (props) => {
+export const SceneViewPanel: React.FC<IDockviewPanelProps<SceneViewPanelProps>> = () => {
   return (
-    <Box
-      sx={{
-        height: '100%',
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#2a2a2a',
-        color: '#cccccc',
-      }}
-    >
-      <Typography variant="h5" sx={{ mb: 2 }}>
+    <div className={styles.container}>
+      <Typography variant="headlineSmall" className={styles.title}>
         Scene View
       </Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="bodySmall" color="onSurfaceVariant">
         3D scene rendering will be displayed here
       </Typography>
-    </Box>
+    </div>
   );
 };

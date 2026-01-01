@@ -1,0 +1,163 @@
+/**
+ * Chip styles
+ * Based on Material Design 3 chip specification
+ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-1);
+  height: 32px;
+  padding: 0 var(--md-sys-spacing-3);
+  border-radius: var(--md-sys-shape-corner-small);
+  font-family: var(--md-sys-typescale-font-family);
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: var(--md-sys-typescale-label-large-weight);
+  line-height: var(--md-sys-typescale-label-large-line-height);
+  white-space: nowrap;
+  transition:
+    background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard),
+    box-shadow var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+/* Size variants */
+.small {
+  height: 24px;
+  padding: 0 var(--md-sys-spacing-2);
+  font-size: var(--md-sys-typescale-label-medium-size);
+}
+
+.medium {
+  height: 32px;
+}
+
+/* Assist chip (default) */
+.assist {
+  background-color: transparent;
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+.assist.elevated {
+  background-color: var(--md-sys-color-surface-container-low);
+  border: none;
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+/* Filter chip */
+.filter {
+  background-color: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+.filter.selected {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-color: transparent;
+}
+
+/* Input chip */
+.input {
+  background-color: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+/* Suggestion chip */
+.suggestion {
+  background-color: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+/* Outlined chip (MUI compatibility) */
+.outlined {
+  background-color: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+/* Color variants (for status indicators) */
+.success {
+  background-color: color-mix(in srgb, #4caf50 20%, transparent);
+  color: #81c784;
+  border-color: #4caf50;
+}
+
+.warning {
+  background-color: color-mix(in srgb, #ff9800 20%, transparent);
+  color: #ffb74d;
+  border-color: #ff9800;
+}
+
+.error {
+  background-color: color-mix(in srgb, var(--md-sys-color-error) 20%, transparent);
+  color: var(--md-sys-color-error);
+  border-color: var(--md-sys-color-error);
+}
+
+.info {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+  color: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+}
+
+/* Interactive chips */
+.clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.clickable:hover {
+  background-color: color-mix(in srgb, currentColor 8%, var(--md-sys-color-surface));
+}
+
+.clickable:active {
+  background-color: color-mix(in srgb, currentColor 12%, var(--md-sys-color-surface));
+}
+
+/* Disabled state */
+.disabled {
+  opacity: var(--md-sys-state-disabled-opacity);
+  pointer-events: none;
+}
+
+/* Icon styling */
+.chip svg,
+.leadingIcon,
+.trailingIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.leadingIcon {
+  margin-left: calc(var(--md-sys-spacing-1) * -1);
+}
+
+.trailingIcon {
+  margin-right: calc(var(--md-sys-spacing-1) * -1);
+}
+
+/* Delete button */
+.deleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: calc(var(--md-sys-spacing-1) * -1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--md-sys-shape-corner-full);
+  opacity: 0.7;
+  transition: opacity var(--md-sys-motion-duration-short2);
+}
+
+.deleteButton:hover {
+  opacity: 1;
+}

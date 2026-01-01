@@ -1,0 +1,56 @@
+/**
+ * EntityPickerDialog styles
+ */
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.alertContainer {
+  margin-bottom: 16px;
+}
+
+.emptyMessage {
+  padding: 32px 0;
+  text-align: center;
+}
+
+.listContainer {
+  max-height: 400px;
+  overflow: auto;
+}
+
+.selectedContainer {
+  margin-top: 16px;
+  padding: 8px;
+  background-color: var(--md-sys-color-secondary-container);
+  border-radius: 4px;
+}
+
+.expandIcon {
+  min-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spacer {
+  width: 24px;
+}
+
+.entityIcon {
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconDisabled {
+  opacity: 0.38;
+}
+
+.iconPrimary {
+  color: var(--md-sys-color-primary);
+}

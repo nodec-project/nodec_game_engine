@@ -1,0 +1,118 @@
+/**
+ * EditorLayout styles
+ */
+
+.container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--md-sys-color-surface-container);
+}
+
+/* Toolbar */
+.toolbar {
+  height: 35px;
+  background-color: var(--md-sys-color-surface-container-high);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: var(--md-sys-color-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* View button */
+.viewButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface);
+  background: none;
+  border: none;
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  cursor: pointer;
+  transition: background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.viewButton:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.viewButtonIcon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Float button in panel header */
+.floatButton {
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 2px;
+}
+
+.floatButton:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 10%, transparent);
+}
+
+.floatButtonIcon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Connection status chip */
+.connectionChip {
+  height: 22px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.connectionChipConnected {
+  background-color: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+  border-color: #4caf50;
+}
+
+.connectionChipDisconnected {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #e57373;
+  border-color: #f44336;
+}
+
+.connectionIcon {
+  width: 10px;
+  height: 10px;
+}
+
+.connectionIconConnected {
+  color: #4caf50;
+}
+
+.connectionIconDisconnected {
+  color: #f44336;
+}
+
+/* Dockview container */
+.dockviewContainer {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Menu styles */
+.menuItem {
+  font-size: 13px;
+}
+
+.menuItemDisabled {
+  color: var(--md-sys-color-on-surface);
+  opacity: 0.38;
+}

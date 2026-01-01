@@ -1,8 +1,17 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Box, Typography, IconButton, Tooltip } from '@mui/material';
-import { ZoomIn, ZoomOut, FitScreen, PlayArrow, Pause, Add, Delete } from '@mui/icons-material';
+import { Typography, IconButton, Tooltip } from '@/ui';
+import {
+  ZoomInIcon,
+  ZoomOutIcon,
+  FitScreenIcon,
+  PlayArrowIcon,
+  PauseIcon,
+  AddIcon,
+  DeleteIcon,
+} from '@/ui/icons';
+import styles from './CurveViewer.module.css';
 
 // Keyframe data
 interface Keyframe {
@@ -189,12 +198,10 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
 
         ctx.beginPath();
         if (isSelected) {
-          // Draw larger circle for selected keyframe
           ctx.arc(x, y, 6, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         } else {
-          // Draw square for normal keyframe
           ctx.fillRect(x - 4, y - 4, 8, 8);
         }
       });
@@ -322,7 +329,6 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     const canvasY = e.clientY - rect.top;
 
     if (editable && isAddMode && selectedCurveIndex !== null) {
-      // Add mode: add keyframe to selected curve
       const { time, value } = canvasToTimeValue(canvasX, canvasY, canvas);
       const curve = curves[selectedCurveIndex];
       if (curve && onKeyframeAdd) {
@@ -332,7 +338,6 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
       return;
     }
 
-    // Check if clicking on a keyframe
     const hit = findKeyframeAtPosition(canvasX, canvasY);
     if (hit) {
       setSelectedKeyframe(hit);
@@ -341,7 +346,6 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
       }
     } else {
       setSelectedKeyframe(null);
-      // Click on timeline to set time
       if (onTimeChange) {
         const { time } = canvasToTimeValue(canvasX, canvasY, canvas);
         onTimeChange(Math.min(duration, time));
@@ -384,7 +388,6 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     const canvasX = e.clientX - rect.left;
     const canvasY = e.clientY - rect.top;
 
-    // Add keyframe at double-click position
     const { time, value } = canvasToTimeValue(canvasX, canvasY, canvas);
     const curve = curves[selectedCurveIndex];
     if (curve && onKeyframeAdd) {
@@ -406,48 +409,47 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     }
   };
 
+  const getCursorClass = () => {
+    if (isDragging) return styles.cursorGrabbing;
+    if (isAddMode) return styles.cursorCell;
+    return styles.cursorCrosshair;
+  };
+
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className={styles.container}>
       {/* Toolbar */}
-      <Box sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        p: 1,
-        borderBottom: 1,
-        borderColor: 'divider'
-      }}>
-        <Typography variant="caption" sx={{ mr: 2 }}>
+      <div className={styles.toolbar}>
+        <Typography variant="labelSmall" style={{ marginRight: 16 }}>
           Curves: {curves.length}
         </Typography>
 
         <Tooltip title="Play">
           <IconButton size="small" onClick={() => setIsPlaying(!isPlaying)}>
-            {isPlaying ? <Pause /> : <PlayArrow />}
+            {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Zoom In">
           <IconButton size="small" onClick={handleZoomIn}>
-            <ZoomIn />
+            <ZoomInIcon />
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Zoom Out">
           <IconButton size="small" onClick={handleZoomOut}>
-            <ZoomOut />
+            <ZoomOutIcon />
           </IconButton>
         </Tooltip>
 
         <Tooltip title="Fit to Screen">
           <IconButton size="small" onClick={handleFitScreen}>
-            <FitScreen />
+            <FitScreenIcon />
           </IconButton>
         </Tooltip>
 
         {editable && (
           <>
-            <Box sx={{ width: 1, height: 20, borderLeft: 1, borderColor: 'divider', mx: 1 }} />
+            <div className={styles.toolbarDivider} />
             <Tooltip title="Add Keyframe (select curve first, then click)">
               <IconButton
                 size="small"
@@ -455,7 +457,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
                 color={isAddMode ? 'primary' : 'default'}
                 disabled={selectedCurveIndex === null}
               >
-                <Add />
+                <AddIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Delete Selected Keyframe">
@@ -465,78 +467,58 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
                 disabled={selectedKeyframe === null}
                 color="error"
               >
-                <Delete />
+                <DeleteIcon />
               </IconButton>
             </Tooltip>
           </>
         )}
 
-        <Typography variant="caption" sx={{ ml: 'auto' }}>
+        <Typography variant="labelSmall" className={styles.timeDisplay}>
           Time: {playbackTime.toFixed(2)}s / {duration.toFixed(2)}s
         </Typography>
 
         {selectedKeyframe && (
-          <Typography variant="caption" sx={{ ml: 2, color: 'primary.main' }}>
+          <Typography variant="labelSmall" className={styles.selectedDisplay}>
             Selected: keyframe {selectedKeyframe.keyframeIndex}
           </Typography>
         )}
-      </Box>
+      </div>
 
       {/* Canvas */}
-      <Box ref={containerRef} sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <div ref={containerRef} className={styles.canvasContainer}>
         <canvas
           ref={canvasRef}
-          style={{
-            width: '100%',
-            height: '100%',
-            cursor: isDragging ? 'grabbing' : isAddMode ? 'cell' : 'crosshair'
-          }}
+          className={`${styles.canvas} ${getCursorClass()}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onDoubleClick={handleDoubleClick}
         />
-      </Box>
+      </div>
 
       {/* Curve List */}
-      <Box sx={{
-        p: 1,
-        borderTop: 1,
-        borderColor: 'divider',
-        maxHeight: 100,
-        overflow: 'auto'
-      }}>
-        <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+      <div className={styles.curveList}>
+        <Typography variant="labelSmall" className={styles.curveListTitle}>
           Select curve to edit:
         </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        <div className={styles.curveListItems}>
           {curves.map((curve, index) => (
-            <Box
+            <button
               key={curve.id}
               onClick={() => setSelectedCurveIndex(selectedCurveIndex === index ? null : index)}
-              sx={{
-                px: 1,
-                py: 0.5,
-                fontSize: '0.75rem',
-                borderRadius: 1,
-                cursor: 'pointer',
-                backgroundColor: selectedCurveIndex === index ?
-                  curveColors[index % curveColors.length] : 'transparent',
-                color: selectedCurveIndex === index ? '#fff' : 'text.primary',
-                border: `2px solid ${curveColors[index % curveColors.length]}`,
-                '&:hover': {
-                  backgroundColor: curveColors[index % curveColors.length],
-                  color: '#fff',
-                  opacity: 0.8
-                }
+              className={`${styles.curveChip} ${selectedCurveIndex === index ? styles.curveChipSelected : ''}`}
+              style={{
+                borderColor: curveColors[index % curveColors.length],
+                backgroundColor: selectedCurveIndex === index ? curveColors[index % curveColors.length] : 'transparent',
+                color: selectedCurveIndex === index ? '#fff' : 'inherit',
               }}
             >
               {curve.propertyPath} ({curve.keyframes.length} keys)
-            </Box>
+            </button>
           ))}
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 };

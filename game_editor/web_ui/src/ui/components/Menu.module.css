@@ -1,0 +1,151 @@
+/**
+ * Menu styles
+ * Based on Material Design 3 menu specification
+ * Uses Base UI data attributes for states
+ */
+
+/* Positioner - controls z-index for proper stacking above floating panels */
+.positioner {
+  z-index: var(--md-sys-zindex-popover);
+}
+
+.menu {
+  min-width: 112px;
+  max-width: 280px;
+  padding: var(--md-sys-spacing-2) 0;
+  background-color: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  box-shadow: var(--md-sys-elevation-2);
+  outline: none;
+  z-index: var(--md-sys-zindex-popover);
+}
+
+/* Animation using Base UI data attributes */
+.menu[data-open] {
+  animation: menuEnter var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-emphasized-decelerate) forwards;
+}
+
+.menu[data-closed] {
+  animation: menuExit var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-emphasized-accelerate) forwards;
+}
+
+@keyframes menuEnter {
+  from {
+    opacity: 0;
+    transform: scaleY(0.9);
+    transform-origin: top;
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes menuExit {
+  from {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+}
+
+/* Menu item */
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--md-sys-spacing-3);
+  font-family: var(--md-sys-typescale-font-family);
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--md-sys-typescale-body-large-line-height);
+  color: var(--md-sys-color-on-surface);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  transition: background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.menuItem:hover,
+.menuItem[data-highlighted] {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.menuItem:focus-visible {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  outline: none;
+}
+
+.menuItem:active {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+}
+
+/* Disabled menu item - Base UI adds data-disabled */
+.menuItem[data-disabled],
+.menuItem.disabled {
+  color: var(--md-sys-color-on-surface);
+  opacity: var(--md-sys-state-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.menuItem[data-disabled]:hover,
+.menuItem.disabled:hover {
+  background-color: transparent;
+}
+
+/* Menu item with icon */
+.menuItemIcon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.menuItemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.menuItemLabel {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menuItemDescription {
+  display: block;
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Trailing content (keyboard shortcut, etc.) */
+.menuItemTrailing {
+  flex-shrink: 0;
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Divider - Base UI Separator */
+.menuDivider {
+  height: 1px;
+  margin: var(--md-sys-spacing-2) 0;
+  background-color: var(--md-sys-color-outline-variant);
+}
+
+/* Menu group label */
+.menuGroupLabel {
+  padding: var(--md-sys-spacing-2) var(--md-sys-spacing-3);
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: var(--md-sys-typescale-label-large-weight);
+  color: var(--md-sys-color-on-surface-variant);
+}

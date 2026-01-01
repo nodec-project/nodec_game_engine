@@ -7,9 +7,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Box,
   Typography,
-  CircularProgress,
+  Spinner,
   Alert,
   List,
   ListItem,
@@ -17,17 +16,14 @@ import {
   ListItemIcon,
   ListItemText,
   TextField,
-  InputAdornment,
-} from '@mui/material';
-import {
-  Extension as ComponentIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material';
+} from '@/ui';
+import { ExtensionIcon, SearchIcon } from '@/ui/icons';
 import {
   gameEngineAPI,
   RegisteredComponent,
   AnimatedComponentPlaceholder,
 } from '../../api/gameEngine';
+import styles from './ComponentPickerDialog.module.css';
 
 interface ComponentPickerDialogProps {
   open: boolean;
@@ -107,63 +103,55 @@ export const ComponentPickerDialog: React.FC<ComponentPickerDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose}>
       <DialogTitle>Select Component Type</DialogTitle>
       <DialogContent dividers>
         {/* Search input */}
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search components..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ mb: 2 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
+        <div className={styles.searchContainer}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search components..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            leadingIcon={<SearchIcon size={18} />}
+          />
+        </div>
 
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
+          <div className={styles.loadingContainer}>
+            <Spinner />
+          </div>
         )}
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+          <div className={styles.alertContainer}>
+            <Alert severity="error">{error}</Alert>
+          </div>
         )}
 
         {!loading && !error && filteredComponents.length === 0 && (
-          <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+          <Typography color="onSurfaceVariant" className={styles.emptyMessage}>
             {searchQuery ? 'No matching components found' : 'No components available'}
           </Typography>
         )}
 
         {!loading && !error && filteredComponents.length > 0 && (
-          <List dense sx={{ maxHeight: 400, overflow: 'auto' }}>
+          <List dense className={styles.listContainer}>
             {filteredComponents.map((comp, index) => {
               const displayName = getComponentDisplayName(comp.data.component);
               const isSelected = selectedComponent === comp;
 
               return (
-                <ListItem key={index} disablePadding>
+                <ListItem key={index}>
                   <ListItemButton
                     selected={isSelected}
                     onClick={() => setSelectedComponent(comp)}
                   >
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <ComponentIcon fontSize="small" color="primary" />
+                    <ListItemIcon className={styles.componentIcon}>
+                      <ExtensionIcon />
                     </ListItemIcon>
-                    <ListItemText
-                      primary={displayName}
-                      primaryTypographyProps={{ fontSize: '0.875rem' }}
-                    />
+                    <ListItemText primary={displayName} />
                   </ListItemButton>
                 </ListItem>
               );
@@ -172,17 +160,17 @@ export const ComponentPickerDialog: React.FC<ComponentPickerDialogProps> = ({
         )}
 
         {selectedComponent && (
-          <Box sx={{ mt: 2, p: 1, backgroundColor: 'action.selected', borderRadius: 1 }}>
-            <Typography variant="body2">
+          <div className={styles.selectedContainer}>
+            <Typography variant="bodySmall">
               Selected: <strong>{getComponentDisplayName(selectedComponent.data.component)}</strong>
             </Typography>
-          </Box>
+          </div>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="text" onClick={onClose}>Cancel</Button>
         <Button
-          variant="contained"
+          variant="filled"
           onClick={handleConfirm}
           disabled={!selectedComponent}
         >

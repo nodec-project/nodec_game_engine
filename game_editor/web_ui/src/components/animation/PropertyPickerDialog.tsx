@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Box,
   Typography,
   List,
   ListItem,
@@ -15,12 +14,9 @@ import {
   ListItemIcon,
   ListItemText,
   TextField,
-  InputAdornment,
-} from '@mui/material';
-import {
-  Timeline as PropertyIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material';
+} from '@/ui';
+import { TimelineIcon, SearchIcon } from '@/ui/icons';
+import styles from './PropertyPickerDialog.module.css';
 
 interface PropertyPickerDialogProps {
   open: boolean;
@@ -99,28 +95,23 @@ export const PropertyPickerDialog: React.FC<PropertyPickerDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose}>
       <DialogTitle>Select Property to Animate</DialogTitle>
       <DialogContent dividers>
         {/* Search input */}
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search properties..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ mb: 2 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
+        <div className={styles.searchContainer}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search properties..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            leadingIcon={<SearchIcon size={18} />}
+          />
+        </div>
 
         {filteredProperties.length === 0 && (
-          <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+          <Typography color="onSurfaceVariant" className={styles.emptyMessage}>
             {searchQuery
               ? 'No matching properties found'
               : allProperties.length === 0
@@ -130,22 +121,21 @@ export const PropertyPickerDialog: React.FC<PropertyPickerDialogProps> = ({
         )}
 
         {filteredProperties.length > 0 && (
-          <List dense sx={{ maxHeight: 400, overflow: 'auto' }}>
+          <List dense className={styles.listContainer}>
             {filteredProperties.map((path) => {
               const isSelected = selectedProperty === path;
 
               return (
-                <ListItem key={path} disablePadding>
+                <ListItem key={path}>
                   <ListItemButton
                     selected={isSelected}
                     onClick={() => setSelectedProperty(path)}
                   >
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <PropertyIcon fontSize="small" color="action" />
+                    <ListItemIcon className={styles.propertyIcon}>
+                      <TimelineIcon />
                     </ListItemIcon>
                     <ListItemText
-                      primary={path}
-                      primaryTypographyProps={{ fontSize: '0.875rem', fontFamily: 'monospace' }}
+                      primary={<span className={styles.propertyPath}>{path}</span>}
                     />
                   </ListItemButton>
                 </ListItem>
@@ -155,17 +145,17 @@ export const PropertyPickerDialog: React.FC<PropertyPickerDialogProps> = ({
         )}
 
         {selectedProperty && (
-          <Box sx={{ mt: 2, p: 1, backgroundColor: 'action.selected', borderRadius: 1 }}>
-            <Typography variant="body2">
-              Selected: <strong style={{ fontFamily: 'monospace' }}>{selectedProperty}</strong>
+          <div className={styles.selectedContainer}>
+            <Typography variant="bodySmall">
+              Selected: <strong className={styles.propertyPath}>{selectedProperty}</strong>
             </Typography>
-          </Box>
+          </div>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="text" onClick={onClose}>Cancel</Button>
         <Button
-          variant="contained"
+          variant="filled"
           onClick={handleConfirm}
           disabled={!selectedProperty}
         >

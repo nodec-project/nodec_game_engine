@@ -5,9 +5,6 @@ const nextConfig = {
     basePath: basePath,
     output: "export",
     trailingSlash: true,
-    compiler: {
-        emotion: true
-    },
 };
 
 export default nextConfig;
