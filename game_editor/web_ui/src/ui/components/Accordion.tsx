@@ -56,6 +56,7 @@ export const Accordion = forwardRef<HTMLDivElement, AccordionProps>(
         defaultValue={defaultValue}
         onValueChange={onValueChange}
         disabled={disabled}
+        multiple={!single}
       >
         {children}
       </AccordionPrimitive.Root>
