@@ -169,6 +169,20 @@ export interface WsErrorMessage {
 
 export type WsServerMessage = WsComponentUpdateMessage | WsSubscribedMessage | WsErrorMessage;
 
+// Response from POST /api/entities/ids/:id/components
+export interface AddComponentResponse {
+  success: boolean;
+  id: number;
+  error?: string;
+}
+
+// Response from DELETE /api/entities/ids/:id/components/:type_index
+export interface RemoveComponentResponse {
+  success: boolean;
+  id: number;
+  error?: string;
+}
+
 export class GameEngineAPI {
   private static instance: GameEngineAPI;
   private ws: WebSocket | null = null;
@@ -176,6 +190,7 @@ export class GameEngineAPI {
   private wsConnecting: boolean = false;
   private wsReconnectTimeout: NodeJS.Timeout | null = null;
   private connectionStateListeners: Set<(connected: boolean) => void> = new Set();
+  private registeredComponentsCache: RegisteredComponent[] | null = null;
 
   private constructor() {}
 
@@ -246,10 +261,21 @@ export class GameEngineAPI {
       this.wsConnecting = true;
       const ws = new WebSocket(`${WS_BASE_URL}/ws`);
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         console.log('WebSocket connected');
         this.ws = ws;
         this.wsConnecting = false;
+
+        // Fetch and cache registered components BEFORE notifying connected state
+        try {
+          const components = await this.fetchRegisteredComponents();
+          this.registeredComponentsCache = components;
+          console.log(`Cached ${components.length} registered components`);
+        } catch (e) {
+          console.error('Failed to fetch registered components on connect:', e);
+        }
+
+        // Notify connected state after components are cached
         this.notifyConnectionState(true);
         resolve(ws);
       };
@@ -391,9 +417,9 @@ export class GameEngineAPI {
   }
 
   /**
-   * Get all registered component types from the game engine
+   * Fetch all registered component types from the game engine (internal use)
    */
-  async getRegisteredComponents(): Promise<RegisteredComponent[]> {
+  private async fetchRegisteredComponents(): Promise<RegisteredComponent[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/components`, {
         method: 'GET',
@@ -636,6 +662,67 @@ export class GameEngineAPI {
       console.error(`Failed to patch components for entity ${entityId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Add a component to an entity via POST
+   * @param entityId - The entity ID
+   * @param component - The serializable component to add
+   */
+  async addEntityComponent(entityId: string, component: SerializableComponent): Promise<AddComponentResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/entities/ids/${entityId}/components`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ component }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: AddComponentResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Failed to add component to entity ${entityId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a component from an entity via DELETE
+   * @param entityId - The entity ID
+   * @param typeIndex - The runtime type index of the component to remove
+   */
+  async removeEntityComponent(entityId: string, typeIndex: number): Promise<RemoveComponentResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/entities/ids/${entityId}/components/${typeIndex}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: RemoveComponentResponse = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Failed to remove component ${typeIndex} from entity ${entityId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get registered components (cached on WebSocket connect)
+   * Returns null if not yet fetched (WebSocket not connected)
+   */
+  getRegisteredComponents(): RegisteredComponent[] | null {
+    return this.registeredComponentsCache;
   }
 
   /**

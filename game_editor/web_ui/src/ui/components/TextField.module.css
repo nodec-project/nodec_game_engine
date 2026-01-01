@@ -190,8 +190,16 @@
   padding-left: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2));
 }
 
+.hasLeadingIcon .input:focus {
+  padding-left: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2) - 1px);
+}
+
 .hasTrailingIcon .input {
   padding-right: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2));
+}
+
+.hasTrailingIcon .input:focus {
+  padding-right: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2) - 1px);
 }
 
 /* Textarea */

@@ -14,8 +14,12 @@ import {
   TextField,
   Typography,
   Icon,
+  IconButton,
+  Button,
+  Menu,
+  MenuItem,
 } from '@/ui';
-import { gameEngineAPI, ComponentInfo, EntityDetailsResponse, SerializableComponent } from '../api/gameEngine';
+import { gameEngineAPI, ComponentInfo, EntityDetailsResponse, SerializableComponent, RegisteredComponent } from '../api/gameEngine';
 import styles from './ComponentInspector.module.css';
 
 // Helper to extract component display name from polymorphic_name
@@ -117,6 +121,30 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const isDirtyRef = useRef(false);
   const [expandedAccordions, setExpandedAccordions] = useState<string[]>(['component-0']);
+  const [registeredComponents, setRegisteredComponents] = useState<RegisteredComponent[]>([]);
+  const [componentSearchQuery, setComponentSearchQuery] = useState('');
+
+  // Load registered components from cache when connection state changes
+  useEffect(() => {
+    const updateRegisteredComponents = () => {
+      const cached = gameEngineAPI.getRegisteredComponents();
+      if (cached) {
+        setRegisteredComponents(cached);
+      }
+    };
+
+    // Initial load
+    updateRegisteredComponents();
+
+    // Subscribe to connection state changes
+    const unsubscribe = gameEngineAPI.onConnectionStateChange((connected) => {
+      if (connected) {
+        updateRegisteredComponents();
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (entityId === null) {
@@ -138,6 +166,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
 
         setEntityDetails(details);
         setComponents(comps);
+        console.log(comps)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch entity data');
       } finally {
@@ -240,6 +269,46 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
       isDirtyRef.current = false;
     }
   }, [entityId, components]);
+
+  const handleRemoveComponent = useCallback(async (typeIndex: number) => {
+    if (entityId === null) return;
+
+    try {
+      setPatchError(null);
+      const result = await gameEngineAPI.removeEntityComponent(entityId, typeIndex);
+
+      if (!result.success) {
+        setPatchError(result.error || 'Failed to remove component');
+      } else {
+        // Refresh components after removal
+        const comps = await gameEngineAPI.getEntityComponents(entityId);
+        setComponents(comps);
+      }
+    } catch (err) {
+      setPatchError(err instanceof Error ? err.message : 'Failed to remove component');
+    }
+  }, [entityId]);
+
+  const handleAddComponent = useCallback(async (registeredComponent: RegisteredComponent) => {
+    if (entityId === null) return;
+
+    try {
+      setPatchError(null);
+
+      const component = registeredComponent.data.component;
+      const result = await gameEngineAPI.addEntityComponent(entityId, component);
+
+      if (!result.success) {
+        setPatchError(result.error || 'Failed to add component');
+      } else {
+        // Refresh components after addition
+        const comps = await gameEngineAPI.getEntityComponents(entityId);
+        setComponents(comps);
+      }
+    } catch (err) {
+      setPatchError(err instanceof Error ? err.message : 'Failed to add component');
+    }
+  }, [entityId]);
 
   const renderEditableData = (
     data: Record<string, unknown>,
@@ -353,6 +422,16 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
             <Chip size="small" variant="outlined" className={styles.typeChip}>
               Type: {component.type_index}
             </Chip>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemoveComponent(component.type_index);
+              }}
+              className={styles.removeButton}
+            >
+              <Icon name="delete" size={16} />
+            </IconButton>
           </div>
         </AccordionHeader>
         <AccordionPanel>
@@ -510,9 +589,68 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
 
             {/* Components */}
             <div className={styles.section}>
-              <Typography variant="title-small" className={styles.sectionTitle}>
-                Components ({components.length})
-              </Typography>
+              <div className={styles.sectionHeader}>
+                <Typography variant="title-small" className={styles.sectionTitle}>
+                  Components ({components.length})
+                </Typography>
+                <Menu
+                  trigger={
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Icon name="add" size={16} />}
+                    >
+                      Add
+                    </Button>
+                  }
+                  placement="bottom-start"
+                >
+                  <div className={styles.componentMenuContainer}>
+                    <div className={styles.componentSearchContainer}>
+                      <TextField
+                        size="small"
+                        placeholder="Search components..."
+                        value={componentSearchQuery}
+                        onChange={(e) => setComponentSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        fullWidth
+                        leadingIcon={<Icon name="search" size={16} />}
+                      />
+                    </div>
+                    <div className={styles.componentMenuList}>
+                      {registeredComponents.length === 0 ? (
+                        <MenuItem disabled>No components available</MenuItem>
+                      ) : (
+                        registeredComponents
+                          .filter((reg) => {
+                            if (!componentSearchQuery) return true;
+                            const name = getComponentDisplayName(reg.data.component.polymorphic_name);
+                            return name.toLowerCase().includes(componentSearchQuery.toLowerCase());
+                          })
+                          .map((reg) => {
+                            const name = getComponentDisplayName(reg.data.component.polymorphic_name);
+                            return (
+                              <MenuItem
+                                key={reg.runtime_type_index}
+                                onClick={() => handleAddComponent(reg)}
+                              >
+                                {name}
+                              </MenuItem>
+                            );
+                          })
+                      )}
+                      {registeredComponents.length > 0 &&
+                        componentSearchQuery &&
+                        registeredComponents.filter((reg) => {
+                          const name = getComponentDisplayName(reg.data.component.polymorphic_name);
+                          return name.toLowerCase().includes(componentSearchQuery.toLowerCase());
+                        }).length === 0 && (
+                          <MenuItem disabled>No matching components</MenuItem>
+                        )}
+                    </div>
+                  </div>
+                </Menu>
+              </div>
 
               {patchError && (
                 <div className={styles.alertContainer}>

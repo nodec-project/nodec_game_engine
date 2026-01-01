@@ -81,11 +81,18 @@
   margin-bottom: 24px;
 }
 
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .sectionTitle {
   font-size: var(--md-sys-typescale-title-small-size);
   font-weight: var(--md-sys-typescale-title-small-weight);
   color: var(--md-sys-color-on-surface);
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 /* Form grid */
@@ -132,6 +139,19 @@
 .componentName {
   font-size: var(--md-sys-typescale-body-large-size);
   color: var(--md-sys-color-on-surface);
+  flex: 1;
+}
+
+/* Remove button in accordion header */
+.removeButton {
+  margin-left: auto;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.removeButton:hover {
+  opacity: 1;
+  color: var(--md-sys-color-error);
 }
 
 /* Alerts */
@@ -159,4 +179,22 @@
 .childrenCount {
   font-size: var(--md-sys-typescale-body-small-size);
   color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Component add menu */
+.componentMenuContainer {
+  display: flex;
+  flex-direction: column;
+  min-width: 250px;
+  max-width: 350px;
+}
+
+.componentSearchContainer {
+  padding: 8px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.componentMenuList {
+  max-height: 300px;
+  overflow-y: auto;
 }
