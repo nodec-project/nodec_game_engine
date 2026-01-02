@@ -29,6 +29,11 @@
   padding: var(--md-sys-spacing-1) var(--md-sys-spacing-4);
 }
 
+.listItemNoPadding {
+  padding: 0;
+  min-height: auto;
+}
+
 /* Interactive list item */
 .listItemButton {
   width: 100%;

@@ -1,6 +1,6 @@
-'use client';
+"use client"
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react"
 import {
   Typography,
   IconButton,
@@ -12,7 +12,7 @@ import {
   ListItemIcon,
   ListItemText,
   Icon,
-} from '@/ui';
+} from "@/ui"
 import {
   AnimationClipResponse,
   AnimatedComponentData,
@@ -20,34 +20,40 @@ import {
   AnimatedProperty,
   PolymorphicTypeRegistry,
   gameEngineAPI,
-} from '../../api/gameEngine';
-import styles from './AnimationHierarchyEditor.module.css';
+} from "../../api/gameEngine"
+import styles from "./AnimationHierarchyEditor.module.css"
 
 // Tree node types
-type NodeType = 'entity' | 'component' | 'property';
+type NodeType = "entity" | "component" | "property"
 
 // Selected node info
 export interface SelectedNode {
-  type: NodeType;
-  entityPath: string;
-  componentIndex?: number;
-  propertyKey?: string;
+  type: NodeType
+  entityPath: string
+  componentIndex?: number
+  propertyKey?: string
 }
 
 interface AnimationHierarchyEditorProps {
-  clipData: AnimationClipResponse;
-  typeRegistry: PolymorphicTypeRegistry;
-  selectedNode: SelectedNode | null;
-  onSelectNode: (node: SelectedNode | null) => void;
-  onAddEntity?: () => void;
-  onRemoveEntity?: (entityPath: string) => void;
-  onAddComponent?: (entityPath: string) => void;
-  onRemoveComponent?: (entityPath: string, componentIndex: number) => void;
-  onAddProperty?: (entityPath: string, componentIndex: number) => void;
-  onRemoveProperty?: (entityPath: string, componentIndex: number, propertyKey: string) => void;
+  clipData: AnimationClipResponse
+  typeRegistry: PolymorphicTypeRegistry
+  selectedNode: SelectedNode | null
+  onSelectNode: (node: SelectedNode | null) => void
+  onAddEntity?: () => void
+  onRemoveEntity?: (entityPath: string) => void
+  onAddComponent?: (entityPath: string) => void
+  onRemoveComponent?: (entityPath: string, componentIndex: number) => void
+  onAddProperty?: (entityPath: string, componentIndex: number) => void
+  onRemoveProperty?: (
+    entityPath: string,
+    componentIndex: number,
+    propertyKey: string
+  ) => void
 }
 
-export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> = ({
+export const AnimationHierarchyEditor: React.FC<
+  AnimationHierarchyEditorProps
+> = ({
   clipData,
   typeRegistry,
   selectedNode,
@@ -59,35 +65,37 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
   onAddProperty,
   onRemoveProperty,
 }) => {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
+    new Set(["root"])
+  )
 
   const toggleExpand = useCallback((nodeId: string) => {
     setExpandedNodes(prev => {
-      const next = new Set(prev);
+      const next = new Set(prev)
       if (next.has(nodeId)) {
-        next.delete(nodeId);
+        next.delete(nodeId)
       } else {
-        next.add(nodeId);
+        next.add(nodeId)
       }
-      return next;
-    });
-  }, []);
+      return next
+    })
+  }, [])
 
-  const isExpanded = (nodeId: string) => expandedNodes.has(nodeId);
+  const isExpanded = (nodeId: string) => expandedNodes.has(nodeId)
 
   const isSelected = (node: SelectedNode) => {
-    if (!selectedNode) return false;
-    if (node.type !== selectedNode.type) return false;
-    if (node.entityPath !== selectedNode.entityPath) return false;
-    if (node.componentIndex !== selectedNode.componentIndex) return false;
-    if (node.propertyKey !== selectedNode.propertyKey) return false;
-    return true;
-  };
+    if (!selectedNode) return false
+    if (node.type !== selectedNode.type) return false
+    if (node.entityPath !== selectedNode.entityPath) return false
+    if (node.componentIndex !== selectedNode.componentIndex) return false
+    if (node.propertyKey !== selectedNode.propertyKey) return false
+    return true
+  }
 
   // Get indent style for depth
   const getIndentStyle = (depth: number): React.CSSProperties => ({
     paddingLeft: `${depth * 16}px`,
-  });
+  })
 
   // Render a property node
   const renderProperty = (
@@ -97,24 +105,25 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
     depth: number
   ) => {
     const node: SelectedNode = {
-      type: 'property',
+      type: "property",
       entityPath,
       componentIndex,
       propertyKey: prop.key,
-    };
-    const keyCount = prop.value.curve.keyframes.length;
+    }
+    const keyCount = prop.value.curve.keyframes.length
 
     return (
       <ListItem
         key={`${entityPath}:${componentIndex}:${prop.key}`}
+        disablePadding
         secondaryAction={
           onRemoveProperty && (
             <Tooltip title="Remove property">
               <IconButton
                 size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveProperty(entityPath, componentIndex, prop.key);
+                onClick={e => {
+                  e.stopPropagation()
+                  onRemoveProperty(entityPath, componentIndex, prop.key)
                 }}
               >
                 <Icon name="delete" />
@@ -134,14 +143,11 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
           <ListItemIcon>
             <Icon name="timeline" />
           </ListItemIcon>
-          <ListItemText
-            primary={prop.key}
-            secondary={`${keyCount} keys`}
-          />
+          <ListItemText primary={prop.key} secondary={`${keyCount} keys`} />
         </ListItemButton>
       </ListItem>
-    );
-  };
+    )
+  }
 
   // Render a component node
   const renderComponent = (
@@ -150,28 +156,32 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
     component: AnimatedComponentData,
     depth: number
   ) => {
-    const nodeId = `${entityPath}:${componentIndex}`;
+    const nodeId = `${entityPath}:${componentIndex}`
     const node: SelectedNode = {
-      type: 'component',
+      type: "component",
       entityPath,
       componentIndex,
-    };
-    const typeName = gameEngineAPI.getComponentTypeName(component.placeholder, typeRegistry);
-    const hasProperties = component.properties.length > 0;
-    const expanded = isExpanded(nodeId);
+    }
+    const typeName = gameEngineAPI.getComponentTypeName(
+      component.placeholder,
+      typeRegistry
+    )
+    const hasProperties = component.properties.length > 0
+    const expanded = isExpanded(nodeId)
 
     return (
       <React.Fragment key={nodeId}>
         <ListItem
+          disablePadding
           secondaryAction={
             <div className={styles.actionButtons}>
               {onAddProperty && (
                 <Tooltip title="Add property">
                   <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddProperty(entityPath, componentIndex);
+                    onClick={e => {
+                      e.stopPropagation()
+                      onAddProperty(entityPath, componentIndex)
                     }}
                   >
                     <Icon name="add" />
@@ -182,9 +192,9 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                 <Tooltip title="Remove component">
                   <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveComponent(entityPath, componentIndex);
+                    onClick={e => {
+                      e.stopPropagation()
+                      onRemoveComponent(entityPath, componentIndex)
                     }}
                   >
                     <Icon name="delete" />
@@ -203,12 +213,16 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
               {hasProperties ? (
                 <IconButton
                   size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand(nodeId);
+                  onClick={e => {
+                    e.stopPropagation()
+                    toggleExpand(nodeId)
                   }}
                 >
-                  {expanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />}
+                  {expanded ? (
+                    <Icon name="expand_more" />
+                  ) : (
+                    <Icon name="chevron_right" />
+                  )}
                 </IconButton>
               ) : (
                 <span className={styles.spacer} />
@@ -226,44 +240,49 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
         {hasProperties && (
           <Collapse in={expanded}>
             <List dense>
-              {component.properties.map((prop) =>
+              {component.properties.map(prop =>
                 renderProperty(entityPath, componentIndex, prop, depth + 1)
               )}
             </List>
           </Collapse>
         )}
       </React.Fragment>
-    );
-  };
+    )
+  }
 
   // Render an entity node (recursive for children)
   const renderEntity = (
     entityName: string,
-    entity: { components: AnimatedComponentData[]; children: AnimatedEntityChild[] },
+    entity: {
+      components: AnimatedComponentData[]
+      children: AnimatedEntityChild[]
+    },
     parentPath: string,
     depth: number
   ) => {
-    const entityPath = parentPath ? `${parentPath}/${entityName}` : entityName;
-    const nodeId = `entity:${entityPath}`;
+    const entityPath = parentPath ? `${parentPath}/${entityName}` : entityName
+    const nodeId = `entity:${entityPath}`
     const node: SelectedNode = {
-      type: 'entity',
+      type: "entity",
       entityPath,
-    };
-    const hasContent = entity.components.length > 0 || entity.children.length > 0;
-    const expanded = isExpanded(nodeId);
+    }
+    const hasContent =
+      entity.components.length > 0 || entity.children.length > 0
+    const expanded = isExpanded(nodeId)
 
     return (
       <React.Fragment key={entityPath}>
         <ListItem
+          disablePadding
           secondaryAction={
             <div className={styles.actionButtons}>
               {onAddComponent && (
                 <Tooltip title="Add component">
                   <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddComponent(entityPath);
+                    onClick={e => {
+                      e.stopPropagation()
+                      onAddComponent(entityPath)
                     }}
                   >
                     <Icon name="add" />
@@ -274,9 +293,9 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                 <Tooltip title="Remove entity">
                   <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveEntity(entityPath);
+                    onClick={e => {
+                      e.stopPropagation()
+                      onRemoveEntity(entityPath)
                     }}
                   >
                     <Icon name="delete" />
@@ -295,12 +314,16 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
               {hasContent ? (
                 <IconButton
                   size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand(nodeId);
+                  onClick={e => {
+                    e.stopPropagation()
+                    toggleExpand(nodeId)
                   }}
                 >
-                  {expanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />}
+                  {expanded ? (
+                    <Icon name="expand_more" />
+                  ) : (
+                    <Icon name="chevron_right" />
+                  )}
                 </IconButton>
               ) : (
                 <span className={styles.spacer} />
@@ -323,29 +346,33 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
                 renderComponent(entityPath, idx, comp, depth + 1)
               )}
               {/* Render child entities */}
-              {entity.children.map((child) =>
+              {entity.children.map(child =>
                 renderEntity(child.key, child.value, entityPath, depth + 1)
               )}
             </List>
           </Collapse>
         )}
       </React.Fragment>
-    );
-  };
+    )
+  }
 
   // Render root entity (special case - no name)
   const renderRootEntity = () => {
-    const root = clipData.clip.root_entity;
-    const hasContent = root.components.length > 0 || root.children.length > 0;
-    const expanded = isExpanded('root');
+    const root = clipData.clip.root_entity
+    const hasContent = root.components.length > 0 || root.children.length > 0
+    const expanded = isExpanded("root")
 
     return (
       <>
-        <ListItem>
-          <ListItemButton onClick={() => toggleExpand('root')}>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => toggleExpand("root")}>
             <ListItemIcon className={styles.expandIcon}>
               {hasContent ? (
-                expanded ? <Icon name="expand_more" /> : <Icon name="chevron_right" />
+                expanded ? (
+                  <Icon name="expand_more" />
+                ) : (
+                  <Icon name="chevron_right" />
+                )
               ) : (
                 <span className={styles.spacer} />
               )}
@@ -364,18 +391,18 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
             <List dense>
               {/* Root components */}
               {root.components.map((comp, idx) =>
-                renderComponent('', idx, comp, 1)
+                renderComponent("", idx, comp, 1)
               )}
               {/* Child entities */}
-              {root.children.map((child) =>
-                renderEntity(child.key, child.value, '', 1)
+              {root.children.map(child =>
+                renderEntity(child.key, child.value, "", 1)
               )}
             </List>
           </Collapse>
         )}
       </>
-    );
-  };
+    )
+  }
 
   return (
     <div className={styles.container}>
@@ -393,21 +420,20 @@ export const AnimationHierarchyEditor: React.FC<AnimationHierarchyEditorProps> =
 
       {/* Tree View */}
       <div className={styles.treeContainer}>
-        <List dense>
-          {renderRootEntity()}
-        </List>
+        <List dense>{renderRootEntity()}</List>
       </div>
 
       {/* Selected Node Info */}
       {selectedNode && (
         <div className={styles.selectedInfo}>
           <Typography variant="labelSmall" color="onSurfaceVariant">
-            Selected: {selectedNode.type} - {selectedNode.entityPath || 'root'}
-            {selectedNode.componentIndex !== undefined && ` [${selectedNode.componentIndex}]`}
+            Selected: {selectedNode.type} - {selectedNode.entityPath || "root"}
+            {selectedNode.componentIndex !== undefined &&
+              ` [${selectedNode.componentIndex}]`}
             {selectedNode.propertyKey && ` > ${selectedNode.propertyKey}`}
           </Typography>
         </div>
       )}
     </div>
-  );
-};
+  )
+}

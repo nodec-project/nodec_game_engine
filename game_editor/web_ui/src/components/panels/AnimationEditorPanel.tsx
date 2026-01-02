@@ -1316,8 +1316,9 @@ export const AnimationEditorPanel: React.FC<
                         {animState.curves.map((curve, index) => {
                           const curveKey = getCurveKey(curve)
                           return (
-                            <ListItem key={index}>
+                            <ListItem key={index} disablePadding>
                               <ListItemButton
+                                dense
                                 onClick={() => handleCurveToggle(curveKey)}
                               >
                                 <ListItemIcon>
@@ -1329,6 +1330,7 @@ export const AnimationEditorPanel: React.FC<
                                 <ListItemText
                                   primary={getCurveDisplayName(curve)}
                                   secondary={`${curve.keyframes.length} keys`}
+                                  small
                                 />
                               </ListItemButton>
                             </ListItem>
