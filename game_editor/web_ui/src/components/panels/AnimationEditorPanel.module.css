@@ -65,6 +65,8 @@
 .curveViewerContainer {
   flex: 1;
   padding: 16px;
+  min-width: 0; /* Allow flex shrinking */
+  overflow: hidden; /* Contain canvas expansion */
 }
 
 .emptyState {

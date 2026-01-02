@@ -35,7 +35,7 @@ import {
   Keyframe,
   PolymorphicTypeRegistry,
 } from "../../api/gameEngine"
-import { CurveViewer, CurveData } from "../animation/CurveViewer"
+import { CurveViewer, CurveData, WrapModeType } from "../animation/CurveViewer"
 import {
   AnimationHierarchyEditor,
   SelectedNode,
@@ -483,6 +483,139 @@ export const AnimationEditorPanel: React.FC<
       })
     },
     [animState, findCurveIndex, updateClipDataKeyframes]
+  )
+
+  // Helper to update wrap mode in clipData for a given entityPath and propertyPath
+  const updateClipDataWrapMode = useCallback(
+    (
+      clipData: AnimationClipResponse,
+      entityPath: string,
+      propertyPath: string,
+      newWrapMode: number
+    ): AnimationClipResponse => {
+      const pathParts = entityPath.split("/").filter(p => p.length > 0)
+
+      // Helper to update wrap mode in an entity's components
+      const updateInComponents = (
+        components: AnimatedComponentData[]
+      ): AnimatedComponentData[] => {
+        return components.map(comp => {
+          const propIndex = comp.properties.findIndex(
+            p => p.key === propertyPath
+          )
+          if (propIndex === -1) return comp
+          return {
+            ...comp,
+            properties: comp.properties.map((p, idx) => {
+              if (idx !== propIndex) return p
+              return {
+                ...p,
+                value: {
+                  curve: {
+                    ...p.value.curve,
+                    wrap_mode: newWrapMode,
+                  },
+                },
+              }
+            }),
+          }
+        })
+      }
+
+      // Helper to update recursively in children
+      const updateInChildren = (
+        children: AnimatedEntityChild[],
+        parts: string[]
+      ): AnimatedEntityChild[] => {
+        if (parts.length === 0) return children
+
+        const [currentName, ...restParts] = parts
+
+        return children.map(child => {
+          if (child.key !== currentName) return child
+
+          if (restParts.length === 0) {
+            // Found the target entity, update its components
+            return {
+              ...child,
+              value: {
+                ...child.value,
+                components: updateInComponents(child.value.components),
+              },
+            }
+          }
+
+          // Recurse
+          return {
+            ...child,
+            value: {
+              ...child.value,
+              children: updateInChildren(child.value.children, restParts),
+            },
+          }
+        })
+      }
+
+      if (pathParts.length === 0) {
+        // Root entity
+        return {
+          clip: {
+            root_entity: {
+              ...clipData.clip.root_entity,
+              components: updateInComponents(
+                clipData.clip.root_entity.components
+              ),
+            },
+          },
+        }
+      }
+
+      return {
+        clip: {
+          root_entity: {
+            ...clipData.clip.root_entity,
+            children: updateInChildren(
+              clipData.clip.root_entity.children,
+              pathParts
+            ),
+          },
+        },
+      }
+    },
+    []
+  )
+
+  const handleWrapModeChange = useCallback(
+    (curveId: string, wrapMode: WrapModeType) => {
+      if (!animState) return
+
+      const curveIndex = findCurveIndex(curveId)
+      if (curveIndex === -1) return
+
+      // Get the curve to extract entityPath and propertyPath
+      const curve = animState.curves[curveIndex]
+
+      // Update the curves array immutably
+      const newCurves = [...animState.curves]
+      const newCurve = { ...newCurves[curveIndex] }
+      newCurve.wrapMode = wrapMode
+      newCurves[curveIndex] = newCurve
+
+      // Also update clipData
+      const newClipData = updateClipDataWrapMode(
+        animState.clipData,
+        curve.entityPath,
+        curve.propertyPath,
+        wrapMode
+      )
+
+      setAnimState({
+        ...animState,
+        clipData: newClipData,
+        curves: newCurves,
+      })
+    },
+    [animState, findCurveIndex, updateClipDataWrapMode]
   )
 
   // Get list of entity names already in the animation (for exclusion in picker)
@@ -1351,6 +1484,7 @@ export const AnimationEditorPanel: React.FC<
                           onKeyframeUpdate={handleKeyframeUpdate}
                           onKeyframeAdd={handleKeyframeAdd}
                           onKeyframeDelete={handleKeyframeDelete}
+                          onWrapModeChange={handleWrapModeChange}
                         />
                       ) : (
                         <div className={styles.emptyState}>

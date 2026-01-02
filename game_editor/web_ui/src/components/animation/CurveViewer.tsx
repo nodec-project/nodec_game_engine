@@ -10,6 +10,21 @@ interface Keyframe {
   value: number;
 }
 
+// Wrap mode constants
+export const WrapMode = {
+  Once: 0,
+  Loop: 1,
+  PingPong: 2,
+} as const;
+
+export type WrapModeType = typeof WrapMode[keyof typeof WrapMode];
+
+export const WrapModeLabels: Record<WrapModeType, string> = {
+  [WrapMode.Once]: 'Once',
+  [WrapMode.Loop]: 'Loop',
+  [WrapMode.PingPong]: 'Ping Pong',
+};
+
 // Curve data for display
 export interface CurveData {
   id: string; // Unique identifier for the curve
@@ -33,6 +48,7 @@ interface CurveViewerProps {
   onKeyframeUpdate?: (curveId: string, keyframeIndex: number, keyframe: Keyframe) => void;
   onKeyframeAdd?: (curveId: string, keyframe: Keyframe) => void;
   onKeyframeDelete?: (curveId: string, keyframeIndex: number) => void;
+  onWrapModeChange?: (curveId: string, wrapMode: WrapModeType) => void;
 }
 
 export const CurveViewer: React.FC<CurveViewerProps> = ({
@@ -44,6 +60,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
   onKeyframeUpdate,
   onKeyframeAdd,
   onKeyframeDelete,
+  onWrapModeChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,11 +68,9 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [selectedCurveIndex, setSelectedCurveIndex] = useState<number | null>(null);
   const [selectedKeyframe, setSelectedKeyframe] = useState<SelectedKeyframe | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackTime, setPlaybackTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isAddMode, setIsAddMode] = useState(false);
-  const animationRef = useRef<number>();
+  const [scrubberTime, setScrubberTime] = useState(currentTime);
 
   // Colors for different curves (stable reference)
   const curveColors = React.useMemo(() => [
@@ -110,6 +125,32 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     return null;
   }, [curves, timeValueToCanvas]);
 
+  // Get CSS variable colors from container
+  const getCanvasColors = useCallback(() => {
+    const container = containerRef.current?.parentElement;
+    if (!container) {
+      return {
+        bg: '#fafafa',
+        grid: '#e0e0e0',
+        axes: '#9e9e9e',
+        label: '#616161',
+        scrubber: '#ffd700',
+        addOverlay: 'rgba(76, 175, 80, 0.1)',
+        addText: '#4caf50',
+      };
+    }
+    const styles = getComputedStyle(container);
+    return {
+      bg: styles.getPropertyValue('--curve-bg').trim() || '#fafafa',
+      grid: styles.getPropertyValue('--curve-grid').trim() || '#e0e0e0',
+      axes: styles.getPropertyValue('--curve-axes').trim() || '#9e9e9e',
+      label: styles.getPropertyValue('--curve-label').trim() || '#616161',
+      scrubber: styles.getPropertyValue('--curve-scrubber').trim() || '#ffd700',
+      addOverlay: styles.getPropertyValue('--curve-add-overlay').trim() || 'rgba(76, 175, 80, 0.1)',
+      addText: styles.getPropertyValue('--curve-add-text').trim() || '#4caf50',
+    };
+  }, []);
+
   // Draw the curves on canvas
   const drawCurves = useCallback(() => {
     const canvas = canvasRef.current;
@@ -118,15 +159,17 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const colors = getCanvasColors();
+
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Fill background
-    ctx.fillStyle = '#fafafa';
+    ctx.fillStyle = colors.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw grid
-    ctx.strokeStyle = '#e0e0e0';
+    ctx.strokeStyle = colors.grid;
     ctx.lineWidth = 0.5;
     const gridSize = 50 * zoom;
 
@@ -145,7 +188,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     }
 
     // Draw axes
-    ctx.strokeStyle = '#9e9e9e';
+    ctx.strokeStyle = colors.axes;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(50, 0);
@@ -200,12 +243,12 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
       ctx.globalAlpha = 1;
     });
 
-    // Draw current time indicator
+    // Draw current time indicator (scrubber)
     if (currentTime >= 0 && currentTime <= duration) {
       const timeScale = (canvas.width - 100) / duration * zoom;
       const x = 50 + currentTime * timeScale + offset.x;
 
-      ctx.strokeStyle = '#ffd700';
+      ctx.strokeStyle = colors.scrubber;
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
@@ -216,7 +259,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     }
 
     // Draw time labels
-    ctx.fillStyle = '#616161';
+    ctx.fillStyle = colors.label;
     ctx.font = '12px monospace';
     const timeStep = Math.max(duration / 10, 0.1);
     for (let t = 0; t <= duration; t += timeStep) {
@@ -226,24 +269,27 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
 
     // Draw add mode indicator
     if (isAddMode) {
-      ctx.fillStyle = 'rgba(76, 175, 80, 0.1)';
+      ctx.fillStyle = colors.addOverlay;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#4caf50';
+      ctx.fillStyle = colors.addText;
       ctx.font = '14px sans-serif';
       ctx.fillText('Click to add keyframe', 10, 20);
     }
-  }, [curves, zoom, offset, selectedCurveIndex, selectedKeyframe, currentTime, duration, timeValueToCanvas, isAddMode, curveColors]);
+  }, [curves, zoom, offset, selectedCurveIndex, selectedKeyframe, currentTime, duration, timeValueToCanvas, isAddMode, curveColors, getCanvasColors]);
 
   useEffect(() => {
     drawCurves();
   }, [drawCurves]);
 
-  // Handle canvas resize
+  // Handle canvas resize - canvas width expands with zoom for horizontal scroll
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current && containerRef.current) {
-        canvasRef.current.width = containerRef.current.clientWidth;
-        canvasRef.current.height = containerRef.current.clientHeight;
+        const containerWidth = containerRef.current.clientWidth;
+        const containerHeight = containerRef.current.clientHeight;
+        // Canvas width grows with zoom to enable horizontal scrolling
+        canvasRef.current.width = Math.max(containerWidth, containerWidth * zoom);
+        canvasRef.current.height = containerHeight;
         drawCurves();
       }
     };
@@ -251,44 +297,12 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [drawCurves]);
+  }, [drawCurves, zoom]);
 
-  // Animation playback
+  // Sync scrubber time with external currentTime
   useEffect(() => {
-    if (isPlaying) {
-      let lastTime = performance.now();
-      const animate = (time: number) => {
-        const deltaTime = (time - lastTime) / 1000;
-        lastTime = time;
-
-        setPlaybackTime(prev => {
-          const newTime = prev + deltaTime;
-          if (newTime >= duration) {
-            setIsPlaying(false);
-            return 0;
-          }
-          onTimeChange?.(newTime);
-          return newTime;
-        });
-
-        if (isPlaying) {
-          animationRef.current = requestAnimationFrame(animate);
-        }
-      };
-
-      animationRef.current = requestAnimationFrame(animate);
-    } else {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isPlaying, duration, onTimeChange]);
+    setScrubberTime(currentTime);
+  }, [currentTime]);
 
   // Handle keyboard events
   useEffect(() => {
@@ -339,8 +353,9 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
       setSelectedKeyframe(null);
       if (onTimeChange) {
         const { time } = canvasToTimeValue(canvasX, canvasY, canvas);
-        onTimeChange(Math.min(duration, time));
-        setPlaybackTime(Math.min(duration, time));
+        const clampedTime = Math.max(0, Math.min(duration, time));
+        onTimeChange(clampedTime);
+        setScrubberTime(clampedTime);
       }
     }
   };
@@ -414,12 +429,6 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
           Curves: {curves.length}
         </Typography>
 
-        <Tooltip title="Play">
-          <IconButton size="small" onClick={() => setIsPlaying(!isPlaying)}>
-            {isPlaying ? <Icon name="pause" /> : <Icon name="play_arrow" />}
-          </IconButton>
-        </Tooltip>
-
         <Tooltip title="Zoom In">
           <IconButton size="small" onClick={handleZoomIn}>
             <Icon name="zoom_in" />
@@ -465,7 +474,7 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
         )}
 
         <Typography variant="labelSmall" className={styles.timeDisplay}>
-          Time: {playbackTime.toFixed(2)}s / {duration.toFixed(2)}s
+          Time: {scrubberTime.toFixed(2)}s / {duration.toFixed(2)}s
         </Typography>
 
         {selectedKeyframe && (
@@ -495,18 +504,31 @@ export const CurveViewer: React.FC<CurveViewerProps> = ({
         </Typography>
         <div className={styles.curveListItems}>
           {curves.map((curve, index) => (
-            <button
-              key={curve.id}
-              onClick={() => setSelectedCurveIndex(selectedCurveIndex === index ? null : index)}
-              className={`${styles.curveChip} ${selectedCurveIndex === index ? styles.curveChipSelected : ''}`}
-              style={{
-                borderColor: curveColors[index % curveColors.length],
-                backgroundColor: selectedCurveIndex === index ? curveColors[index % curveColors.length] : 'transparent',
-                color: selectedCurveIndex === index ? '#fff' : 'inherit',
-              }}
-            >
-              {curve.propertyPath} ({curve.keyframes.length} keys)
-            </button>
+            <div key={curve.id} className={styles.curveItem}>
+              <button
+                onClick={() => setSelectedCurveIndex(selectedCurveIndex === index ? null : index)}
+                className={`${styles.curveChip} ${selectedCurveIndex === index ? styles.curveChipSelected : ''}`}
+                style={{
+                  borderColor: curveColors[index % curveColors.length],
+                  backgroundColor: selectedCurveIndex === index ? curveColors[index % curveColors.length] : 'transparent',
+                  color: selectedCurveIndex === index ? '#fff' : 'inherit',
+                }}
+              >
+                {curve.propertyPath} ({curve.keyframes.length} keys)
+              </button>
+              {editable && onWrapModeChange && (
+                <select
+                  className={styles.wrapModeSelect}
+                  value={curve.wrapMode}
+                  onChange={(e) => onWrapModeChange(curve.id, Number(e.target.value) as WrapModeType)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {Object.entries(WrapModeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           ))}
         </div>
       </div>
