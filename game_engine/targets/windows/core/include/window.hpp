@@ -17,6 +17,9 @@
 
 #include "graphics/graphics.hpp"
 
+// Forward declaration
+class GraphicsDevice;
+
 class Window {
 public:
     class HrException : public std::runtime_error {
@@ -63,12 +66,14 @@ public:
            int gfxWidth, int gfxHeight,
            const wchar_t *name,
            nodec_input::keyboard::impl::KeyboardDevice *pKeyboard,
-           nodec_input::mouse::impl::MouseDevice *pMouse);
+           nodec_input::mouse::impl::MouseDevice *pMouse,
+           GraphicsDevice& shared_device);
 
     ~Window();
 
 public:
-    static bool ProcessMessages(int &exit_code) noexcept;
+    static bool process_messages(int &exit_code) noexcept;
+
     void set_title(const std::string &title);
 
     Graphics &graphics() {

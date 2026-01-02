@@ -4,6 +4,7 @@
 #include "Font/FontLibrary.hpp"
 #include "ImguiManager.hpp"
 #include "audio/audio_platform.hpp"
+#include "graphics/graphics_device.hpp"
 #include "input/keyboard_device_system.hpp"
 #include "input/mouse_device_system.hpp"
 #include "physics/physics_system_backend.hpp"
@@ -31,13 +32,15 @@
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
 #include <nodec_world/impl/world_impl.hpp>
 
+#include <thread>
+
 class Engine final {
 public:
     Engine(nodec_application::impl::ApplicationImpl &app);
 
     ~Engine();
 
-    void setup();
+    void setup(GraphicsDevice& shared_device);
 
     void frame_begin();
 
@@ -80,6 +83,9 @@ private:
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;
 
+    // Shared graphics device reference
+    GraphicsDevice* shared_graphics_device_{nullptr};
+
     // imgui must be destroyed after window.
     std::unique_ptr<ImguiManager> imgui_manager_;
     std::unique_ptr<Window> window_;
@@ -116,6 +122,7 @@ private:
 
     std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
     std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
+
 };
 
 #if CEREAL_THREAD_SAFE != 1

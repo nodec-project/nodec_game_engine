@@ -1,0 +1,103 @@
+/* Dockview Dark Theme for Game Editor */
+
+/* Import default dockview styles */
+@import 'dockview/dist/styles/dockview.css';
+
+/* Custom dark theme overrides */
+.dockview-theme-dark {
+  --dv-paneview-header-height: 35px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-tabs-container-scrollbar-size: 3px;
+  
+  /* Background colors */
+  --dv-background-color: #1e1e1e;
+  --dv-paneview-header-background: #2d2d30;
+  --dv-tab-background: #2d2d30;
+  --dv-activegroup-visiblepanel-tab-background: #1e1e1e;
+  --dv-activegroup-hiddenpanel-tab-background: #2d2d30;
+  --dv-inactivegroup-visiblepanel-tab-background: #2d2d30;
+  --dv-inactivegroup-hiddenpanel-tab-background: #2d2d30;
+  --dv-tab-divider-color: #3e3e42;
+  --dv-separator-border: #3e3e42;
+  
+  /* Text colors */
+  --dv-text-color: #cccccc;
+  --dv-tab-color: #969696;
+  --dv-activegroup-visiblepanel-tab-color: #ffffff;
+  --dv-activegroup-hiddenpanel-tab-color: #969696;
+  --dv-inactivegroup-visiblepanel-tab-color: #969696;
+  --dv-inactivegroup-hiddenpanel-tab-color: #969696;
+  
+  /* Focus and hover */
+  --dv-focus-border: #007acc;
+  --dv-activegroup-visiblepanel-tab-hover-background: #2a2a2a;
+  --dv-activegroup-hiddenpanel-tab-hover-background: #2a2a2a;
+  --dv-inactivegroup-visiblepanel-tab-hover-background: #2a2a2a;
+  --dv-inactivegroup-hiddenpanel-tab-hover-background: #2a2a2a;
+  
+  /* Drag and drop */
+  --dv-drag-over-background-color: rgba(0, 122, 204, 0.2);
+  --dv-drag-over-border-color: #007acc;
+  
+  /* Scrollbar */
+  --dv-scrollbar-color: rgba(121, 121, 121, 0.4);
+  --dv-scrollbar-hover-color: rgba(100, 100, 100, 0.7);
+  --dv-scrollbar-active-color: rgba(191, 191, 191, 0.4);
+}
+
+/* Panel content styling */
+.dockview-theme-dark .dv-react-part {
+  background-color: #1e1e1e;
+  color: #cccccc;
+}
+
+/* Tab styling */
+.dockview-theme-dark .tab {
+  font-size: 13px;
+  padding: 0 12px;
+  border-right: 1px solid var(--dv-tab-divider-color);
+}
+
+.dockview-theme-dark .tab:hover {
+  background-color: var(--dv-activegroup-visiblepanel-tab-hover-background);
+}
+
+/* Active tab indicator */
+.dockview-theme-dark .tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--dv-focus-border);
+}
+
+/* Panel header */
+.dockview-theme-dark .pane-header {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--dv-separator-border);
+}
+
+/* Splitter */
+.dockview-theme-dark .splitview-separator {
+  background-color: var(--dv-separator-border);
+}
+
+.dockview-theme-dark .splitview-separator:hover {
+  background-color: var(--dv-focus-border);
+  transition: background-color 0.1s;
+}
+
+/* Remove focus outlines for cleaner look */
+.dockview-theme-dark *:focus-visible {
+  outline: 1px solid var(--dv-focus-border);
+  outline-offset: -1px;
+}
+
+/* Watermark should not block click events */
+.dockview-theme-dark .dv-watermark-container {
+  pointer-events: none;
+}

@@ -1,0 +1,117 @@
+/**
+ * SceneHierarchy styles
+ */
+
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--md-sys-color-surface);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+/* Header */
+.header {
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Content area */
+.content {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Loading state */
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+/* Error/info messages */
+.messageContainer {
+  padding: 16px;
+}
+
+.messageCaption {
+  margin-top: 8px;
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Entity list item */
+.entityItem {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.entityItem:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.entityItemSelected {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+}
+
+.entityItemSelected:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent);
+}
+
+/* Entity icon */
+.entityIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.entityIcon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Expand button */
+.expandButton {
+  padding: 4px;
+}
+
+/* Entity name */
+.entityName {
+  flex: 1;
+  font-size: 14px;
+  color: var(--md-sys-color-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entityNameSelected {
+  font-weight: 600;
+}
+
+/* Folder icon */
+.folderIcon {
+  margin-left: 8px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.folderIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Depth indentation */
+.depth0 { padding-left: 16px; }
+.depth1 { padding-left: 32px; }
+.depth2 { padding-left: 48px; }
+.depth3 { padding-left: 64px; }
+.depth4 { padding-left: 80px; }
+.depth5 { padding-left: 96px; }

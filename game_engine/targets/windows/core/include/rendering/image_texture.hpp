@@ -54,10 +54,19 @@ public:
                 gfx, __FILE__, __LINE__);
             break;
         }
+        ScratchImage mip_chain;
+        ThrowIfFailedGfx(
+            GenerateMipMaps(
+                image.GetImages(), image.GetImageCount(), image.GetMetadata(),
+                TEX_FILTER_DEFAULT, // フィルタリングオプション（ボックス、リニア、三角、など）
+                0,                  // 最大ミップレベル（0=すべてのレベル生成）
+                mip_chain),
+            gfx, __FILE__, __LINE__);
+        metadata_ = mip_chain.GetMetadata();
 
         // create the resource view on the texture
         ThrowIfFailedGfx(
-            CreateShaderResourceView(&gfx->device(), image.GetImages(), image.GetImageCount(), metadata_, &shader_resource_view_),
+            CreateShaderResourceView(&gfx->device(), mip_chain.GetImages(), mip_chain.GetImageCount(), metadata_, &shader_resource_view_),
             gfx, __FILE__, __LINE__);
 
         initialize(shader_resource_view_.Get(), metadata_.width, metadata_.height);

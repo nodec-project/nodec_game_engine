@@ -1,0 +1,81 @@
+/**
+ * Checkbox styles
+ */
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--md-sys-color-on-surface-variant);
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard),
+    border-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.checkbox:hover {
+  border-color: var(--md-sys-color-on-surface);
+}
+
+.checkbox[data-checked],
+.checkbox[data-indeterminate] {
+  background-color: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+}
+
+.checkbox:disabled {
+  opacity: var(--md-sys-state-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* Size variants */
+.small {
+  width: 16px;
+  height: 16px;
+}
+
+.medium {
+  width: 18px;
+  height: 18px;
+}
+
+/* Color variants */
+.primary[data-checked],
+.primary[data-indeterminate] {
+  background-color: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+}
+
+.secondary[data-checked],
+.secondary[data-indeterminate] {
+  background-color: var(--md-sys-color-secondary);
+  border-color: var(--md-sys-color-secondary);
+}
+
+.error[data-checked],
+.error[data-indeterminate] {
+  background-color: var(--md-sys-color-error);
+  border-color: var(--md-sys-color-error);
+}
+
+/* Indicator */
+.indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-on-primary);
+}
+
+.indicator svg {
+  width: 14px;
+  height: 14px;
+}
+
+.small .indicator svg {
+  width: 12px;
+  height: 12px;
+}

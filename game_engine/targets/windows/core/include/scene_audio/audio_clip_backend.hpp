@@ -1,13 +1,15 @@
 #ifndef NODEC_GAME_ENGINE__SCENE_AUDIO__AUDIO_CLIP_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__SCENE_AUDIO__AUDIO_CLIP_BACKEND_HPP_
 
-#include <nodec_scene_audio/resources/audio_clip.hpp>
+#include <fstream>
+#include <vector>
+
+#include <xaudio2.h>
 
 #include <nodec/audio/wave_format.hpp>
 #include <nodec/formatter.hpp>
 #include <nodec/riff.hpp>
-
-#include <fstream>
+#include <nodec_scene_audio/resources/audio_clip.hpp>
 
 class AudioClipBackend : public nodec_scene_audio::resources::AudioClip {
 public:

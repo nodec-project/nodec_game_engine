@@ -1,3 +1,6 @@
+#ifndef NODEC_GAME_ENGINE__RENDERING__SCENE_RENDERER_CONTEXT_HPP_
+#define NODEC_GAME_ENGINE__RENDERING__SCENE_RENDERER_CONTEXT_HPP_
+
 #include <nodec/resource_management/resource_registry.hpp>
 #include <nodec_rendering/cull_mode.hpp>
 #include <nodec_rendering/resources/material.hpp>
@@ -202,3 +205,5 @@ private:
 
     std::intptr_t last_bound_material_id_ = 0x00;
 };
+
+#endif

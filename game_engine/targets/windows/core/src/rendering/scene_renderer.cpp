@@ -1,4 +1,3 @@
-
 #include <rendering/scene_renderer.hpp>
 
 #include <DirectXMath.h>
@@ -8,180 +7,9 @@
 #include <nodec_scene/components/local_to_world.hpp>
 
 #include <Font/FontBackend.hpp>
-
-class MeshDrawCommand : public DrawCommand {
-public:
-    MeshDrawCommand(const DirectX::XMMATRIX &matrix_m,
-                    std::shared_ptr<MeshBackend> mesh,
-                    std::shared_ptr<MaterialBackend> material)
-        : matrix_m(matrix_m), mesh(mesh), material(material) {}
-
-    void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
-              SceneRendererContext &renderer_context, Graphics &gfx) override {
-        using namespace DirectX;
-        renderer_context.bs_default().bind();
-        auto matrix_m_inverse = DirectX::XMMatrixInverse(nullptr, matrix_m);
-        auto matrix_mvp = matrix_m * matrix_v * matrix_p;
-
-        auto &cb_model_properties = renderer_context.cb_model_properties();
-
-        XMStoreFloat4x4(&cb_model_properties.data().matrix_m, matrix_m);
-        XMStoreFloat4x4(&cb_model_properties.data().matrix_m_inverse, matrix_m_inverse);
-        XMStoreFloat4x4(&cb_model_properties.data().matrix_mvp, matrix_mvp);
-        cb_model_properties.apply();
-
-        renderer_context.bind_material(material.get());
-
-        mesh->bind(&gfx);
-        gfx.DrawIndexed(static_cast<UINT>(mesh->triangles.size()));
-    }
-
-    DirectX::XMMATRIX matrix_m;
-    std::shared_ptr<MeshBackend> mesh;
-    std::shared_ptr<MaterialBackend> material;
-};
-
-class ImageDrawCommand : public DrawCommand {
-public:
-    ImageDrawCommand(const DirectX::XMMATRIX &matrix_m,
-                     std::shared_ptr<TextureBackend> image,
-                     std::shared_ptr<MaterialBackend> material,
-                     const nodec::Vector4f &color)
-        : matrix_m(matrix_m), image(image), material(material), color(color) {}
-
-    void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
-              SceneRendererContext &renderer_context, Graphics &gfx) override {
-        using namespace DirectX;
-        renderer_context.bs_alpha_blend().bind();
-        // renderer_context.bs_default().bind(&gfx);
-
-        auto matrix_m_inverse = DirectX::XMMatrixInverse(nullptr, matrix_m);
-        auto matrix_mvp = matrix_m * matrix_v * matrix_p;
-
-        auto &cb_model_properties = renderer_context.cb_model_properties();
-
-        XMStoreFloat4x4(&cb_model_properties.data().matrix_m, matrix_m);
-        XMStoreFloat4x4(&cb_model_properties.data().matrix_m_inverse, matrix_m_inverse);
-        XMStoreFloat4x4(&cb_model_properties.data().matrix_mvp, matrix_mvp);
-        cb_model_properties.apply();
-
-        auto backup_image = material->get_texture_entry("image");
-        auto backup_color = material->get_vector4_property("color");
-
-        material->set_texture_entry(
-            "image", {image, {nodec_rendering::Sampler::FilterMode::Bilinear, nodec_rendering::Sampler::WrapMode::Clamp}});
-        material->set_vector4_property("color", color);
-
-        renderer_context.bind_material(material.get(), true);
-
-        auto &mesh = renderer_context.quad_mesh();
-        mesh.bind(&gfx);
-        gfx.DrawIndexed(static_cast<UINT>(mesh.triangles.size()));
-
-        if (backup_image) {
-            material->set_texture_entry("image", *backup_image);
-        }
-        if (backup_color) {
-            material->set_vector4_property("color", *backup_color);
-        }
-    }
-
-    DirectX::XMMATRIX matrix_m;
-    std::shared_ptr<TextureBackend> image;
-    std::shared_ptr<MaterialBackend> material;
-    nodec::Vector4f color;
-};
-
-class TextDrawCommand : public DrawCommand {
-public:
-    TextDrawCommand(const DirectX::XMMATRIX &matrix_m,
-                    const nodec_rendering::components::TextRenderer &text_renderer)
-        : matrix_m(matrix_m), text_renderer(text_renderer) {}
-
-    void draw(const DirectX::XMMATRIX &matrix_v, const DirectX::XMMATRIX &matrix_p,
-              SceneRendererContext &renderer_context, Graphics &gfx) override {
-        using namespace DirectX;
-        renderer_context.bs_alpha_blend().bind();
-        // renderer_context.bs_default().bind(&gfx);
-
-        auto material = static_cast<MaterialBackend *>(text_renderer.material.get());
-        assert(material);
-
-        auto font = static_cast<FontBackend *>(text_renderer.font.get());
-        assert(font);
-
-        auto backup_mask = material->get_texture_entry("mask");
-        auto backup_color = material->get_vector4_property("color");
-
-        const auto u32_text = nodec::unicode::utf8to32<std::u32string>(text_renderer.text);
-        const float pixels_per_unit = static_cast<float>(text_renderer.pixels_per_unit);
-        const float pixel_size = text_renderer.pixel_size;
-
-        auto &font_character_database = renderer_context.font_character_database();
-
-        float offset_x = 0.0f;
-        float offset_y = 0.0f;
-
-        for (const auto &chCode : u32_text) {
-            if (chCode == '\n') {
-                offset_y -= pixel_size / pixels_per_unit;
-                offset_x = 0.0f;
-                continue;
-            }
-
-            const auto &character = font_character_database.Get(font->GetFace(), pixel_size, chCode);
-
-            float pos_x = offset_x + character.bearing.x / pixels_per_unit;
-            float pos_y = offset_y - (character.size.y - character.bearing.y) / pixels_per_unit;
-            float w = character.size.x / pixels_per_unit;
-            float h = character.size.y / pixels_per_unit;
-
-            offset_x += (character.advance >> 6) / pixels_per_unit;
-
-            if (!character.pFontTexture) {
-                continue;
-            }
-
-            material->set_texture_entry("mask",
-                                        {character.pFontTexture, {nodec_rendering::Sampler::FilterMode::Bilinear, nodec_rendering::Sampler::WrapMode::Clamp}});
-            material->set_vector4_property("color", text_renderer.color);
-
-            renderer_context.bind_material(material, true);
-
-            XMMATRIX matrix_m_ch{matrix_m};
-            matrix_m_ch = XMMatrixScaling(w / 2, h / 2, 1.0f) * XMMatrixTranslation(pos_x + w / 2, pos_y + h / 2, 0.0f) * matrix_m_ch;
-
-            // matrixM
-            auto matrix_m_inverse = XMMatrixInverse(nullptr, matrix_m_ch);
-
-            // DirectX Math using row-major representation
-            // HLSL using column-major representation
-            auto matrix_mvp = matrix_m_ch * matrix_v * matrix_p;
-
-            auto &cb_model_properties = renderer_context.cb_model_properties();
-
-            XMStoreFloat4x4(&cb_model_properties.data().matrix_m, matrix_m_ch);
-            XMStoreFloat4x4(&cb_model_properties.data().matrix_m_inverse, matrix_m_inverse);
-            XMStoreFloat4x4(&cb_model_properties.data().matrix_mvp, matrix_mvp);
-
-            cb_model_properties.apply();
-
-            auto &mesh = renderer_context.screen_quad_mesh();
-            mesh.bind(&gfx);
-            gfx.DrawIndexed(static_cast<UINT>(mesh.triangles.size()));
-        } // End foreach character.
-        if (backup_mask) {
-            material->set_texture_entry("mask", *backup_mask);
-        }
-
-        if (backup_color) {
-            material->set_vector4_property("color", *backup_color);
-        }
-    }
-
-    DirectX::XMMATRIX matrix_m;
-    const nodec_rendering::components::TextRenderer &text_renderer;
-};
+#include <rendering/image_renderer_activity.hpp>
+#include <rendering/mesh_renderer_activity.hpp>
+#include <rendering/text_renderer_activity.hpp>
 
 SceneRenderer::SceneRenderer(nodec_scene::Scene &scene,
                              Graphics &gfx,
@@ -189,12 +17,14 @@ SceneRenderer::SceneRenderer(nodec_scene::Scene &scene,
     : logger_(nodec::logging::get_logger("engine.scene-renderer")),
       scene_(scene),
       gfx_(gfx),
-      renderer_context_(logger_, gfx, resource_registry) {
+      renderer_context_(logger_, gfx, resource_registry)
+// occlusion_system_(gfx) // オクルージョンシステムの初期化
+{
 }
 
 void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
                                       const std::shared_ptr<MaterialBackend> &material_backend,
-                                      std::unique_ptr<DrawCommand> command,
+                                      DrawCommand *command,
                                       const DirectX::XMMATRIX &matrix_m, const DirectX::XMMATRIX &matrix_v_inverse) {
     using namespace DirectX;
     auto key = DrawGroupPriorityKey(shader, is_transparent);
@@ -226,12 +56,10 @@ void SceneRenderer::push_draw_command(std::shared_ptr<ShaderBackend> shader, boo
         // The projected length is the distance from the camera to the object along the view direction
         auto depth = projected_length;
 
-        transparent_group->draw_commands.emplace(
-            depth, std::move(command));
+        transparent_group->draw_commands.emplace(depth, command);
     } else {
         auto *opaque_group = static_cast<OpaqueDrawGroup *>(group.get());
-        opaque_group->append_draw_command(
-            material_backend, std::move(command));
+        opaque_group->append_draw_command(material_backend, command);
 
         // auto material_id = reinterpret_cast<std::intptr_t>(material_backend.get());
         // opaque_group->draw_commands.emplace(material_id, std::move(command));
@@ -282,6 +110,7 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
     // Render the scene per each camera.
     scene.registry().view<const Camera, const LocalToWorld>().each(
         [&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &camera_local_to_world) {
+            // logger_->info(__FILE__, __LINE__) << "!!";
             ID3D11RenderTargetView *camera_render_target_view = &render_target;
 
             // --- Get active post process effects. ---
@@ -313,8 +142,6 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                 camera_activity.state = std::make_unique<CameraState>();
             }
 
-            //if (camera_activity_result.second || (camera_dirty && camera_dirty->flags & CameraDirtyFlag::Projection)) {
-            //}
             const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
             camera_activity.state->update_projection(camera, aspect);
 
@@ -412,6 +239,67 @@ void SceneRenderer::render(nodec_scene::Scene &scene, const CameraState &camera_
                     render_target, context);
 }
 
+float calculate_screen_pixel_size(const DirectX::XMMATRIX &world_view_projection, const nodec::gfx::BoundingBox &bounds,
+                                  float screen_width, float screen_height) {
+    using namespace DirectX;
+    using namespace nodec;
+
+    auto max_point = (bounds.max)();
+    auto min_point = (bounds.min)();
+
+    // バウンディングボックスの8頂点を取得
+    XMVECTOR corners[8];
+    corners[0] = XMVectorSet(min_point.x, min_point.y, min_point.z, 1.0f);
+    corners[1] = XMVectorSet(max_point.x, min_point.y, min_point.z, 1.0f);
+    corners[2] = XMVectorSet(min_point.x, max_point.y, min_point.z, 1.0f);
+    corners[3] = XMVectorSet(max_point.x, max_point.y, min_point.z, 1.0f);
+    corners[4] = XMVectorSet(min_point.x, min_point.y, max_point.z, 1.0f);
+    corners[5] = XMVectorSet(max_point.x, min_point.y, max_point.z, 1.0f);
+    corners[6] = XMVectorSet(min_point.x, max_point.y, max_point.z, 1.0f);
+    corners[7] = XMVectorSet(max_point.x, max_point.y, max_point.z, 1.0f);
+
+    // スクリーン空間に変換して最小/最大座標を求める
+    float min_x = FLT_MAX, min_y = FLT_MAX;
+    float max_x = -FLT_MAX, max_y = -FLT_MAX;
+
+    for (int i = 0; i < 8; ++i) {
+        // ワールド座標からNDC空間へ変換
+        XMVECTOR projected = XMVector4Transform(corners[i], world_view_projection);
+
+        // 透視除算（w除算）を行いNDC座標に変換
+        XMVECTOR ndc = projected;
+        float w = XMVectorGetW(projected);
+
+        // If w is close to 0 (points on camera's view plane or numerically unstable points), skip processing
+        if ((w > 0.f ? w : -w) < 0.0001f) continue;
+
+        ndc = XMVectorScale(ndc, 1.0f / w);
+
+        // NDC空間の座標を取得
+        float x = XMVectorGetX(ndc);
+        float y = XMVectorGetY(ndc);
+
+        // 最小/最大座標を更新
+        min_x = (std::min)(min_x, x);
+        min_y = (std::min)(min_y, y);
+        max_x = (std::max)(max_x, x);
+        max_y = (std::max)(max_y, y);
+    }
+
+    // バウンディングボックスがスクリーン外の場合
+    if (min_x > max_x || min_y > max_y) {
+        return 0.0f;
+    }
+
+    // NDC空間からスクリーンピクセルサイズに変換
+
+    float screen_width_pixels = (max_x - min_x) * 0.5f * screen_width;
+    float screen_height_pixels = (max_y - min_y) * 0.5f * screen_height;
+
+    // 幅と高さの大きい方を返す
+    return (std::max)(screen_width_pixels, screen_height_pixels);
+}
+
 void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                                     const CameraState &camera_state,
                                     ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
@@ -425,91 +313,96 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
     auto &scene_registry = scene.registry();
 
+    // オクルージョンテストを開始
+    // auto view_proj = camera_state.matrix_v() * camera_state.matrix_p();
+    // occlusion_system_.begin_occlusion_test(view_proj);
+
+    DirectX::XMMATRIX matrix_vp = camera_state.matrix_v() * camera_state.matrix_p();
+
     // Group the draw-command by the shader.
     {
-        scene_registry.view<const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{})
-            .each([&](SceneEntity entity, const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
-                if (renderer.meshes.size() != renderer.materials.size()) return;
-
-                for (int i = 0; i < renderer.meshes.size(); ++i) {
-                    auto &mesh = renderer.meshes[i];
-                    auto &material = renderer.materials[i];
-                    if (!mesh || !material) continue;
-
-                    auto mesh_backend = std::static_pointer_cast<MeshBackend>(mesh);
-                    auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
-                    auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
-                    if (!shader_backend) continue;
-
-                    if (!nodec::gfx::intersects(camera_state.frustum(), mesh_backend->bounds, local_to_world.value)) {
-                        return;
-                    }
-
-                    auto matrix_m = XMMATRIX(local_to_world.value.m);
-                    const bool is_transparent = material_backend->is_transparent();
-
-                    auto command = std::make_unique<MeshDrawCommand>(
-                        matrix_m,
-                        mesh_backend,
-                        material_backend);
-
-                    push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
-                } // End foreach mesh
+        scene_registry.view<MeshRenderer>(type_list<MeshRendererActivity>{})
+            .each([&](SceneEntity entity, MeshRenderer &) {
+                auto &activity = scene_registry.emplace_component<MeshRendererActivity>(entity).first;
             });
-        scene.registry().view<const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
-            auto &image = renderer.image;
-            auto &material = renderer.material;
-            if (!image || !material) return;
+        {
+            auto view = scene_registry.view<MeshRendererActivity>(type_list<MeshRenderer>{});
+            scene_registry.remove_components<MeshRendererActivity>(view.begin(), view.end());
+        }
 
-            auto image_backend = std::static_pointer_cast<TextureBackend>(image);
-            auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
-            auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
-            if (!shader_backend) return;
+        scene_registry.view<MeshRendererActivity, const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{})
+            .each([&](SceneEntity entity,
+                      MeshRendererActivity &activity,
+                      const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
+                auto commands = activity.get_commands_if_needed(camera_state, entity, renderer, local_to_world);
+                for (auto *command : commands) {
+                    auto is_transparent = command->material_->is_transparent();
+                    push_draw_command(
+                        std::static_pointer_cast<ShaderBackend>(command->material_->shader()),
+                        is_transparent,
+                        command->material_,
+                        command,
+                        command->matrix_m_,
+                        camera_state.matrix_v_inverse());
+                }
+            });
+    }
+    {
+        scene_registry.view<ImageRenderer>(type_list<ImageRendererActivity>{})
+            .each([&](SceneEntity entity, ImageRenderer &) {
+                auto &activity = scene_registry.emplace_component<ImageRendererActivity>(entity).first;
+            });
+        {
+            auto view = scene_registry.view<ImageRendererActivity>(type_list<ImageRenderer>{});
+            scene_registry.remove_components<ImageRendererActivity>(view.begin(), view.end());
+        }
+        scene.registry().view<ImageRendererActivity, const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, ImageRendererActivity &activity, const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
+            auto command = activity.get_commands_if_needed(
+                camera_state, entity, renderer, local_to_world);
+            if (!command) return;
 
-            const auto width = image_backend->width() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
-            const auto height = image_backend->height() / (renderer.pixels_per_unit + std::numeric_limits<float>::epsilon());
-
-            // auto local_to_world_matrix = local_to_world.value * gfx::scale_matrix(width, height, 1.0f);
-            const gfx::BoundingBox bounds(Vector3f::zero, Vector3f(width, height, 0.0f));
-            if (!nodec::gfx::intersects(camera_state.frustum(), bounds, local_to_world.value)) {
-                return;
-            }
-            
-            auto matrix_m = XMMatrixScaling(width, height, 1.f) * XMMATRIX(local_to_world.value.m);
-
-            auto command = std::make_unique<ImageDrawCommand>(
-                matrix_m,
-                image_backend,
-                material_backend,
-                renderer.color);
-
-            const bool is_transparent = material_backend->is_transparent();
-            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
+            const bool is_transparent = command->material_->is_transparent();
+            push_draw_command(
+                std::static_pointer_cast<ShaderBackend>(command->material_->shader()),
+                is_transparent,
+                command->material_,
+                command,
+                command->matrix_m_,
+                camera_state.matrix_v_inverse());
         });
+    }
+    {
+        scene_registry.view<TextRenderer>(type_list<TextRendererActivity>{})
+            .each([&](SceneEntity entity, TextRenderer &) {
+                auto &activity = scene_registry.emplace_component<TextRendererActivity>(entity).first;
+            });
+        {
+            auto view = scene_registry.view<TextRendererActivity>(type_list<TextRenderer>{});
+            scene_registry.remove_components<TextRendererActivity>(view.begin(), view.end());
+        }
 
-        scene.registry().view<const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, const TextRenderer &renderer, const LocalToWorld &local_to_world) {
-            auto &material = renderer.material;
-            auto &font = renderer.font;
-            if (!material || !font) return;
+        scene.registry().view<TextRendererActivity, const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, TextRendererActivity &activity, const TextRenderer &renderer, const LocalToWorld &local_to_world) {
+            auto command = activity.get_command_if_needed(
+                camera_state, entity, renderer, local_to_world);
+            if (!command) return;
 
-            auto material_backend = std::static_pointer_cast<MaterialBackend>(material);
-            auto shader_backend = std::static_pointer_cast<ShaderBackend>(material->shader());
-            if (!shader_backend) return;
+            const bool is_transparent = command->material_->is_transparent();
 
-            auto matrix_m = XMMATRIX(local_to_world.value.m);
-
-            const bool is_transparent = material_backend->is_transparent();
-            auto command = std::make_unique<TextDrawCommand>(
-                XMMATRIX(local_to_world.value.m),
-                renderer);
-
-            push_draw_command(shader_backend, is_transparent, material_backend, std::move(command), matrix_m, camera_state.matrix_v_inverse());
+            push_draw_command(command->shader_,
+                              is_transparent,
+                              command->material_,
+                              std::move(command),
+                              command->matrix_m_,
+                              camera_state.matrix_v_inverse());
         });
     }
 
+    // フレーム終了時の処理
+    // occlusion_system_.end_frame();
+
     // Clear render target view with solid color.
     {
-        gfx_.context().ClearRenderTargetView(render_target, Vector4f::zero.v);
+        gfx_.context().ClearRenderTargetView(render_target, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
         for (auto iter = context.geometry_buffer_begin(); iter != context.geometry_buffer_end(); ++iter) {
             auto &buffer = iter->second;
             if (!buffer) continue;

@@ -5,7 +5,7 @@
 // Thank you, Microsoft, for file WinDef.h with min/max redefinition.
 #define NOMINMAX
 
-#include "Application.hpp"
+#include "application.hpp"
 
 #include <Windows.h>
 

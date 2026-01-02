@@ -1,0 +1,171 @@
+/**
+ * List styles
+ * Based on Material Design 3 list specification
+ */
+
+.list {
+  margin: 0;
+  padding: var(--md-sys-spacing-2) 0;
+  list-style: none;
+}
+
+.listDense {
+  padding: 0;
+}
+
+/* List Item */
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-4);
+  min-height: 56px;
+  padding: var(--md-sys-spacing-2) var(--md-sys-spacing-4);
+  font-family: var(--md-sys-typescale-font-family);
+  color: var(--md-sys-color-on-surface);
+}
+
+.listItemDense {
+  min-height: 40px;
+  padding: var(--md-sys-spacing-1) var(--md-sys-spacing-4);
+}
+
+/* Interactive list item */
+.listItemButton {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.listItemButton:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+
+.listItemButton:focus-visible {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  outline: none;
+}
+
+.listItemButton:active {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+}
+
+/* Selected state */
+.listItemSelected {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.listItemSelected:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-secondary-container) 8%, var(--md-sys-color-secondary-container));
+}
+
+/* Disabled state */
+.listItemDisabled {
+  opacity: var(--md-sys-state-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.listItemDisabled:hover {
+  background-color: transparent;
+}
+
+/* List Item Icon (Leading) */
+.listItemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.listItemIcon.minWidth32 {
+  min-width: 32px;
+}
+
+.listItemIcon.minWidth24 {
+  min-width: 24px;
+}
+
+.listItemIconAuto {
+  min-width: auto;
+}
+
+.listItemSelected .listItemIcon {
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+/* List Item Text */
+.listItemText {
+  flex: 1;
+  min-width: 0;
+}
+
+.listItemPrimary {
+  display: block;
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--md-sys-typescale-body-large-line-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listItemPrimarySmall {
+  font-size: var(--md-sys-typescale-body-medium-size);
+  line-height: var(--md-sys-typescale-body-medium-line-height);
+}
+
+.listItemSecondary {
+  display: block;
+  font-size: var(--md-sys-typescale-body-medium-size);
+  line-height: var(--md-sys-typescale-body-medium-line-height);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listItemSecondarySmall {
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: var(--md-sys-typescale-body-small-line-height);
+}
+
+/* List Item Actions (Trailing) */
+.listItemAction {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-1);
+  margin-left: auto;
+}
+
+/* Divider */
+.listDivider {
+  height: 1px;
+  margin: var(--md-sys-spacing-2) 0;
+  background-color: var(--md-sys-color-outline-variant);
+}
+
+.listDividerInset {
+  margin-left: 56px;
+}
+
+/* Subheader */
+.listSubheader {
+  padding: var(--md-sys-spacing-2) var(--md-sys-spacing-4);
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: var(--md-sys-typescale-label-large-weight);
+  line-height: var(--md-sys-typescale-label-large-line-height);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Indentation levels */
+.indent1 { padding-left: calc(var(--md-sys-spacing-4) + 24px); }
+.indent2 { padding-left: calc(var(--md-sys-spacing-4) + 48px); }
+.indent3 { padding-left: calc(var(--md-sys-spacing-4) + 72px); }
+.indent4 { padding-left: calc(var(--md-sys-spacing-4) + 96px); }
+.indent5 { padding-left: calc(var(--md-sys-spacing-4) + 120px); }

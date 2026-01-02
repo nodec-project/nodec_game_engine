@@ -1,0 +1,220 @@
+/**
+ * TextField styles using Base UI
+ * Based on Material Design 3 text field specification
+ */
+
+.textField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-sys-spacing-1);
+  font-family: var(--md-sys-typescale-font-family);
+}
+
+/* Base UI disabled state via data attribute */
+.textField[data-disabled] {
+  opacity: var(--md-sys-state-disabled-opacity);
+}
+
+/* Base UI invalid state via data attribute */
+.textField[data-invalid] .label {
+  color: var(--md-sys-color-error);
+}
+
+.textField[data-invalid] .input {
+  border-color: var(--md-sys-color-error);
+}
+
+/* Label */
+.label {
+  font-size: var(--md-sys-typescale-body-small-size);
+  font-weight: var(--md-sys-typescale-body-small-weight);
+  line-height: var(--md-sys-typescale-body-small-line-height);
+  color: var(--md-sys-color-on-surface-variant);
+  transition: color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+/* Input container */
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Input base */
+.input {
+  flex: 1;
+  height: 40px;
+  padding: 0 var(--md-sys-spacing-4);
+  font-family: inherit;
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--md-sys-typescale-body-large-line-height);
+  color: var(--md-sys-color-on-surface);
+  background-color: transparent;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  outline: none;
+  transition:
+    border-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard),
+    background-color var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
+}
+
+.input::placeholder {
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.input:hover {
+  border-color: var(--md-sys-color-on-surface);
+}
+
+.input:focus {
+  border-color: var(--md-sys-color-primary);
+  border-width: 2px;
+  padding: 0 calc(var(--md-sys-spacing-4) - 1px);
+}
+
+/* Filled variant */
+.filled .input {
+  background-color: var(--md-sys-color-surface-container-highest);
+  border: none;
+  border-bottom: 1px solid var(--md-sys-color-on-surface-variant);
+  border-radius: var(--md-sys-shape-corner-extra-small) var(--md-sys-shape-corner-extra-small) 0 0;
+}
+
+.filled .input:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, var(--md-sys-color-surface-container-highest));
+}
+
+.filled .input:focus {
+  border-bottom-color: var(--md-sys-color-primary);
+  border-bottom-width: 2px;
+  padding-bottom: 0;
+}
+
+/* Sizes */
+.small .input {
+  height: 32px;
+  font-size: var(--md-sys-typescale-body-medium-size);
+  padding: 0 var(--md-sys-spacing-3);
+}
+
+.small .input:focus {
+  padding: 0 calc(var(--md-sys-spacing-3) - 1px);
+}
+
+.large .input {
+  height: 48px;
+}
+
+/* Error state */
+.error .label {
+  color: var(--md-sys-color-error);
+}
+
+.error .input {
+  border-color: var(--md-sys-color-error);
+}
+
+.error .input:hover,
+.error .input:focus {
+  border-color: var(--md-sys-color-error);
+}
+
+.error.filled .input {
+  border-bottom-color: var(--md-sys-color-error);
+}
+
+/* Disabled state */
+.disabled .label {
+  color: var(--md-sys-color-on-surface);
+  opacity: var(--md-sys-state-disabled-opacity);
+}
+
+.disabled .input {
+  color: var(--md-sys-color-on-surface);
+  border-color: var(--md-sys-color-on-surface);
+  opacity: var(--md-sys-state-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.disabled.filled .input {
+  background-color: var(--md-sys-color-on-surface);
+  opacity: var(--md-sys-state-disabled-container-opacity);
+}
+
+/* Full width */
+.fullWidth {
+  width: 100%;
+}
+
+/* Helper/Error text */
+.helperText {
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: var(--md-sys-typescale-body-small-line-height);
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 0 var(--md-sys-spacing-4);
+}
+
+.error .helperText {
+  color: var(--md-sys-color-error);
+}
+
+/* Error text (Base UI Field.Error) */
+.errorText {
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: var(--md-sys-typescale-body-small-line-height);
+  color: var(--md-sys-color-error);
+  padding: 0 var(--md-sys-spacing-4);
+}
+
+/* Leading/Trailing icons */
+.leadingIcon,
+.trailingIcon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.leadingIcon {
+  left: var(--md-sys-spacing-3);
+}
+
+.trailingIcon {
+  right: var(--md-sys-spacing-3);
+}
+
+.hasLeadingIcon .input {
+  padding-left: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2));
+}
+
+.hasLeadingIcon .input:focus {
+  padding-left: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2) - 1px);
+}
+
+.hasTrailingIcon .input {
+  padding-right: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2));
+}
+
+.hasTrailingIcon .input:focus {
+  padding-right: calc(var(--md-sys-spacing-4) + 24px + var(--md-sys-spacing-2) - 1px);
+}
+
+/* Textarea */
+.textarea {
+  min-height: 100px;
+  height: auto;
+  padding: var(--md-sys-spacing-3) var(--md-sys-spacing-4);
+  resize: vertical;
+}
+
+/* Dirty state indicator */
+.dirty .input {
+  border-color: var(--md-sys-color-tertiary);
+}
+
+.dirty.filled .input {
+  border-bottom-color: var(--md-sys-color-tertiary);
+}

@@ -4,6 +4,7 @@ add_library(${PROJECT_NAME} STATIC)
 
 target_sources(${PROJECT_NAME} PRIVATE
     src/editor.cpp
+    src/editor_window.cpp
     src/WinMain.cpp
     src/component_editors/physics_shape_editor.cpp
     src/component_editors/prefab_editor.cpp
@@ -12,7 +13,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     src/editor_windows/scene_hierarchy_window.cpp
     src/editor_windows/scene_view_window.cpp
     src/editor_windows/geometry_buffer_inspector_window.cpp
+    src/editor_windows/picking_renderer.cpp
     src/scene_gizmo_renderer.cpp
+    src/editor_server/editor_server.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

@@ -1,0 +1,73 @@
+/**
+ * Surface styles (Paper replacement)
+ * Based on Material Design 3 surface specification
+ */
+
+.surface {
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+/* Elevation levels */
+.elevation0 {
+  background-color: var(--md-sys-color-surface);
+  box-shadow: none;
+}
+
+.elevation1 {
+  background-color: var(--md-sys-color-surface-container-low);
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+.elevation2 {
+  background-color: var(--md-sys-color-surface-container);
+  box-shadow: var(--md-sys-elevation-2);
+}
+
+.elevation3 {
+  background-color: var(--md-sys-color-surface-container-high);
+  box-shadow: var(--md-sys-elevation-3);
+}
+
+.elevation4 {
+  background-color: var(--md-sys-color-surface-container-high);
+  box-shadow: var(--md-sys-elevation-4);
+}
+
+.elevation5 {
+  background-color: var(--md-sys-color-surface-container-highest);
+  box-shadow: var(--md-sys-elevation-5);
+}
+
+/* Variants */
+.outlined {
+  background-color: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: none;
+}
+
+/* Corner radius variants */
+.radiusNone {
+  border-radius: var(--md-sys-shape-corner-none);
+}
+
+.radiusExtraSmall {
+  border-radius: var(--md-sys-shape-corner-extra-small);
+}
+
+.radiusSmall {
+  border-radius: var(--md-sys-shape-corner-small);
+}
+
+.radiusMedium {
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+.radiusLarge {
+  border-radius: var(--md-sys-shape-corner-large);
+}
+
+.radiusExtraLarge {
+  border-radius: var(--md-sys-shape-corner-extra-large);
+}

@@ -8,8 +8,10 @@
 #include <nodec/logging/logging.hpp>
 #include <nodec_scene_editor/impl/scene_editor_impl.hpp>
 
+#include "editor_server/editor_server.hpp"
 #include "editor_gui.hpp"
 #include "scene_gizmo_impl.hpp"
+#include "editor_config_archive.hpp"
 
 class Editor final : public nodec_scene_editor::impl::SceneEditorImpl {
 public:
@@ -67,6 +69,8 @@ private:
     bool do_one_step_{false};
     std::unique_ptr<EditorGui> editor_gui_;
     std::unique_ptr<SceneGizmoImpl> scene_gizmo_;
+    std::unique_ptr<EditorConfigArchive> editor_config_archive_;
+    std::unique_ptr<EditorServer> editor_server_;
 };
 
 #endif

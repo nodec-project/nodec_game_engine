@@ -1,0 +1,28 @@
+/**
+ * Collapse styles using Base UI Collapsible
+ */
+
+.panel {
+  overflow: hidden;
+}
+
+/* Base UI uses data attributes for animation states */
+.panel[data-open] {
+  animation: expandHeight var(--md-sys-motion-duration-medium1) var(--md-sys-motion-easing-emphasized-decelerate);
+}
+
+.panel[data-closed] {
+  animation: collapseHeight var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-emphasized-accelerate);
+}
+
+@keyframes expandHeight {
+  from {
+    height: 0;
+  }
+}
+
+@keyframes collapseHeight {
+  to {
+    height: 0;
+  }
+}
