@@ -24,116 +24,52 @@ struct CameraInfo {
 };
 
 // =============================================================================
-// ECS Layer-based Recursive Template Iteration
+// ECS Layer-based Fold Expression Template
 // Process entities with RenderLayer<N> for each layer matching culling_mask
+// Uses C++17 fold expressions instead of recursive templates.
 // Note: Entities without any RenderLayer component are NOT rendered.
 // =============================================================================
 
-// MeshRenderer: Process layer N, then recurse to lower layers
-template<std::uint32_t N, typename ProcessFn>
-void process_mesh_renderers_layer_impl(
+// Process a single layer for given Activity/Component types
+template<std::uint32_t N, typename Activity, typename Component, typename ProcessFn>
+void process_renderer_layer(
     nodec_scene::SceneRegistry &registry,
     std::uint32_t culling_mask,
-    ProcessFn &&process_fn) {
-
-    using namespace nodec_rendering::components;
-    using namespace nodec_scene::components;
-    using nodec_scene::SceneEntity;
-
-    // Process layer N if included in culling_mask
-    if (culling_mask & (1u << N)) {
-        registry.view<MeshRendererActivity, const MeshRenderer, const LocalToWorld, const RenderLayer<N>>(
-            nodec::type_list<NonVisible>{})
-            .each([&](SceneEntity entity, MeshRendererActivity &activity,
-                      const MeshRenderer &renderer, const LocalToWorld &local_to_world, const RenderLayer<N> &) {
-                process_fn(entity, activity, renderer, local_to_world);
-            });
-    }
-
-    // Recurse to lower layers
-    if constexpr (N > 0) {
-        process_mesh_renderers_layer_impl<N - 1>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
-    }
-}
-
-// MeshRenderer: Main entry point - process all matching layers
-template<typename ProcessFn>
-void process_mesh_renderers_by_layer(
-    nodec_scene::SceneRegistry &registry,
-    std::uint32_t culling_mask,
-    ProcessFn &&process_fn) {
-
-    process_mesh_renderers_layer_impl<31>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
-}
-
-// ImageRenderer: Process layer N, then recurse to lower layers
-template<std::uint32_t N, typename ProcessFn>
-void process_image_renderers_layer_impl(
-    nodec_scene::SceneRegistry &registry,
-    std::uint32_t culling_mask,
-    ProcessFn &&process_fn) {
-
+    ProcessFn &process_fn) {
     using namespace nodec_rendering::components;
     using namespace nodec_scene::components;
     using nodec_scene::SceneEntity;
 
     if (culling_mask & (1u << N)) {
-        registry.view<ImageRendererActivity, const ImageRenderer, const LocalToWorld, const RenderLayer<N>>(
-            nodec::type_list<NonVisible>{})
-            .each([&](SceneEntity entity, ImageRendererActivity &activity,
-                      const ImageRenderer &renderer, const LocalToWorld &local_to_world, const RenderLayer<N> &) {
-                process_fn(entity, activity, renderer, local_to_world);
+        registry.view<Activity, const Component, const LocalToWorld, const RenderLayer<N>>(
+                    nodec::type_list<NonVisible>{})
+            .each([&](SceneEntity entity, Activity &activity,
+                      const Component &component, const LocalToWorld &local_to_world,
+                      const RenderLayer<N> &) {
+                process_fn(entity, activity, component, local_to_world);
             });
     }
-
-    if constexpr (N > 0) {
-        process_image_renderers_layer_impl<N - 1>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
-    }
 }
 
-// ImageRenderer: Main entry point - process all matching layers
-template<typename ProcessFn>
-void process_image_renderers_by_layer(
+// Expand all layers using fold expression (processes from layer 31 down to 0)
+template<typename Activity, typename Component, typename ProcessFn, std::size_t... Ns>
+void process_renderers_expand(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &process_fn,
+    std::index_sequence<Ns...>) {
+    (process_renderer_layer<31 - Ns, Activity, Component>(registry, culling_mask, process_fn), ...);
+}
+
+// Main entry point - process all matching layers for given Activity/Component types
+template<typename Activity, typename Component, typename ProcessFn>
+void process_renderers_by_layer(
     nodec_scene::SceneRegistry &registry,
     std::uint32_t culling_mask,
     ProcessFn &&process_fn) {
-
-    process_image_renderers_layer_impl<31>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
-}
-
-// TextRenderer: Process layer N, then recurse to lower layers
-template<std::uint32_t N, typename ProcessFn>
-void process_text_renderers_layer_impl(
-    nodec_scene::SceneRegistry &registry,
-    std::uint32_t culling_mask,
-    ProcessFn &&process_fn) {
-
-    using namespace nodec_rendering::components;
-    using namespace nodec_scene::components;
-    using nodec_scene::SceneEntity;
-
-    if (culling_mask & (1u << N)) {
-        registry.view<TextRendererActivity, const TextRenderer, const LocalToWorld, const RenderLayer<N>>(
-            nodec::type_list<NonVisible>{})
-            .each([&](SceneEntity entity, TextRendererActivity &activity,
-                      const TextRenderer &renderer, const LocalToWorld &local_to_world, const RenderLayer<N> &) {
-                process_fn(entity, activity, renderer, local_to_world);
-            });
-    }
-
-    if constexpr (N > 0) {
-        process_text_renderers_layer_impl<N - 1>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
-    }
-}
-
-// TextRenderer: Main entry point - process all matching layers
-template<typename ProcessFn>
-void process_text_renderers_by_layer(
-    nodec_scene::SceneRegistry &registry,
-    std::uint32_t culling_mask,
-    ProcessFn &&process_fn) {
-
-    process_text_renderers_layer_impl<31>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+    process_renderers_expand<Activity, Component>(
+        registry, culling_mask, process_fn,
+        std::make_index_sequence<32>{});
 }
 
 } // anonymous namespace
@@ -380,8 +316,8 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                         if (passNum == shader_backend->pass_count() - 1) {
                             // Last pass: render to target_buffer
                             D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f,
-                                static_cast<FLOAT>(camera_context.target_width()),
-                                static_cast<FLOAT>(camera_context.target_height()));
+                                                                static_cast<FLOAT>(camera_context.target_width()),
+                                                                static_cast<FLOAT>(camera_context.target_height()));
                             gfx_.context().RSSetViewports(1u, &vp);
                             gfx_.context().OMSetRenderTargets(1, &camera_render_target_view, nullptr);
 
@@ -395,8 +331,8 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                                 auto &buffer = camera_context.geometry_buffer(targets[j]);
                                 renderTargets[j] = &buffer.render_target_view();
                                 vps[j] = CD3D11_VIEWPORT(0.f, 0.f,
-                                    static_cast<FLOAT>(buffer.width()),
-                                    static_cast<FLOAT>(buffer.height()));
+                                                         static_cast<FLOAT>(buffer.width()),
+                                                         static_cast<FLOAT>(buffer.height()));
                             }
 
                             gfx_.context().OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), renderTargets.data(), nullptr);
@@ -570,7 +506,8 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
         }
 
         // ECS-optimized: Iterate only entities matching culling_mask layers
-        process_mesh_renderers_by_layer(scene_registry, culling_mask,
+        process_renderers_by_layer<MeshRendererActivity, MeshRenderer>(
+            scene_registry, culling_mask,
             [&](SceneEntity entity, MeshRendererActivity &activity,
                 const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
                 auto commands = activity.get_commands_if_needed(camera_state, entity, renderer, local_to_world);
@@ -599,7 +536,8 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
         }
 
         // ECS-optimized: Iterate only entities matching culling_mask layers
-        process_image_renderers_by_layer(scene_registry, culling_mask,
+        process_renderers_by_layer<ImageRendererActivity, ImageRenderer>(
+            scene_registry, culling_mask,
             [&](SceneEntity entity, ImageRendererActivity &activity,
                 const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
                 auto command = activity.get_commands_if_needed(camera_state, entity, renderer, local_to_world);
@@ -628,7 +566,8 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
         }
 
         // ECS-optimized: Iterate only entities matching culling_mask layers
-        process_text_renderers_by_layer(scene_registry, culling_mask,
+        process_renderers_by_layer<TextRendererActivity, TextRenderer>(
+            scene_registry, culling_mask,
             [&](SceneEntity entity, TextRendererActivity &activity,
                 const TextRenderer &renderer, const LocalToWorld &local_to_world) {
                 auto command = activity.get_command_if_needed(camera_state, entity, renderer, local_to_world);
@@ -723,25 +662,25 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
             norm_cube_mesh.bind(&gfx_);
             gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
 
-        // // --- Render environment map.
-        // {
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, XMMatrixPerspectiveFovLH(XM_PI, 1.0f, 0.1f, 100.0f));
-        //     // XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, XMMatrixIdentity());
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, XMMatrixIdentity());
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, XMMatrixIdentity());
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, XMMatrixIdentity());
-        //     cb_scene_properties.apply();
+            // // --- Render environment map.
+            // {
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, XMMatrixPerspectiveFovLH(XM_PI, 1.0f, 0.1f, 100.0f));
+            //     // XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, XMMatrixIdentity());
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, XMMatrixIdentity());
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, XMMatrixIdentity());
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, XMMatrixIdentity());
+            //     cb_scene_properties.apply();
 
-        //     auto &environment = context.geometry_buffer("environment");
-        //     auto *target = &environment.render_target_view();
-        //     gfx_.context().OMSetRenderTargets(1, &target, nullptr);
+            //     auto &environment = context.geometry_buffer("environment");
+            //     auto *target = &environment.render_target_view();
+            //     gfx_.context().OMSetRenderTargets(1, &target, nullptr);
 
-        //     gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
+            //     gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
 
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, matrix_p);
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, matrix_p_inverse);
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, matrix_v);
-        //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, matrix_v_inverse);
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p, matrix_p);
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_p_inverse, matrix_p_inverse);
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, matrix_v);
+            //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, matrix_v_inverse);
 
             //     cb_scene_properties.apply();
             // }
@@ -831,8 +770,8 @@ void SceneRenderer::compose_to_render_target(SceneRenderingContext &context, ID3
     gfx_.context().OMSetRenderTargets(1, &rtv, nullptr);
 
     D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f,
-        static_cast<FLOAT>(context.target_width()),
-        static_cast<FLOAT>(context.target_height()));
+                                        static_cast<FLOAT>(context.target_width()),
+                                        static_cast<FLOAT>(context.target_height()));
     gfx_.context().RSSetViewports(1u, &vp);
 
     // Bind the target_buffer as a shader resource
