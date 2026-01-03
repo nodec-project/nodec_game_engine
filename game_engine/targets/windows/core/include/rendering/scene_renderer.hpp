@@ -174,7 +174,10 @@ private:
     void render_internal(nodec_scene::Scene &scene,
                          const CameraState &camera_state,
                          std::uint32_t culling_mask,
-                         ID3D11RenderTargetView *target, SceneRenderingContext &context);
+                         ID3D11RenderTargetView *target, SceneRenderingContext &context,
+                         bool render_skybox);
+
+    void compose_to_render_target(SceneRenderingContext &context, ID3D11RenderTargetView &render_target);
 
     void push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,
                            const std::shared_ptr<MaterialBackend> &material_backend,

@@ -9,6 +9,8 @@
 #include <nodec/gfx/gfx.hpp>
 #include <nodec_rendering/components/camera.hpp>
 
+#include "scene_rendering_context.hpp"
+
 class CameraState {
 public:
     CameraState()
@@ -106,6 +108,12 @@ private:
 
 struct CameraActivity {
     std::unique_ptr<CameraState> state;
+
+    // BaseCamera only: owns the rendering context
+    std::unique_ptr<SceneRenderingContext> owned_rendering_context;
+
+    // Actual context to use (owned for BaseCamera, shared for OverlayCamera)
+    SceneRenderingContext *rendering_context{nullptr};
 };
 
 #endif

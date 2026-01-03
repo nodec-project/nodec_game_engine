@@ -263,13 +263,45 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
             }
         }
 
-        // Lambda to render a single camera
-        auto render_camera = [&](const CameraInfo &cam_info, bool clear_color) {
+        // Edge case: No Base camera in group
+        if (base_cameras.empty()) {
+            logger_->warn(__FILE__, __LINE__) << "No Base camera in group: " << group_name << ". Skipping group.";
+            continue;
+        }
+
+        // Edge case: Multiple Base cameras (use first one, warn)
+        if (base_cameras.size() > 1) {
+            logger_->warn(__FILE__, __LINE__) << "Multiple Base cameras in group: " << group_name
+                                              << ". Using first one (priority: " << base_cameras.front().camera->priority << ").";
+        }
+
+        // Get the Base camera and ensure it has a rendering context
+        const CameraInfo &base_cam_info = base_cameras.front();
+        SceneEntity base_camera_entity = base_cam_info.entity;
+
+        auto base_activity_result = scene_registry.emplace_component<CameraActivity>(base_camera_entity);
+        auto &base_activity = base_activity_result.first;
+        if (base_activity_result.second) {
+            base_activity.state = std::make_unique<CameraState>();
+        }
+
+        // Create owned_rendering_context for BaseCamera if not exists
+        if (!base_activity.owned_rendering_context) {
+            base_activity.owned_rendering_context = std::make_unique<SceneRenderingContext>(
+                context.target_width(), context.target_height(), gfx_);
+        }
+        base_activity.rendering_context = base_activity.owned_rendering_context.get();
+
+        SceneRenderingContext &camera_context = *base_activity.rendering_context;
+
+        // Lambda to render a single camera (Base or Overlay)
+        auto render_camera = [&](const CameraInfo &cam_info, bool is_base_camera) {
             SceneEntity camera_entity = cam_info.entity;
             const Camera &camera = *cam_info.camera;
             const LocalToWorld &camera_local_to_world = *cam_info.local_to_world;
 
-            ID3D11RenderTargetView *camera_render_target_view = &render_target;
+            // Use target_buffer as the primary render target
+            ID3D11RenderTargetView *camera_render_target_view = &camera_context.target_buffer().render_target_view();
 
             // --- Get active post process effects. ---
             std::vector<const PostProcessing::Effect *> activePostProcessEffects;
@@ -284,56 +316,60 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                     }
                 }
 
-                // If some effects, the off-screen buffer is needed.
+                // If some effects, render scene to target_buffer_back (input for PostProcess)
                 if (activePostProcessEffects.size() > 0) {
-                    auto &buffer = context.geometry_buffer("screen");
-
-                    // Set the render target.
-                    camera_render_target_view = &buffer.render_target_view();
+                    camera_render_target_view = &camera_context.target_buffer_back().render_target_view();
                 }
             }
 
+            // Get or create CameraActivity for this camera
             auto camera_activity_result = scene_registry.emplace_component<CameraActivity>(camera_entity);
             auto &camera_activity = camera_activity_result.first;
-            auto *camera_dirty = scene_registry.try_get_component<CameraDirty>(camera_entity);
             if (camera_activity_result.second) {
                 camera_activity.state = std::make_unique<CameraState>();
             }
 
-            const auto aspect = static_cast<float>(context.target_width()) / context.target_height();
-            camera_activity.state->update_projection(camera, aspect);
+            // Set rendering context (BaseCamera owns, OverlayCamera shares)
+            if (!is_base_camera) {
+                camera_activity.rendering_context = base_activity.rendering_context;
+            }
 
+            const auto aspect = static_cast<float>(camera_context.target_width()) / camera_context.target_height();
+            camera_activity.state->update_projection(camera, aspect);
             camera_activity.state->update_transform(camera_local_to_world.value);
 
-            // Clear color buffer only for Base cameras or first camera in group
-            if (clear_color) {
-                gfx_.context().ClearRenderTargetView(camera_render_target_view, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
+            // Clear buffers based on camera type
+            if (is_base_camera) {
+                // BaseCamera: clear all (target_buffer, geometry buffers, depth stencil)
+                camera_context.clear_all(Vector4f(0.0f, 0.0f, 0.0f, 1.0f));
+            } else {
+                // OverlayCamera: only clear geometry buffers (preserve target_buffer)
+                camera_context.clear_geometry_buffers();
+
+                // Clear depth buffer if clear_depth is true
+                if (camera.clear_depth) {
+                    camera_context.clear_depth_stencil();
+                }
             }
 
-            // Clear depth buffer if clear_depth is true
-            if (camera.clear_depth) {
-                gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-            }
-
+            // Render scene (skybox only for Base camera)
             render_internal(scene, *camera_activity.state, camera.culling_mask,
-                            camera_render_target_view, context);
+                            camera_render_target_view, camera_context, is_base_camera);
 
             // --- Post Processing ---
+            // Ping-pong pattern using target_buffer / target_buffer_back:
+            // - Scene output is in target_buffer_back
+            // - Each effect reads from target_buffer_back (via "screen" alias), writes to target_buffer
+            // - After each effect (except last), swap buffers so next effect can read previous output
             if (activePostProcessEffects.size() > 0) {
                 gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                 renderer_context_.bs_default().bind();
 
                 for (std::size_t i = 0; i < activePostProcessEffects.size(); ++i) {
-                    if (i != activePostProcessEffects.size() - 1) {
-                        camera_render_target_view = &context.geometry_buffer("screen_back").render_target_view();
-                    } else {
-                        // if last, render target is frame buffer.
-                        camera_render_target_view = &render_target;
-                    }
+                    // Always write to target_buffer
+                    camera_render_target_view = &camera_context.target_buffer().render_target_view();
 
-                    // It is assured that material and shader are exists.
-                    // It is checked at the beginning of rendering pass of camera.
                     auto material_backend = std::static_pointer_cast<MaterialBackend>(activePostProcessEffects[i]->material);
                     auto shader_backend = std::static_pointer_cast<ShaderBackend>(material_backend->shader());
 
@@ -342,41 +378,43 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
                     for (int passNum = 0; passNum < shader_backend->pass_count(); ++passNum) {
                         if (passNum == shader_backend->pass_count() - 1) {
-                            // If last pass.
-                            // The render target must be one final target.
-                            D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, context.target_width(), context.target_height());
+                            // Last pass: render to target_buffer
+                            D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f,
+                                static_cast<FLOAT>(camera_context.target_width()),
+                                static_cast<FLOAT>(camera_context.target_height()));
                             gfx_.context().RSSetViewports(1u, &vp);
                             gfx_.context().OMSetRenderTargets(1, &camera_render_target_view, nullptr);
 
                         } else {
-                            // If halfway pass.
-                            // Support the multiple render targets.
-
+                            // Intermediate pass: use multiple render targets (geometry buffers)
                             const auto &targets = shader_backend->render_targets(passNum);
 
                             std::vector<ID3D11RenderTargetView *> renderTargets(targets.size());
                             std::vector<D3D11_VIEWPORT> vps(targets.size());
-                            for (size_t i = 0; i < targets.size(); ++i) {
-                                auto &buffer = context.geometry_buffer(targets[i]);
-                                renderTargets[i] = &buffer.render_target_view();
-                                // gfx_.context().ClearRenderTargetView(renderTargets[i], Vector4f::zero.v);
-
-                                vps[i] = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(buffer.width()), static_cast<FLOAT>(buffer.height()));
+                            for (size_t j = 0; j < targets.size(); ++j) {
+                                auto &buffer = camera_context.geometry_buffer(targets[j]);
+                                renderTargets[j] = &buffer.render_target_view();
+                                vps[j] = CD3D11_VIEWPORT(0.f, 0.f,
+                                    static_cast<FLOAT>(buffer.width()),
+                                    static_cast<FLOAT>(buffer.height()));
                             }
 
                             gfx_.context().OMSetRenderTargets(static_cast<UINT>(renderTargets.size()), renderTargets.data(), nullptr);
                             gfx_.context().RSSetViewports(static_cast<UINT>(vps.size()), vps.data());
                         }
 
-                        // --- Bind texture resources.
-                        // Bind sampler for textures.
-
                         renderer_context_.sampler_state({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(&gfx_, slot_offset);
+
+                        // Bind shader resources - use shader_resource_view() to support $target_back and "screen" alias
                         const auto &texture_resources = shader_backend->texture_resources(passNum);
-                        for (std::size_t i = 0; i < texture_resources.size(); ++i) {
-                            auto &buffer = context.geometry_buffer(texture_resources[i]);
-                            auto *view = &buffer.shader_resource_view();
-                            gfx_.context().PSSetShaderResources(slot_offset + i, 1u, &view);
+                        for (std::size_t j = 0; j < texture_resources.size(); ++j) {
+                            auto *view = camera_context.shader_resource_view(texture_resources[j]);
+                            if (!view) {
+                                // Fallback to geometry_buffer for other named buffers
+                                auto &buffer = camera_context.geometry_buffer(texture_resources[j]);
+                                view = &buffer.shader_resource_view();
+                            }
+                            gfx_.context().PSSetShaderResources(slot_offset + j, 1u, &view);
                         }
                         shader_backend->bind(passNum);
 
@@ -387,22 +425,26 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                         renderer_context_.unbind_all_shader_resources(slot_offset, static_cast<UINT>(texture_resources.size()));
                     } // End foreach pass.
                     renderer_context_.unbind_all_shader_resources(slot_offset);
-                    context.swap_geometry_buffers("screen", "screen_back");
+
+                    // Swap buffers for next effect (not after last effect)
+                    if (i != activePostProcessEffects.size() - 1) {
+                        camera_context.swap_target_buffers();
+                    }
                 } // End foreach effect.
             }
         };
 
-        // Render Base cameras first (clear color for first one)
-        bool first_camera = true;
-        for (const auto &cam_info : base_cameras) {
-            render_camera(cam_info, first_camera);
-            first_camera = false;
-        }
+        // Render Base camera (first one only)
+        render_camera(base_cam_info, true);
 
-        // Render Overlay cameras (never clear color)
+        // Render Overlay cameras
         for (const auto &cam_info : overlay_cameras) {
             render_camera(cam_info, false);
         }
+
+        // Final composition: copy target_buffer to render_target
+        compose_to_render_target(camera_context, render_target);
+
     } // End foreach camera group
 }
 
@@ -416,13 +458,17 @@ void SceneRenderer::render(nodec_scene::Scene &scene, const CameraState &camera_
 
     setup_scene_lighting(scene);
 
-    // Clear buffers (required for proper rendering)
-    gfx_.context().ClearRenderTargetView(render_target, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
-    gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+    // Clear all buffers (this API is for direct rendering without camera stack)
+    context.clear_all(Vector4f(0.0f, 0.0f, 0.0f, 1.0f));
+
+    // Clear the external render target as well
+    const float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+    gfx_.context().ClearRenderTargetView(render_target, clear_color);
 
     // Use default culling mask (all layers) when rendering without Camera component
+    // render_skybox = true for standalone rendering
     render_internal(scene, camera_state, 0xFFFFFFFF,
-                    render_target, context);
+                    render_target, context, true);
 }
 
 float calculate_screen_pixel_size(const DirectX::XMMATRIX &world_view_projection, const nodec::gfx::BoundingBox &bounds,
@@ -489,7 +535,8 @@ float calculate_screen_pixel_size(const DirectX::XMMATRIX &world_view_projection
 void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                                     const CameraState &camera_state,
                                     std::uint32_t culling_mask,
-                                    ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
+                                    ID3D11RenderTargetView *render_target, SceneRenderingContext &context,
+                                    bool render_skybox) {
     assert(render_target != nullptr);
     using namespace nodec;
     using namespace nodec_scene;
@@ -600,14 +647,7 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
     // フレーム終了時の処理
     // occlusion_system_.end_frame();
 
-    // Clear geometry buffers (but not render target - handled by caller)
-    {
-        for (auto iter = context.geometry_buffer_begin(); iter != context.geometry_buffer_end(); ++iter) {
-            auto &buffer = iter->second;
-            if (!buffer) continue;
-            gfx_.context().ClearRenderTargetView(&buffer->render_target_view(), Vector4f::zero.v);
-        }
-    }
+    // Note: Geometry buffer clearing is now handled by the caller (clear_all or clear_geometry_buffers)
 
     auto &cb_scene_properties = renderer_context_.cb_scene_properties();
 
@@ -653,34 +693,35 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
     // Note: Depth buffer clearing is now handled by the caller based on camera.clear_depth
 
-    // Render skybox.
-    [&]() {
-        auto &norm_cube_mesh = renderer_context_.norm_cube_mesh();
+    // Render skybox (only for Base camera)
+    if (render_skybox) {
+        [&]() {
+            auto &norm_cube_mesh = renderer_context_.norm_cube_mesh();
 
-        auto view = scene.registry().view<nodec_rendering::components::SceneLighting>();
-        if (view.begin() == view.end()) return;
+            auto view = scene.registry().view<nodec_rendering::components::SceneLighting>();
+            if (view.begin() == view.end()) return;
 
-        auto entt = *view.begin();
-        const auto &lighting = view.get<nodec_rendering::components::SceneLighting>(entt);
+            auto entt = *view.begin();
+            const auto &lighting = view.get<nodec_rendering::components::SceneLighting>(entt);
 
-        auto material_backend = static_cast<MaterialBackend *>(lighting.skybox.get());
-        if (!material_backend) return;
+            auto material_backend = static_cast<MaterialBackend *>(lighting.skybox.get());
+            if (!material_backend) return;
 
-        auto shader_backend = static_cast<ShaderBackend *>(material_backend->shader().get());
-        if (!shader_backend) return;
+            auto shader_backend = static_cast<ShaderBackend *>(material_backend->shader().get());
+            if (!shader_backend) return;
 
-        renderer_context_.bs_default().bind();
+            renderer_context_.bs_default().bind();
 
-        gfx_.context().OMSetRenderTargets(1, &render_target, nullptr);
-        D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(context.target_width()), static_cast<FLOAT>(context.target_height()));
-        gfx_.context().RSSetViewports(1u, &vp);
-        gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        shader_backend->bind();
+            gfx_.context().OMSetRenderTargets(1, &render_target, nullptr);
+            D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f, static_cast<FLOAT>(context.target_width()), static_cast<FLOAT>(context.target_height()));
+            gfx_.context().RSSetViewports(1u, &vp);
+            gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            shader_backend->bind();
 
-        renderer_context_.bind_material(material_backend);
+            renderer_context_.bind_material(material_backend);
 
-        norm_cube_mesh.bind(&gfx_);
-        gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
+            norm_cube_mesh.bind(&gfx_);
+            gfx_.DrawIndexed(norm_cube_mesh.triangles.size());
 
         // // --- Render environment map.
         // {
@@ -702,9 +743,10 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
         //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v, matrix_v);
         //     XMStoreFloat4x4(&cb_scene_properties.data().matrix_v_inverse, matrix_v_inverse);
 
-        //     cb_scene_properties.apply();
-        // }
-    }();
+            //     cb_scene_properties.apply();
+            // }
+        }();
+    } // End if (render_skybox)
 
     renderer_context_.cb_model_properties().buffer().bind(SceneRenderingConstants::MODEL_PROPERTIES_CB_SLOT);
 
@@ -777,4 +819,43 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
         ++iter;
     }
+}
+
+void SceneRenderer::compose_to_render_target(SceneRenderingContext &context, ID3D11RenderTargetView &render_target) {
+    using namespace nodec;
+    using namespace nodec_rendering;
+    using namespace DirectX;
+
+    // Set render target to the final output
+    ID3D11RenderTargetView *rtv = &render_target;
+    gfx_.context().OMSetRenderTargets(1, &rtv, nullptr);
+
+    D3D11_VIEWPORT vp = CD3D11_VIEWPORT(0.f, 0.f,
+        static_cast<FLOAT>(context.target_width()),
+        static_cast<FLOAT>(context.target_height()));
+    gfx_.context().RSSetViewports(1u, &vp);
+
+    // Bind the target_buffer as a shader resource
+    auto *srv = &context.target_buffer().shader_resource_view();
+    gfx_.context().PSSetShaderResources(0, 1, &srv);
+
+    // Use copy shader to copy target_buffer to render_target
+    renderer_context_.bind_copy_shader();
+
+    // Set sampler
+    renderer_context_.sampler_state({Sampler::FilterMode::Bilinear, Sampler::WrapMode::Clamp}).BindPS(&gfx_, 0);
+
+    // Set default blend state
+    renderer_context_.bs_default().bind();
+
+    // Set topology and render fullscreen quad
+    gfx_.context().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    auto &screen_quad_mesh = renderer_context_.screen_quad_mesh();
+    screen_quad_mesh.bind(&gfx_);
+    gfx_.DrawIndexed(static_cast<UINT>(screen_quad_mesh.triangles.size()));
+
+    // Unbind SRV to avoid resource hazard
+    ID3D11ShaderResourceView *null_srv = nullptr;
+    gfx_.context().PSSetShaderResources(0, 1, &null_srv);
 }

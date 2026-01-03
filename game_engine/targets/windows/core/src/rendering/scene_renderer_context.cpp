@@ -1,5 +1,35 @@
 #include <rendering/scene_renderer_context.hpp>
 
+#include <d3dcompiler.h>
+
+namespace {
+
+// Simple passthrough shader for copying texture to render target
+constexpr const char *g_copy_vs_code = R"(
+struct VS_OUTPUT {
+    float4 pos : SV_POSITION;
+    float2 uv : TEXCOORD0;
+};
+
+VS_OUTPUT main(float3 position : POSITION, float3 normal : NORMAL, float2 uv : TEXCOORD0) {
+    VS_OUTPUT output;
+    output.pos = float4(position, 1.0);
+    output.uv = uv;
+    return output;
+}
+)";
+
+constexpr const char *g_copy_ps_code = R"(
+Texture2D tex : register(t0);
+SamplerState samp : register(s0);
+
+float4 main(float4 pos : SV_POSITION, float2 uv : TEXCOORD0) : SV_Target {
+    return tex.Sample(samp, uv);
+}
+)";
+
+} // namespace
+
 SceneRendererContext::SceneRendererContext(std::shared_ptr<nodec::logging::Logger> logger, Graphics &gfx,
                                            nodec::resource_management::ResourceRegistry &resource_registry)
     : logger_(logger), gfx_(gfx),
@@ -60,4 +90,45 @@ SceneRendererContext::SceneRendererContext(std::shared_ptr<nodec::logging::Logge
         screen_quad_mesh_->triangles[5] = 3;
         screen_quad_mesh_->update_device_memory(&gfx_);
     }
+
+    // Compile and create copy shader for compose_to_render_target
+    {
+        Microsoft::WRL::ComPtr<ID3DBlob> vs_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> ps_blob;
+        Microsoft::WRL::ComPtr<ID3DBlob> error_blob;
+
+        HRESULT hr = D3DCompile(g_copy_vs_code, strlen(g_copy_vs_code), nullptr, nullptr, nullptr,
+                                "main", "vs_5_0", 0, 0, &vs_blob, &error_blob);
+        if (FAILED(hr)) {
+            const char *error_msg = error_blob ? static_cast<const char *>(error_blob->GetBufferPointer()) : "Unknown error";
+            logger_->error(__FILE__, __LINE__) << "Failed to compile copy vertex shader: " << error_msg;
+            throw std::runtime_error("Failed to compile copy vertex shader");
+        }
+
+        hr = D3DCompile(g_copy_ps_code, strlen(g_copy_ps_code), nullptr, nullptr, nullptr,
+                        "main", "ps_5_0", 0, 0, &ps_blob, &error_blob);
+        if (FAILED(hr)) {
+            const char *error_msg = error_blob ? static_cast<const char *>(error_blob->GetBufferPointer()) : "Unknown error";
+            logger_->error(__FILE__, __LINE__) << "Failed to compile copy pixel shader: " << error_msg;
+            throw std::runtime_error("Failed to compile copy pixel shader");
+        }
+
+        gfx_.device().CreateVertexShader(vs_blob->GetBufferPointer(), vs_blob->GetBufferSize(), nullptr, &copy_vs_);
+        gfx_.device().CreatePixelShader(ps_blob->GetBufferPointer(), ps_blob->GetBufferSize(), nullptr, &copy_ps_);
+
+        // Create input layout matching screen_quad_mesh vertex format
+        D3D11_INPUT_ELEMENT_DESC layout[] = {
+            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        };
+
+        gfx_.device().CreateInputLayout(layout, 3, vs_blob->GetBufferPointer(), vs_blob->GetBufferSize(), &copy_input_layout_);
+    }
+}
+
+void SceneRendererContext::bind_copy_shader() {
+    gfx_.context().IASetInputLayout(copy_input_layout_.Get());
+    gfx_.context().VSSetShader(copy_vs_.Get(), nullptr, 0);
+    gfx_.context().PSSetShader(copy_ps_.Get(), nullptr, 0);
 }

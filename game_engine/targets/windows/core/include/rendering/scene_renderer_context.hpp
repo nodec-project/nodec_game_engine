@@ -174,6 +174,8 @@ public:
         return font_character_database_;
     }
 
+    void bind_copy_shader();
+
 private:
     std::shared_ptr<nodec::logging::Logger> logger_;
 
@@ -204,6 +206,11 @@ private:
     BlendState bs_alpha_blend_;
 
     std::intptr_t last_bound_material_id_ = 0x00;
+
+    // Copy shader for compose_to_render_target
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> copy_vs_;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader> copy_ps_;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> copy_input_layout_;
 };
 
 #endif

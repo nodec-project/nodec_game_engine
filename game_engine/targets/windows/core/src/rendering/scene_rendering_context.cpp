@@ -4,6 +4,18 @@ SceneRenderingContext::SceneRenderingContext(
     std::uint32_t target_width,
     std::uint32_t target_height, Graphics &gfx)
     : gfx_(gfx), target_width_(target_width), target_height_(target_height) {
+    // Create target buffers for camera color output (ping-pong for PostProcessing)
+    target_buffer_ = std::make_unique<GeometryBuffer>(&gfx_, target_width, target_height);
+    target_buffer_back_ = std::make_unique<GeometryBuffer>(&gfx_, target_width, target_height);
+
+    // Register target buffer SRV for shader access
+    shader_resource_views_["$target"] = &target_buffer_->shader_resource_view();
+    shader_resource_views_["$target_back"] = &target_buffer_back_->shader_resource_view();
+
+    // Register legacy "screen" alias for PostProcessing compatibility
+    // "screen" always points to target_buffer_back (the input for PostProcess effects)
+    shader_resource_views_["screen"] = &target_buffer_back_->shader_resource_view();
+
     {
         // Generate the depth stencil buffer texture.
         D3D11_TEXTURE2D_DESC depth_stencil_buffer_desc{};
@@ -37,4 +49,49 @@ SceneRenderingContext::SceneRenderingContext(
 
         shader_resource_views_["$depth"] = depth_stencil_srv_.Get();
     }
+}
+
+GeometryBuffer &SceneRenderingContext::target_buffer() {
+    return *target_buffer_;
+}
+
+GeometryBuffer &SceneRenderingContext::target_buffer_back() {
+    return *target_buffer_back_;
+}
+
+void SceneRenderingContext::swap_target_buffers() {
+    std::swap(target_buffer_, target_buffer_back_);
+
+    // Update all SRV pointers to reflect new buffer ownership
+    shader_resource_views_["$target"] = &target_buffer_->shader_resource_view();
+    shader_resource_views_["$target_back"] = &target_buffer_back_->shader_resource_view();
+
+    // Update legacy "screen" alias - always points to target_buffer_back (input)
+    shader_resource_views_["screen"] = &target_buffer_back_->shader_resource_view();
+}
+
+void SceneRenderingContext::clear_geometry_buffers() {
+    const float clear_color[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    for (auto &[name, buffer] : geometry_buffers_) {
+        gfx_.context().ClearRenderTargetView(&buffer->render_target_view(), clear_color);
+    }
+}
+
+void SceneRenderingContext::clear_depth_stencil() {
+    gfx_.context().ClearDepthStencilView(
+        depth_stencil_view_.Get(),
+        D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+        1.0f, 0);
+}
+
+void SceneRenderingContext::clear_all(const nodec::Vector4f &clear_color) {
+    // Clear target buffer
+    const float color[4] = {clear_color.x, clear_color.y, clear_color.z, clear_color.w};
+    gfx_.context().ClearRenderTargetView(&target_buffer_->render_target_view(), color);
+
+    // Clear geometry buffers
+    clear_geometry_buffers();
+
+    // Clear depth stencil
+    clear_depth_stencil();
 }

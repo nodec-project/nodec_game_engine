@@ -9,6 +9,7 @@
 #include <d3d11.h>
 #include <wrl.h>
 
+#include <nodec/vector4.hpp>
 #include <nodec_rendering/cull_mode.hpp>
 
 #include "../graphics/RasterizerState.hpp"
@@ -18,6 +19,16 @@
 class SceneRenderingContext {
 public:
     SceneRenderingContext(std::uint32_t target_width, std::uint32_t target_height, Graphics &gfx);
+
+    // Target buffer access (camera color output)
+    GeometryBuffer &target_buffer();
+    GeometryBuffer &target_buffer_back();
+    void swap_target_buffers();
+
+    // Clear methods
+    void clear_geometry_buffers();
+    void clear_all(const nodec::Vector4f &clear_color);
+    void clear_depth_stencil();
 
     GeometryBuffer &geometry_buffer(const std::string &name) {
         return geometry_buffer(name, target_width_, target_height_);
@@ -92,6 +103,10 @@ private:
     std::uint32_t target_height_;
     Graphics &gfx_;
     std::unordered_map<std::string, std::unique_ptr<GeometryBuffer>> geometry_buffers_;
+
+    // Camera color output buffers (ping-pong for PostProcessing)
+    std::unique_ptr<GeometryBuffer> target_buffer_;
+    std::unique_ptr<GeometryBuffer> target_buffer_back_;
 
     Microsoft::WRL::ComPtr<ID3D11Texture2D> depth_stencil_texture_;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilView> depth_stencil_view_;
