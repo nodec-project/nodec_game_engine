@@ -14,6 +14,7 @@
 #include <nodec/vector4.hpp>
 #include <nodec_rendering/components/camera.hpp>
 #include <nodec_rendering/components/directional_light.hpp>
+#include <nodec_rendering/components/render_layer.hpp>
 #include <nodec_rendering/components/image_renderer.hpp>
 #include <nodec_rendering/components/mesh_renderer.hpp>
 #include <nodec_rendering/components/non_visible.hpp>
@@ -172,6 +173,7 @@ private:
 
     void render_internal(nodec_scene::Scene &scene,
                          const CameraState &camera_state,
+                         std::uint32_t culling_mask,
                          ID3D11RenderTargetView *target, SceneRenderingContext &context);
 
     void push_draw_command(std::shared_ptr<ShaderBackend> shader, bool is_transparent,

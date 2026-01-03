@@ -11,6 +11,133 @@
 #include <rendering/mesh_renderer_activity.hpp>
 #include <rendering/text_renderer_activity.hpp>
 
+#include <map>
+#include <utility>
+
+namespace {
+
+// Camera info for sorting and grouping
+struct CameraInfo {
+    nodec_scene::SceneEntity entity;
+    const nodec_rendering::components::Camera *camera;
+    const nodec_scene::components::LocalToWorld *local_to_world;
+};
+
+// =============================================================================
+// ECS Layer-based Recursive Template Iteration
+// Process entities with RenderLayer<N> for each layer matching culling_mask
+// Note: Entities without any RenderLayer component are NOT rendered.
+// =============================================================================
+
+// MeshRenderer: Process layer N, then recurse to lower layers
+template<std::uint32_t N, typename ProcessFn>
+void process_mesh_renderers_layer_impl(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &&process_fn) {
+
+    using namespace nodec_rendering::components;
+    using namespace nodec_scene::components;
+    using nodec_scene::SceneEntity;
+
+    // Process layer N if included in culling_mask
+    if (culling_mask & (1u << N)) {
+        registry.view<MeshRendererActivity, const MeshRenderer, const LocalToWorld, const RenderLayer<N>>(
+            nodec::type_list<NonVisible>{})
+            .each([&](SceneEntity entity, MeshRendererActivity &activity,
+                      const MeshRenderer &renderer, const LocalToWorld &local_to_world, const RenderLayer<N> &) {
+                process_fn(entity, activity, renderer, local_to_world);
+            });
+    }
+
+    // Recurse to lower layers
+    if constexpr (N > 0) {
+        process_mesh_renderers_layer_impl<N - 1>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+    }
+}
+
+// MeshRenderer: Main entry point - process all matching layers
+template<typename ProcessFn>
+void process_mesh_renderers_by_layer(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &&process_fn) {
+
+    process_mesh_renderers_layer_impl<31>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+}
+
+// ImageRenderer: Process layer N, then recurse to lower layers
+template<std::uint32_t N, typename ProcessFn>
+void process_image_renderers_layer_impl(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &&process_fn) {
+
+    using namespace nodec_rendering::components;
+    using namespace nodec_scene::components;
+    using nodec_scene::SceneEntity;
+
+    if (culling_mask & (1u << N)) {
+        registry.view<ImageRendererActivity, const ImageRenderer, const LocalToWorld, const RenderLayer<N>>(
+            nodec::type_list<NonVisible>{})
+            .each([&](SceneEntity entity, ImageRendererActivity &activity,
+                      const ImageRenderer &renderer, const LocalToWorld &local_to_world, const RenderLayer<N> &) {
+                process_fn(entity, activity, renderer, local_to_world);
+            });
+    }
+
+    if constexpr (N > 0) {
+        process_image_renderers_layer_impl<N - 1>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+    }
+}
+
+// ImageRenderer: Main entry point - process all matching layers
+template<typename ProcessFn>
+void process_image_renderers_by_layer(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &&process_fn) {
+
+    process_image_renderers_layer_impl<31>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+}
+
+// TextRenderer: Process layer N, then recurse to lower layers
+template<std::uint32_t N, typename ProcessFn>
+void process_text_renderers_layer_impl(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &&process_fn) {
+
+    using namespace nodec_rendering::components;
+    using namespace nodec_scene::components;
+    using nodec_scene::SceneEntity;
+
+    if (culling_mask & (1u << N)) {
+        registry.view<TextRendererActivity, const TextRenderer, const LocalToWorld, const RenderLayer<N>>(
+            nodec::type_list<NonVisible>{})
+            .each([&](SceneEntity entity, TextRendererActivity &activity,
+                      const TextRenderer &renderer, const LocalToWorld &local_to_world, const RenderLayer<N> &) {
+                process_fn(entity, activity, renderer, local_to_world);
+            });
+    }
+
+    if constexpr (N > 0) {
+        process_text_renderers_layer_impl<N - 1>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+    }
+}
+
+// TextRenderer: Main entry point - process all matching layers
+template<typename ProcessFn>
+void process_text_renderers_by_layer(
+    nodec_scene::SceneRegistry &registry,
+    std::uint32_t culling_mask,
+    ProcessFn &&process_fn) {
+
+    process_text_renderers_layer_impl<31>(registry, culling_mask, std::forward<ProcessFn>(process_fn));
+}
+
+} // anonymous namespace
+
 SceneRenderer::SceneRenderer(nodec_scene::Scene &scene,
                              Graphics &gfx,
                              nodec::resource_management::ResourceRegistry &resource_registry)
@@ -107,10 +234,41 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
     setup_scene_lighting(scene);
 
-    // Render the scene per each camera.
+    // --- Camera Grouping and Stacking ---
+    // Group cameras by camera_group, then sort by priority within each group
+    std::map<std::string, std::vector<CameraInfo>> camera_groups;
+
     scene.registry().view<const Camera, const LocalToWorld>().each(
-        [&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &camera_local_to_world) {
-            // logger_->info(__FILE__, __LINE__) << "!!";
+        [&](SceneEntity camera_entity, const Camera &camera, const LocalToWorld &local_to_world) {
+            camera_groups[camera.camera_group].push_back({camera_entity, &camera, &local_to_world});
+        });
+
+    // Process each camera group
+    for (auto &[group_name, cameras] : camera_groups) {
+        // Sort cameras by priority (lower values render first)
+        std::sort(cameras.begin(), cameras.end(),
+                  [](const CameraInfo &a, const CameraInfo &b) {
+                      return a.camera->priority < b.camera->priority;
+                  });
+
+        // Separate Base and Overlay cameras
+        std::vector<CameraInfo> base_cameras;
+        std::vector<CameraInfo> overlay_cameras;
+
+        for (const auto &cam_info : cameras) {
+            if (cam_info.camera->render_type == Camera::RenderType::Base) {
+                base_cameras.push_back(cam_info);
+            } else {
+                overlay_cameras.push_back(cam_info);
+            }
+        }
+
+        // Lambda to render a single camera
+        auto render_camera = [&](const CameraInfo &cam_info, bool clear_color) {
+            SceneEntity camera_entity = cam_info.entity;
+            const Camera &camera = *cam_info.camera;
+            const LocalToWorld &camera_local_to_world = *cam_info.local_to_world;
+
             ID3D11RenderTargetView *camera_render_target_view = &render_target;
 
             // --- Get active post process effects. ---
@@ -147,7 +305,17 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
 
             camera_activity.state->update_transform(camera_local_to_world.value);
 
-            render_internal(scene, *camera_activity.state,
+            // Clear color buffer only for Base cameras or first camera in group
+            if (clear_color) {
+                gfx_.context().ClearRenderTargetView(camera_render_target_view, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
+            }
+
+            // Clear depth buffer if clear_depth is true
+            if (camera.clear_depth) {
+                gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+            }
+
+            render_internal(scene, *camera_activity.state, camera.culling_mask,
                             camera_render_target_view, context);
 
             // --- Post Processing ---
@@ -222,7 +390,20 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
                     context.swap_geometry_buffers("screen", "screen_back");
                 } // End foreach effect.
             }
-        }); // End foreach camera
+        };
+
+        // Render Base cameras first (clear color for first one)
+        bool first_camera = true;
+        for (const auto &cam_info : base_cameras) {
+            render_camera(cam_info, first_camera);
+            first_camera = false;
+        }
+
+        // Render Overlay cameras (never clear color)
+        for (const auto &cam_info : overlay_cameras) {
+            render_camera(cam_info, false);
+        }
+    } // End foreach camera group
 }
 
 void SceneRenderer::render(nodec_scene::Scene &scene, const CameraState &camera_state, ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
@@ -235,7 +416,12 @@ void SceneRenderer::render(nodec_scene::Scene &scene, const CameraState &camera_
 
     setup_scene_lighting(scene);
 
-    render_internal(scene, camera_state,
+    // Clear buffers (required for proper rendering)
+    gfx_.context().ClearRenderTargetView(render_target, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
+    gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+    // Use default culling mask (all layers) when rendering without Camera component
+    render_internal(scene, camera_state, 0xFFFFFFFF,
                     render_target, context);
 }
 
@@ -302,6 +488,7 @@ float calculate_screen_pixel_size(const DirectX::XMMATRIX &world_view_projection
 
 void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                                     const CameraState &camera_state,
+                                    std::uint32_t culling_mask,
                                     ID3D11RenderTargetView *render_target, SceneRenderingContext &context) {
     assert(render_target != nullptr);
     using namespace nodec;
@@ -320,20 +507,25 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
     DirectX::XMMATRIX matrix_vp = camera_state.matrix_v() * camera_state.matrix_p();
 
     // Group the draw-command by the shader.
+    // Using ECS layer-based view iteration for efficient culling
+
+    // --- MeshRenderer ---
     {
+        // Ensure MeshRendererActivity exists for all MeshRenderer entities
         scene_registry.view<MeshRenderer>(type_list<MeshRendererActivity>{})
             .each([&](SceneEntity entity, MeshRenderer &) {
-                auto &activity = scene_registry.emplace_component<MeshRendererActivity>(entity).first;
+                scene_registry.emplace_component<MeshRendererActivity>(entity);
             });
+        // Remove orphaned activities
         {
             auto view = scene_registry.view<MeshRendererActivity>(type_list<MeshRenderer>{});
             scene_registry.remove_components<MeshRendererActivity>(view.begin(), view.end());
         }
 
-        scene_registry.view<MeshRendererActivity, const MeshRenderer, const LocalToWorld>(type_list<NonVisible>{})
-            .each([&](SceneEntity entity,
-                      MeshRendererActivity &activity,
-                      const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
+        // ECS-optimized: Iterate only entities matching culling_mask layers
+        process_mesh_renderers_by_layer(scene_registry, culling_mask,
+            [&](SceneEntity entity, MeshRendererActivity &activity,
+                const MeshRenderer &renderer, const LocalToWorld &local_to_world) {
                 auto commands = activity.get_commands_if_needed(camera_state, entity, renderer, local_to_world);
                 for (auto *command : commands) {
                     auto is_transparent = command->material_->is_transparent();
@@ -347,62 +539,69 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
                 }
             });
     }
+
+    // --- ImageRenderer ---
     {
         scene_registry.view<ImageRenderer>(type_list<ImageRendererActivity>{})
             .each([&](SceneEntity entity, ImageRenderer &) {
-                auto &activity = scene_registry.emplace_component<ImageRendererActivity>(entity).first;
+                scene_registry.emplace_component<ImageRendererActivity>(entity);
             });
         {
             auto view = scene_registry.view<ImageRendererActivity>(type_list<ImageRenderer>{});
             scene_registry.remove_components<ImageRendererActivity>(view.begin(), view.end());
         }
-        scene.registry().view<ImageRendererActivity, const ImageRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, ImageRendererActivity &activity, const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
-            auto command = activity.get_commands_if_needed(
-                camera_state, entity, renderer, local_to_world);
-            if (!command) return;
 
-            const bool is_transparent = command->material_->is_transparent();
-            push_draw_command(
-                std::static_pointer_cast<ShaderBackend>(command->material_->shader()),
-                is_transparent,
-                command->material_,
-                command,
-                command->matrix_m_,
-                camera_state.matrix_v_inverse());
-        });
+        // ECS-optimized: Iterate only entities matching culling_mask layers
+        process_image_renderers_by_layer(scene_registry, culling_mask,
+            [&](SceneEntity entity, ImageRendererActivity &activity,
+                const ImageRenderer &renderer, const LocalToWorld &local_to_world) {
+                auto command = activity.get_commands_if_needed(camera_state, entity, renderer, local_to_world);
+                if (!command) return;
+
+                const bool is_transparent = command->material_->is_transparent();
+                push_draw_command(
+                    std::static_pointer_cast<ShaderBackend>(command->material_->shader()),
+                    is_transparent,
+                    command->material_,
+                    command,
+                    command->matrix_m_,
+                    camera_state.matrix_v_inverse());
+            });
     }
+
+    // --- TextRenderer ---
     {
         scene_registry.view<TextRenderer>(type_list<TextRendererActivity>{})
             .each([&](SceneEntity entity, TextRenderer &) {
-                auto &activity = scene_registry.emplace_component<TextRendererActivity>(entity).first;
+                scene_registry.emplace_component<TextRendererActivity>(entity);
             });
         {
             auto view = scene_registry.view<TextRendererActivity>(type_list<TextRenderer>{});
             scene_registry.remove_components<TextRendererActivity>(view.begin(), view.end());
         }
 
-        scene.registry().view<TextRendererActivity, const TextRenderer, const LocalToWorld>(type_list<NonVisible>{}).each([&](SceneEntity entity, TextRendererActivity &activity, const TextRenderer &renderer, const LocalToWorld &local_to_world) {
-            auto command = activity.get_command_if_needed(
-                camera_state, entity, renderer, local_to_world);
-            if (!command) return;
+        // ECS-optimized: Iterate only entities matching culling_mask layers
+        process_text_renderers_by_layer(scene_registry, culling_mask,
+            [&](SceneEntity entity, TextRendererActivity &activity,
+                const TextRenderer &renderer, const LocalToWorld &local_to_world) {
+                auto command = activity.get_command_if_needed(camera_state, entity, renderer, local_to_world);
+                if (!command) return;
 
-            const bool is_transparent = command->material_->is_transparent();
-
-            push_draw_command(command->shader_,
-                              is_transparent,
-                              command->material_,
-                              std::move(command),
-                              command->matrix_m_,
-                              camera_state.matrix_v_inverse());
-        });
+                const bool is_transparent = command->material_->is_transparent();
+                push_draw_command(command->shader_,
+                                  is_transparent,
+                                  command->material_,
+                                  std::move(command),
+                                  command->matrix_m_,
+                                  camera_state.matrix_v_inverse());
+            });
     }
 
     // フレーム終了時の処理
     // occlusion_system_.end_frame();
 
-    // Clear render target view with solid color.
+    // Clear geometry buffers (but not render target - handled by caller)
     {
-        gfx_.context().ClearRenderTargetView(render_target, Vector4f(0.0f, 0.0f, 0.0f, 1.0f).v);
         for (auto iter = context.geometry_buffer_begin(); iter != context.geometry_buffer_end(); ++iter) {
             auto &buffer = iter->second;
             if (!buffer) continue;
@@ -452,8 +651,7 @@ void SceneRenderer::render_internal(nodec_scene::Scene &scene,
 
     cb_scene_properties.apply();
 
-    // Reset depth buffer.
-    gfx_.context().ClearDepthStencilView(&context.depth_stencil_view(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+    // Note: Depth buffer clearing is now handled by the caller based on camera.clear_depth
 
     // Render skybox.
     [&]() {
