@@ -6,7 +6,7 @@
 #include <DirectXMath.h>
 #include <wrl/client.h>
 
-#include <unordered_map>
+#include <vector>
 
 #include <nodec/matrix4x4.hpp>
 #include <nodec_scene/scene.hpp>
@@ -80,8 +80,9 @@ private:
     PickingPropertiesCB picking_properties_data_;
 
     // Entity ID mapping (rebuilt each frame)
-    std::unordered_map<uint32_t, nodec_scene::SceneEntity> id_to_entity_;
-    uint32_t next_id_ = 1; // 0 = no entity (background)
+    // ID is 1-based index: entity at index i has ID = i + 1
+    // ID 0 = no entity (background)
+    std::vector<nodec_scene::SceneEntity> id_to_entity_;
 
     // Quad mesh for ImageRenderer picking (0.5 x 0.5 centered at origin)
     std::unique_ptr<MeshBackend> quad_mesh_;

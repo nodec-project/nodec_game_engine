@@ -3,7 +3,7 @@
 #include "FontFace.hpp"
 #include "FontTexture.hpp"
 
-#include <nodec/containers/sparse_table.hpp>
+#include <nodec/containers/paged_array.hpp>
 #include <nodec/vector2.hpp>
 
 #include <string>
@@ -37,7 +37,7 @@ struct FontCharacter {
 class FontCharacterDatabase {
     struct FaceBlock {
         std::uint16_t pixelSize;
-        nodec::containers::SparseTable<FontCharacter> characters;
+        nodec::containers::PagedArray<FontCharacter> characters;
     };
 
 public:

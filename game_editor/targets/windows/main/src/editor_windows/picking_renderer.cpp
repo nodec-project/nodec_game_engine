@@ -314,7 +314,6 @@ void PickingRenderer::render(nodec_scene::Scene& scene,
 
     // Reset ID mapping
     id_to_entity_.clear();
-    next_id_ = 1;
 
     // Render MeshRenderer entities
     {
@@ -331,9 +330,9 @@ void PickingRenderer::render(nodec_scene::Scene& scene,
                 auto* mesh_backend = static_cast<MeshBackend*>(mesh.get());
                 if (!mesh_backend->vertex_buffer() || !mesh_backend->index_buffer()) continue;
 
-                // Assign entity ID
-                uint32_t id = next_id_++;
-                id_to_entity_[id] = entity;
+                // Assign entity ID (1-based: index 0 has ID 1)
+                id_to_entity_.push_back(entity);
+                uint32_t id = static_cast<uint32_t>(id_to_entity_.size());
 
                 // Set model properties
                 XMMATRIX xm_m = XMMATRIX(local_to_world.value.m);
@@ -372,9 +371,9 @@ void PickingRenderer::render(nodec_scene::Scene& scene,
             float img_width = tex_backend->width() / ppu;
             float img_height = tex_backend->height() / ppu;
 
-            // Assign entity ID
-            uint32_t id = next_id_++;
-            id_to_entity_[id] = entity;
+            // Assign entity ID (1-based: index 0 has ID 1)
+            id_to_entity_.push_back(entity);
+            uint32_t id = static_cast<uint32_t>(id_to_entity_.size());
 
             // Calculate model matrix with image scale
             XMMATRIX xm_scale = XMMatrixScaling(img_width, img_height, 1.0f);
@@ -433,10 +432,9 @@ nodec_scene::SceneEntity PickingRenderer::pick(int x, int y) {
     uint32_t entity_id = *static_cast<uint32_t*>(mapped.pData);
     gfx_.context().Unmap(staging_texture_.Get(), 0);
 
-    // Lookup entity
-    auto it = id_to_entity_.find(entity_id);
-    if (it != id_to_entity_.end()) {
-        return it->second;
+    // Lookup entity (ID is 1-based, so index = entity_id - 1)
+    if (entity_id > 0 && entity_id <= id_to_entity_.size()) {
+        return id_to_entity_[entity_id - 1];
     }
 
     return nodec_scene::SceneEntity{entities::null_entity};
