@@ -1,15 +1,31 @@
 // Game Engine API Client
 
-// Entity info for root entities list
-export interface EntityInfo {
-  id: string;  // Entity ID as string
-  name: string;
-  has_children: boolean;
+// Hierarchy info for entities
+export interface EntityHierarchy {
+  parent: number | null;
+  children: number[];
 }
 
-// Response from /api/entities/roots
-export interface RootEntitiesResponse {
-  entities: EntityInfo[];
+// Prefab info (empty object - only presence indicates Prefab component attached)
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface EntityPrefab { }
+
+// Entity info (unified format for /api/entities/roots and /api/entities/ids/:id)
+export interface EntityInfo {
+  id: string;  // Entity ID as string (server returns number, we convert)
+  name: string;
+  hierarchy: EntityHierarchy;
+  prefab?: EntityPrefab;
+}
+
+// Helper: Check if entity has children
+export function entityHasChildren(entity: EntityInfo): boolean {
+  return entity.hierarchy.children.length > 0;
+}
+
+// Helper: Check if entity has prefab component
+export function entityHasPrefab(entity: EntityInfo): boolean {
+  return entity.prefab !== undefined;
 }
 
 // Component info
@@ -47,15 +63,8 @@ export interface EntityComponentsResponse {
   components: ComponentInfo[];
 }
 
-// Response from /api/entities/ids/:id
-export interface EntityDetailsResponse {
-  id: string;  // Entity ID as string (server returns number but we convert to string)
-  name: string;
-  hierarchy?: {
-    parent: number | null;
-    children: number[];  // Array of child entity IDs
-  };
-}
+// Response from /api/entities/ids/:id (same as EntityInfo)
+export type EntityDetailsResponse = EntityInfo;
 
 // Keyframe data for animation curves
 export interface Keyframe {
@@ -145,12 +154,12 @@ const WS_BASE_URL = 'ws://localhost:8080';
 
 // WebSocket message types
 export interface WsSubscribeMessage {
-  event: 'subscribe' | 'unsubscribe';
+  event: 'subscribe_components_update' | 'unsubscribe_components_update';
   payload: { entity_id: number };
 }
 
 export interface WsComponentUpdateMessage {
-  event: 'component_update';
+  event: 'notify_components_update';
   payload: {
     id: number;
     components: ComponentInfo[];
@@ -158,7 +167,7 @@ export interface WsComponentUpdateMessage {
 }
 
 export interface WsSubscribedMessage {
-  event: 'subscribed' | 'unsubscribed';
+  event: 'subscribed_components_update' | 'unsubscribed_components_update';
   payload: { entity_id: number };
 }
 
@@ -167,7 +176,61 @@ export interface WsErrorMessage {
   payload: { message: string };
 }
 
-export type WsServerMessage = WsComponentUpdateMessage | WsSubscribedMessage | WsErrorMessage;
+// Root infos subscription messages
+export interface WsRootInfosSubscribeMessage {
+  event: 'subscribe_root_infos' | 'unsubscribe_root_infos';
+}
+
+export interface WsRootInfosMessage {
+  event: 'notify_root_infos';
+  payload: Array<{
+    id: number;
+    name: string;
+    hierarchy: EntityHierarchy;
+    prefab?: EntityPrefab;
+  }>;
+}
+
+export interface WsRootInfosSubscribedMessage {
+  event: 'subscribed_root_infos' | 'unsubscribed_root_infos';
+}
+
+// Entity info subscription messages
+export interface WsEntityInfoSubscribeMessage {
+  event: 'subscribe_entity_info';
+  payload: { entities: number[] };
+}
+
+export interface WsEntityInfoMessage {
+  event: 'notify_entity_info';
+  payload: Array<{
+    id: number;
+    name: string;
+    hierarchy: EntityHierarchy;
+    prefab?: EntityPrefab;
+  }>;
+}
+
+export interface WsEntityInfoSubscribedMessage {
+  event: 'subscribed_entity_info';
+  payload: { entities: number[] };
+}
+
+// All server event types (individual event in batch)
+export type WsServerEvent =
+  | WsComponentUpdateMessage
+  | WsSubscribedMessage
+  | WsRootInfosMessage
+  | WsRootInfosSubscribedMessage
+  | WsEntityInfoMessage
+  | WsEntityInfoSubscribedMessage
+  | WsErrorMessage;
+
+// Batched message from server (array of events)
+export type WsBatchMessage = WsServerEvent[];
+
+// Legacy single message type (for backwards compatibility)
+export type WsServerMessage = WsServerEvent;
 
 // Response from POST /api/entities/ids/:id/components
 export interface AddComponentResponse {
@@ -186,13 +249,23 @@ export interface RemoveComponentResponse {
 export class GameEngineAPI {
   private static instance: GameEngineAPI;
   private ws: WebSocket | null = null;
-  private wsListeners: Map<number, Set<(components: ComponentInfo[]) => void>> = new Map();
   private wsConnecting: boolean = false;
   private wsReconnectTimeout: NodeJS.Timeout | null = null;
   private connectionStateListeners: Set<(connected: boolean) => void> = new Set();
   private registeredComponentsCache: RegisteredComponent[] | null = null;
 
-  private constructor() {}
+  // Component update listeners (per entity)
+  private componentListeners: Map<number, Set<(components: ComponentInfo[]) => void>> = new Map();
+
+  // Root infos listeners
+  private rootInfosListeners: Set<(entities: EntityInfo[]) => void> = new Set();
+  private rootInfosSubscribed: boolean = false;
+
+  // Entity info listeners (single callback for all subscribed entities)
+  private entityInfoListeners: Set<(entities: EntityInfo[]) => void> = new Set();
+  private entityInfoSubscribedIds: Set<number> = new Set();
+
+  private constructor() { }
 
   /**
    * Subscribe to WebSocket connection state changes
@@ -282,13 +355,13 @@ export class GameEngineAPI {
 
       ws.onmessage = (event) => {
         try {
-          const msg: WsServerMessage = JSON.parse(event.data);
-          if (msg.event === 'component_update') {
-            const entityId = msg.payload.id;
-            const listeners = this.wsListeners.get(entityId);
-            if (listeners) {
-              listeners.forEach(cb => cb(msg.payload.components));
-            }
+          const data = JSON.parse(event.data);
+
+          // Handle batched messages (array of events)
+          const events: WsServerEvent[] = Array.isArray(data) ? data : [data];
+
+          for (const msg of events) {
+            this.handleWsEvent(msg);
           }
         } catch (e) {
           console.error('Failed to parse WebSocket message:', e);
@@ -301,7 +374,11 @@ export class GameEngineAPI {
         this.wsConnecting = false;
         this.notifyConnectionState(false);
         // Attempt reconnect if there are active listeners
-        if (this.wsListeners.size > 0 && !this.wsReconnectTimeout) {
+        const hasActiveListeners =
+          this.componentListeners.size > 0 ||
+          this.rootInfosListeners.size > 0 ||
+          this.entityInfoListeners.size > 0;
+        if (hasActiveListeners && !this.wsReconnectTimeout) {
           this.wsReconnectTimeout = setTimeout(() => {
             this.wsReconnectTimeout = null;
             this.reconnectAndResubscribe();
@@ -320,32 +397,113 @@ export class GameEngineAPI {
   private async reconnectAndResubscribe() {
     try {
       await this.connectWebSocket();
-      // Re-subscribe to all entities
-      const entityIds = Array.from(this.wsListeners.keys());
-      for (const entityId of entityIds) {
-        this.sendSubscribe(entityId);
+
+      // Re-subscribe to component updates
+      Array.from(this.componentListeners.keys()).forEach(entityId => {
+        this.sendComponentSubscribe(entityId);
+      });
+
+      // Re-subscribe to root infos
+      if (this.rootInfosSubscribed) {
+        this.sendRootInfosSubscribe();
+      }
+
+      // Re-subscribe to entity infos
+      if (this.entityInfoSubscribedIds.size > 0) {
+        this.sendEntityInfoSubscribe(Array.from(this.entityInfoSubscribedIds));
       }
     } catch (e) {
       console.error('Failed to reconnect WebSocket:', e);
     }
   }
 
-  private sendSubscribe(entityId: number) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const msg: WsSubscribeMessage = {
-        event: 'subscribe',
-        payload: { entity_id: entityId }
-      };
-      this.ws.send(JSON.stringify(msg));
-      console.log(`Subscribed to entity ${entityId}`);
+  /**
+   * Handle a single WebSocket event
+   */
+  private handleWsEvent(msg: WsServerEvent): void {
+    switch (msg.event) {
+      case 'notify_components_update': {
+        const entityId = msg.payload.id;
+        const listeners = this.componentListeners.get(entityId);
+        if (listeners) {
+          listeners.forEach((cb) => cb(msg.payload.components));
+        }
+        break;
+      }
+      case 'notify_root_infos': {
+        // Convert to EntityInfo (id as string)
+        const entities: EntityInfo[] = msg.payload.map((e) => ({
+          ...e,
+          id: String(e.id),
+        }));
+        this.rootInfosListeners.forEach((cb) => cb(entities));
+        break;
+      }
+      case 'notify_entity_info': {
+        // Convert to EntityInfo (id as string)
+        const entities: EntityInfo[] = msg.payload.map((e) => ({
+          ...e,
+          id: String(e.id),
+        }));
+        this.entityInfoListeners.forEach((cb) => cb(entities));
+        break;
+      }
+      // Confirmation messages - can be logged if needed
+      case 'subscribed_components_update':
+      case 'unsubscribed_components_update':
+      case 'subscribed_root_infos':
+      case 'unsubscribed_root_infos':
+      case 'subscribed_entity_info':
+        // Subscriptions confirmed
+        break;
+      case 'error':
+        console.error('WebSocket error from server:', msg.payload.message);
+        break;
     }
   }
 
-  private sendUnsubscribe(entityId: number) {
+  // Component subscription send methods
+  private sendComponentSubscribe(entityId: number) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const msg: WsSubscribeMessage = {
-        event: 'unsubscribe',
-        payload: { entity_id: entityId }
+        event: 'subscribe_components_update',
+        payload: { entity_id: entityId },
+      };
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  private sendComponentUnsubscribe(entityId: number) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const msg: WsSubscribeMessage = {
+        event: 'unsubscribe_components_update',
+        payload: { entity_id: entityId },
+      };
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  // Root infos subscription send methods
+  private sendRootInfosSubscribe() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const msg: WsRootInfosSubscribeMessage = { event: 'subscribe_root_infos' };
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  private sendRootInfosUnsubscribe() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const msg: WsRootInfosSubscribeMessage = { event: 'unsubscribe_root_infos' };
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  // Entity info subscription send methods
+  private sendEntityInfoSubscribe(entityIds: number[]) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const msg: WsEntityInfoSubscribeMessage = {
+        event: 'subscribe_entity_info',
+        payload: { entities: entityIds },
       };
       this.ws.send(JSON.stringify(msg));
     }
@@ -362,30 +520,106 @@ export class GameEngineAPI {
     const id = parseInt(entityId, 10);
 
     // Add listener
-    if (!this.wsListeners.has(id)) {
-      this.wsListeners.set(id, new Set());
+    if (!this.componentListeners.has(id)) {
+      this.componentListeners.set(id, new Set());
     }
-    this.wsListeners.get(id)!.add(callback);
+    this.componentListeners.get(id)!.add(callback);
 
     // Connect and subscribe
     try {
       await this.connectWebSocket();
-      this.sendSubscribe(id);
+      this.sendComponentSubscribe(id);
     } catch (e) {
       console.error('Failed to subscribe:', e);
     }
 
     // Return unsubscribe function
     return () => {
-      const listeners = this.wsListeners.get(id);
+      const listeners = this.componentListeners.get(id);
       if (listeners) {
         listeners.delete(callback);
         if (listeners.size === 0) {
-          this.wsListeners.delete(id);
-          this.sendUnsubscribe(id);
+          this.componentListeners.delete(id);
+          this.sendComponentUnsubscribe(id);
         }
       }
     };
+  }
+
+  /**
+   * Subscribe to real-time root entity info updates
+   * @param callback Called whenever root entities change
+   * @returns Unsubscribe function
+   */
+  async subscribeToRootInfos(
+    callback: (entities: EntityInfo[]) => void
+  ): Promise<() => void> {
+    // Add listener
+    this.rootInfosListeners.add(callback);
+
+    // Connect and subscribe if first listener
+    if (!this.rootInfosSubscribed) {
+      try {
+        await this.connectWebSocket();
+        this.sendRootInfosSubscribe();
+        this.rootInfosSubscribed = true;
+      } catch (e) {
+        console.error('Failed to subscribe to root infos:', e);
+      }
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.rootInfosListeners.delete(callback);
+      if (this.rootInfosListeners.size === 0 && this.rootInfosSubscribed) {
+        this.sendRootInfosUnsubscribe();
+        this.rootInfosSubscribed = false;
+      }
+    };
+  }
+
+  /**
+   * Subscribe to real-time entity info updates for specific entities
+   * @param callback Called whenever any subscribed entity info changes
+   * @returns Unsubscribe function
+   */
+  async subscribeToEntityInfo(
+    callback: (entities: EntityInfo[]) => void
+  ): Promise<() => void> {
+    // Add listener
+    this.entityInfoListeners.add(callback);
+
+    // Connect WebSocket if not connected
+    try {
+      await this.connectWebSocket();
+    } catch (e) {
+      console.error('Failed to connect for entity info subscription:', e);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.entityInfoListeners.delete(callback);
+    };
+  }
+
+  /**
+   * Update the set of entity IDs to subscribe to for entity info updates
+   * Call this when the expanded entities change in the hierarchy
+   * @param entityIds The complete set of entity IDs to subscribe to
+   */
+  updateEntityInfoSubscription(entityIds: number[]): void {
+    const newIds = new Set(entityIds);
+
+    // Find IDs to add (in new but not in current)
+    const toAdd = entityIds.filter(id => !this.entityInfoSubscribedIds.has(id));
+
+    // Update the tracked set
+    this.entityInfoSubscribedIds = newIds;
+
+    // Send subscription for new IDs (server handles idempotent subscription)
+    if (toAdd.length > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.sendEntityInfoSubscribe(toAdd);
+    }
   }
 
   /**
@@ -404,9 +638,16 @@ export class GameEngineAPI {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // API now returns array directly (not { entities: [...] })
+      const data: Array<{
+        id: number;
+        name: string;
+        hierarchy: EntityHierarchy;
+        prefab?: EntityPrefab;
+      }> = await response.json();
+
       // Convert id to string (server returns number)
-      return data.entities.map((e: { id: number; name: string; has_children: boolean }) => ({
+      return data.map((e) => ({
         ...e,
         id: String(e.id)
       }));
@@ -488,8 +729,14 @@ export class GameEngineAPI {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      // Convert id to string if it's a number
+      const data: {
+        id: number;
+        name: string;
+        hierarchy: EntityHierarchy;
+        prefab?: EntityPrefab;
+      } = await response.json();
+
+      // Convert id to string (server returns number)
       return {
         ...data,
         id: String(data.id)

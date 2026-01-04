@@ -19,7 +19,7 @@ import {
   IconButton,
   Icon,
 } from '@/ui';
-import { gameEngineAPI, EntityInfo } from '../../api/gameEngine';
+import { gameEngineAPI, EntityInfo, entityHasChildren } from '../../api/gameEngine';
 import styles from './EntityPickerDialog.module.css';
 
 interface EntityTreeNode {
@@ -71,7 +71,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
         if (rootEntityId) {
           // Start from specified entity's children
           const rootDetails = await gameEngineAPI.getEntityDetails(rootEntityId);
-          const childIds = rootDetails.hierarchy?.children || [];
+          const childIds = rootDetails.hierarchy.children;
 
           if (childIds.length > 0) {
             nodes = await Promise.all(
@@ -80,7 +80,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
                 return {
                   id: childDetails.id,
                   name: childDetails.name,
-                  hasChildren: (childDetails.hierarchy?.children?.length ?? 0) > 0,
+                  hasChildren: entityHasChildren(childDetails),
                   loaded: false,
                 };
               })
@@ -92,7 +92,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
           nodes = entities.map((e: EntityInfo) => ({
             id: e.id,
             name: e.name,
-            hasChildren: e.has_children,
+            hasChildren: entityHasChildren(e),
             loaded: false,
           }));
         }
@@ -113,7 +113,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
     try {
       const details = await gameEngineAPI.getEntityDetails(node.id);
 
-      if (!details.hierarchy?.children || details.hierarchy.children.length === 0) {
+      if (details.hierarchy.children.length === 0) {
         return [];
       }
 
@@ -124,7 +124,7 @@ export const EntityPickerDialog: React.FC<EntityPickerDialogProps> = ({
           return {
             id: childDetails.id,
             name: childDetails.name,
-            hasChildren: (childDetails.hierarchy?.children?.length ?? 0) > 0,
+            hasChildren: entityHasChildren(childDetails),
             loaded: false,
           };
         })

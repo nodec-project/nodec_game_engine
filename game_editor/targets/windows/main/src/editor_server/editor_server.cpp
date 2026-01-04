@@ -14,6 +14,7 @@
 #include <nodec/concurrent/thread_pool_executor.hpp>
 #include <nodec_scene/components/hierarchy.hpp>
 #include <nodec_scene/components/name.hpp>
+#include <nodec_scene_serialization/components/prefab.hpp>
 #include <nodec_scene_serialization/archive_context.hpp>
 #include <cereal/archives/json.hpp>
 #include <cereal/details/helpers.hpp>
@@ -89,11 +90,19 @@ struct APIRequest {
 
 // WebSocket per-socket data
 struct WebSocketData {
-    std::set<uint32_t> subscribed_entities;
+    std::set<uint32_t> subscribed_components;   // For component updates
+    std::set<uint32_t> subscribed_entity_info;  // For entity_info updates
+    bool subscribed_root_infos{false};          // For root entities updates
 };
 
-// WebSocket message structure for cereal deserialization
-struct WsSubscribePayload {
+// Pending WebSocket broadcast message
+struct WsBroadcastMessage {
+    uint32_t entity_id;
+    std::string message;
+};
+
+// WebSocket message payloads for cereal deserialization
+struct WsComponentsPayload {
     uint32_t entity_id = 0;
 
     template<class Archive>
@@ -102,9 +111,29 @@ struct WsSubscribePayload {
     }
 };
 
-struct WsMessage {
+struct WsEntityInfoPayload {
+    std::vector<uint32_t> entities;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("entities", entities));
+    }
+};
+
+// Generic message with event name only (payload parsed separately based on event)
+struct WsEventHeader {
     std::string event;
-    WsSubscribePayload payload;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("event", event));
+    }
+};
+
+// Full message structures for each event type
+struct WsComponentsMessage {
+    std::string event;
+    WsComponentsPayload payload;
 
     template<class Archive>
     void serialize(Archive& archive) {
@@ -113,10 +142,15 @@ struct WsMessage {
     }
 };
 
-// Pending WebSocket broadcast message
-struct WsBroadcastMessage {
-    uint32_t entity_id;
-    std::string message;
+struct WsEntityInfoMessage {
+    std::string event;
+    WsEntityInfoPayload payload;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("event", event));
+        archive(cereal::make_nvp("payload", payload));
+    }
 };
 
 class EditorServer::Impl {
@@ -575,33 +609,80 @@ private:
     void handle_ws_message(uWS::WebSocket<false, true, WebSocketData>* ws, std::string_view message) {
         try {
             // Wrap the message for cereal deserialization
-            // cereal::JSONInputArchive requires a named root element
             std::string wrapped_json = "{\"message\":" + std::string(message) + "}";
-            std::istringstream iss(wrapped_json);
-            cereal::JSONInputArchive archive(iss);
 
-            WsMessage msg;
-            archive(cereal::make_nvp("message", msg));
+            // First, parse just the event name
+            std::string event;
+            {
+                std::istringstream iss(wrapped_json);
+                cereal::JSONInputArchive archive(iss);
+                WsEventHeader header;
+                archive(cereal::make_nvp("message", header));
+                event = header.event;
+            }
 
-            if (msg.event == "subscribe") {
-                auto* data = ws->getUserData();
-                data->subscribed_entities.insert(msg.payload.entity_id);
+            auto* data = ws->getUserData();
 
-                logger_->info(__FILE__, __LINE__) << "Client subscribed to entity " << msg.payload.entity_id;
+            // Handle component subscription events
+            if (event == "subscribe_components_update") {
+                std::istringstream iss(wrapped_json);
+                cereal::JSONInputArchive archive(iss);
+                WsComponentsMessage msg;
+                archive(cereal::make_nvp("message", msg));
 
-                std::string response = "{\"event\":\"subscribed\",\"payload\":{\"entity_id\":" +
+                data->subscribed_components.insert(msg.payload.entity_id);
+                logger_->info(__FILE__, __LINE__) << "Client subscribed to components of entity " << msg.payload.entity_id;
+
+                std::string response = "{\"event\":\"subscribed_components_update\",\"payload\":{\"entity_id\":" +
                                         std::to_string(msg.payload.entity_id) + "}}";
                 ws->send(response, uWS::OpCode::TEXT);
 
-            } else if (msg.event == "unsubscribe") {
-                auto* data = ws->getUserData();
-                data->subscribed_entities.erase(msg.payload.entity_id);
+            } else if (event == "unsubscribe_components_update") {
+                std::istringstream iss(wrapped_json);
+                cereal::JSONInputArchive archive(iss);
+                WsComponentsMessage msg;
+                archive(cereal::make_nvp("message", msg));
 
-                logger_->info(__FILE__, __LINE__) << "Client unsubscribed from entity " << msg.payload.entity_id;
+                data->subscribed_components.erase(msg.payload.entity_id);
+                logger_->info(__FILE__, __LINE__) << "Client unsubscribed from components of entity " << msg.payload.entity_id;
 
-                std::string response = "{\"event\":\"unsubscribed\",\"payload\":{\"entity_id\":" +
+                std::string response = "{\"event\":\"unsubscribed_components_update\",\"payload\":{\"entity_id\":" +
                                         std::to_string(msg.payload.entity_id) + "}}";
                 ws->send(response, uWS::OpCode::TEXT);
+
+            } else if (event == "subscribe_entity_info") {
+                std::istringstream iss(wrapped_json);
+                cereal::JSONInputArchive archive(iss);
+                WsEntityInfoMessage msg;
+                archive(cereal::make_nvp("message", msg));
+
+                // Replace current subscriptions with new list
+                data->subscribed_entity_info.clear();
+                data->subscribed_entity_info.insert(msg.payload.entities.begin(), msg.payload.entities.end());
+
+                logger_->info(__FILE__, __LINE__) << "Client subscribed to entity_info for " << msg.payload.entities.size() << " entities";
+
+                // Build response with subscribed entities
+                std::string response = "{\"event\":\"subscribed_entity_info\",\"payload\":{\"entities\":[";
+                bool first = true;
+                for (uint32_t id : msg.payload.entities) {
+                    if (!first) response += ",";
+                    response += std::to_string(id);
+                    first = false;
+                }
+                response += "]}}";
+                ws->send(response, uWS::OpCode::TEXT);
+
+            } else if (event == "subscribe_root_infos") {
+                // No payload needed - subscribes to all root entities
+                data->subscribed_root_infos = true;
+                logger_->info(__FILE__, __LINE__) << "Client subscribed to root_infos";
+                ws->send("{\"event\":\"subscribed_root_infos\"}", uWS::OpCode::TEXT);
+
+            } else if (event == "unsubscribe_root_infos") {
+                data->subscribed_root_infos = false;
+                logger_->info(__FILE__, __LINE__) << "Client unsubscribed from root_infos";
+                ws->send("{\"event\":\"unsubscribed_root_infos\"}", uWS::OpCode::TEXT);
 
             } else {
                 ws->send("{\"event\":\"error\",\"payload\":{\"message\":\"Unknown event type\"}}", uWS::OpCode::TEXT);
@@ -613,7 +694,7 @@ private:
         }
     }
 
-    // Broadcast component updates to subscribed clients
+    // Broadcast component updates, entity_info updates, and root_infos to subscribed clients
     // Called from game thread - queues messages for uWS thread
     void broadcast_subscribed_updates() {
         // Early exit without lock if no pending broadcasts needed
@@ -622,56 +703,207 @@ private:
             if (ws_clients_.empty()) return;
         }
 
-        // Collect subscribed entity IDs (lock scope minimized)
-        std::set<uint32_t> all_subscribed_entities;
+        // Collect subscribed entity IDs for components, entity_info, and root_infos (lock scope minimized)
+        std::set<uint32_t> all_subscribed_components;
+        std::set<uint32_t> all_subscribed_entity_info;
+        bool any_subscribed_root_infos = false;
         {
             std::lock_guard<std::mutex> lock(ws_clients_mutex_);
             for (auto* ws : ws_clients_) {
                 const auto* data = ws->getUserData();
-                all_subscribed_entities.insert(
-                    data->subscribed_entities.begin(),
-                    data->subscribed_entities.end()
+                all_subscribed_components.insert(
+                    data->subscribed_components.begin(),
+                    data->subscribed_components.end()
                 );
+                all_subscribed_entity_info.insert(
+                    data->subscribed_entity_info.begin(),
+                    data->subscribed_entity_info.end()
+                );
+                if (data->subscribed_root_infos) {
+                    any_subscribed_root_infos = true;
+                }
             }
         }
 
-        if (all_subscribed_entities.empty()) return;
+        std::vector<WsBroadcastMessage> component_messages;
+        std::vector<WsBroadcastMessage> entity_info_messages;
+        std::string root_infos_message;
 
-        // Generate component JSON for each subscribed entity (no lock needed)
-        std::vector<WsBroadcastMessage> messages;
-        messages.reserve(all_subscribed_entities.size());
-
-        for (uint32_t entity_id : all_subscribed_entities) {
-            auto response = get_entity_components_json(entity_id);
-            messages.push_back({
-                entity_id,
-                "{\"event\":\"component_update\",\"payload\":" + std::move(response.body) + "}"
-            });
+        // Generate component JSON for each subscribed entity
+        if (!all_subscribed_components.empty()) {
+            component_messages.reserve(all_subscribed_components.size());
+            for (uint32_t entity_id : all_subscribed_components) {
+                auto response = get_entity_components_json(entity_id);
+                component_messages.push_back({
+                    entity_id,
+                    "{\"event\":\"notify_components_update\",\"payload\":" + std::move(response.body) + "}"
+                });
+            }
         }
 
-        // Queue messages for uWS thread
-        // The defer callback will look up valid clients at execution time
-        if (main_loop_) {
-            main_loop_->defer([this, messages = std::move(messages)]() {
+        auto& registry = world_->scene().registry();
+
+        // Generate entity_info JSON for each subscribed entity
+        if (!all_subscribed_entity_info.empty()) {
+            // Build single message with array of entity_info for each client's subscription
+            // For efficiency, pre-generate entity_info for all requested entities
+            std::unordered_map<uint32_t, std::string> entity_info_cache;
+            entity_info_cache.reserve(all_subscribed_entity_info.size());
+
+            for (uint32_t entity_id : all_subscribed_entity_info) {
+                auto entity = static_cast<nodec::entities::Entity>(entity_id);
+                if (registry.is_valid(entity)) {
+                    std::string result;
+                    nodec::StringBuilder json(result);
+                    build_entity_info_json(json, entity, registry);
+                    entity_info_cache[entity_id] = std::move(result);
+                }
+            }
+
+            // Store cache for use in defer callback
+            entity_info_messages.reserve(all_subscribed_entity_info.size());
+            for (const auto& [entity_id, json] : entity_info_cache) {
+                entity_info_messages.push_back({entity_id, json});
+            }
+        }
+
+        // Generate root_infos JSON (array of root entity infos)
+        if (any_subscribed_root_infos) {
+            nodec::StringBuilder json(root_infos_message);
+            json << "{\"event\":\"notify_root_infos\",\"payload\":[";
+
+            bool first = true;
+            auto view = registry.view<nodec_scene::components::Hierarchy>();
+            for (auto entity : view) {
+                const auto& hierarchy = registry.get_component<nodec_scene::components::Hierarchy>(entity);
+                if (hierarchy.parent == nodec::entities::null_entity) {
+                    if (!first) json << ",";
+                    build_entity_info_json(json, entity, registry);
+                    first = false;
+                }
+            }
+
+            json << "]}";
+        }
+
+        // Queue messages for uWS thread - batch all events into single message per client
+        if (main_loop_ && (!component_messages.empty() || !entity_info_messages.empty() || !root_infos_message.empty())) {
+            main_loop_->defer([this,
+                               component_messages = std::move(component_messages),
+                               entity_info_messages = std::move(entity_info_messages),
+                               root_infos_message = std::move(root_infos_message)]() {
                 // This runs on uWS thread - safe to access ws_clients_ and send
-                // No mutex needed here because uWS is single-threaded
-                // and close/open callbacks also run on this thread
                 for (auto* ws : ws_clients_) {
                     const auto* data = ws->getUserData();
-                    for (const auto& msg : messages) {
-                        if (data->subscribed_entities.count(msg.entity_id) > 0) {
-                            ws->send(msg.message, uWS::OpCode::TEXT);
+
+                    // Build batched message: array of events
+                    std::string batch_message = "[";
+                    bool first_event = true;
+
+                    // Add component updates
+                    for (const auto& msg : component_messages) {
+                        if (data->subscribed_components.count(msg.entity_id) > 0) {
+                            if (!first_event) batch_message += ",";
+                            batch_message += msg.message;
+                            first_event = false;
                         }
+                    }
+
+                    // Add entity_info updates
+                    if (!data->subscribed_entity_info.empty()) {
+                        std::string entity_info_json = "{\"event\":\"notify_entity_info\",\"payload\":[";
+                        bool first_entity = true;
+                        for (const auto& msg : entity_info_messages) {
+                            if (data->subscribed_entity_info.count(msg.entity_id) > 0) {
+                                if (!first_entity) entity_info_json += ",";
+                                entity_info_json += msg.message;
+                                first_entity = false;
+                            }
+                        }
+                        entity_info_json += "]}";
+
+                        if (!first_entity) {  // Only add if there's at least one entity
+                            if (!first_event) batch_message += ",";
+                            batch_message += entity_info_json;
+                            first_event = false;
+                        }
+                    }
+
+                    // Add root_infos updates
+                    if (data->subscribed_root_infos && !root_infos_message.empty()) {
+                        if (!first_event) batch_message += ",";
+                        batch_message += root_infos_message;
+                        first_event = false;
+                    }
+
+                    batch_message += "]";
+
+                    // Send only if there are events to send
+                    if (!first_event) {
+                        ws->send(batch_message, uWS::OpCode::TEXT);
                     }
                 }
             });
         }
     }
 
+    // Helper: Build entity_info JSON for a single entity
+    // Format: {"id":<id>,"name":"...","hierarchy":{"parent":null|<id>,"children":[...]},"prefab":{}}
+    void build_entity_info_json(nodec::StringBuilder& json, nodec::entities::Entity entity,
+                                 nodec_scene::SceneRegistry& registry) {
+        uint32_t entity_id = static_cast<uint32_t>(entity);
+        json << "{\"id\":" << entity_id;
+
+        // Name
+        auto* name = registry.try_get_component<nodec_scene::components::Name>(entity);
+        if (name) {
+            json << ",\"name\":\"" << name->value << "\"";
+        } else {
+            json << ",\"name\":\"Entity_" << entity_id << "\"";
+        }
+
+        // Hierarchy
+        json << ",\"hierarchy\":{";
+        auto* hierarchy = registry.try_get_component<nodec_scene::components::Hierarchy>(entity);
+        if (hierarchy) {
+            if (hierarchy->parent != nodec::entities::null_entity) {
+                json << "\"parent\":" << static_cast<uint32_t>(hierarchy->parent);
+            } else {
+                json << "\"parent\":null";
+            }
+
+            json << ",\"children\":[";
+            if (hierarchy->first != nodec::entities::null_entity) {
+                bool first_child = true;
+                auto child = hierarchy->first;
+                while (child != nodec::entities::null_entity) {
+                    if (!first_child) json << ",";
+                    json << static_cast<uint32_t>(child);
+
+                    auto* child_hierarchy = registry.try_get_component<nodec_scene::components::Hierarchy>(child);
+                    child = child_hierarchy ? child_hierarchy->next : nodec::entities::null_entity;
+                    first_child = false;
+                }
+            }
+            json << "]";
+        } else {
+            json << "\"parent\":null,\"children\":[]";
+        }
+        json << "}";
+
+        // Prefab (only if component exists - empty object to indicate presence)
+        auto* prefab = registry.try_get_component<nodec_scene_serialization::components::Prefab>(entity);
+        if (prefab) {
+            json << ",\"prefab\":{}";
+        }
+
+        json << "}";
+    }
+
     APIResponse get_root_entities_json() {
         std::string result;
         nodec::StringBuilder json(result);
-        json << "{\"entities\":[";
+        json << "[";
 
         try {
             auto& scene = world_->scene();
@@ -683,19 +915,7 @@ private:
                 const auto& hierarchy = registry.get_component<nodec_scene::components::Hierarchy>(entity);
                 if (hierarchy.parent == nodec::entities::null_entity) {
                     if (!first) json << ",";
-                    json << "{\"id\":" << static_cast<uint32_t>(entity);
-
-                    auto* name = registry.try_get_component<nodec_scene::components::Name>(entity);
-                    if (name) {
-                        json << ",\"name\":\"" << name->value << "\"";
-                    } else {
-                        json << ",\"name\":\"Entity_" << static_cast<uint32_t>(entity) << "\"";
-                    }
-
-                    bool has_children = (hierarchy.first != nodec::entities::null_entity);
-                    json << ",\"has_children\":" << (has_children ? "true" : "false");
-
-                    json << "}";
+                    build_entity_info_json(json, entity, registry);
                     first = false;
                 }
             }
@@ -705,7 +925,7 @@ private:
             return APIResponse::internal_error("{\"error\":\"" + std::string(e.what()) + "\"}");
         }
 
-        json << "]}";
+        json << "]";
         return APIResponse::ok(result);
     }
 
@@ -800,42 +1020,7 @@ private:
 
         std::string result;
         nodec::StringBuilder json(result);
-        json << "{\"id\":" << entity_id;
-
-        auto* name = registry.try_get_component<nodec_scene::components::Name>(entity);
-        if (name) {
-            json << ",\"name\":\"" << name->value << "\"";
-        } else {
-            json << ",\"name\":\"Entity_" << entity_id << "\"";
-        }
-
-        auto* hierarchy = registry.try_get_component<nodec_scene::components::Hierarchy>(entity);
-        if (hierarchy) {
-            json << ",\"hierarchy\":{";
-
-            if (hierarchy->parent != nodec::entities::null_entity) {
-                json << "\"parent\":" << static_cast<uint32_t>(hierarchy->parent);
-            } else {
-                json << "\"parent\":null";
-            }
-
-            json << ",\"children\":[";
-            if (hierarchy->first != nodec::entities::null_entity) {
-                bool first_child = true;
-                auto child = hierarchy->first;
-                while (child != nodec::entities::null_entity) {
-                    if (!first_child) json << ",";
-                    json << static_cast<uint32_t>(child);
-
-                    auto* child_hierarchy = registry.try_get_component<nodec_scene::components::Hierarchy>(child);
-                    child = child_hierarchy ? child_hierarchy->next : nodec::entities::null_entity;
-                    first_child = false;
-                }
-            }
-            json << "]}";
-        }
-
-        json << "}";
+        build_entity_info_json(json, entity, registry);
         return APIResponse::ok(result);
     }
 
