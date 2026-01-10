@@ -246,6 +246,25 @@ export interface RemoveComponentResponse {
   error?: string;
 }
 
+// Request for PATCH /api/entities/ids/:id/hierarchy
+export interface MoveEntityHierarchyRequest {
+  parentId?: number | null;  // null = move to root, undefined = no change
+  insertBefore?: number;     // Insert before this sibling
+  insertAfter?: number;      // Insert after this sibling
+}
+
+// Response from PATCH /api/entities/ids/:id/hierarchy
+export interface MoveEntityHierarchyResponse {
+  id: number;
+  hierarchy: EntityHierarchy;
+}
+
+// Error response from hierarchy API
+export interface HierarchyErrorResponse {
+  error: string;
+  code?: string;  // "CIRCULAR_REFERENCE", "INVALID_REQUEST", etc.
+}
+
 export class GameEngineAPI {
   private static instance: GameEngineAPI;
   private ws: WebSocket | null = null;
@@ -970,6 +989,34 @@ export class GameEngineAPI {
       console.error(`Failed to remove component ${typeIndex} from entity ${entityId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Move an entity in the hierarchy (change parent, reorder siblings)
+   * @param entityId - The entity ID to move
+   * @param request - The move operation parameters
+   * @returns The updated hierarchy info
+   * @throws Error with code "CIRCULAR_REFERENCE" if move would create a cycle
+   */
+  async moveEntityHierarchy(entityId: string, request: MoveEntityHierarchyRequest): Promise<MoveEntityHierarchyResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/entities/ids/${entityId}/hierarchy`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorData = data as HierarchyErrorResponse;
+      const error = new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      (error as Error & { code?: string }).code = errorData.code;
+      throw error;
+    }
+
+    return data as MoveEntityHierarchyResponse;
   }
 
   /**

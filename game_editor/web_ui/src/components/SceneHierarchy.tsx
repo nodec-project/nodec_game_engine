@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Surface, Alert, Spinner, IconButton, Collapse, List, Typography, Icon } from '@/ui';
-import { gameEngineAPI, EntityInfo, entityHasChildren, entityHasPrefab } from '../api/gameEngine';
+import { gameEngineAPI, EntityInfo, entityHasChildren, entityHasPrefab, MoveEntityHierarchyRequest } from '../api/gameEngine';
 import { useEditor } from '../contexts/EditorContext';
 import styles from './SceneHierarchy.module.css';
 
@@ -23,6 +23,11 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
   const [loadingChildren, setLoadingChildren] = useState<Set<string>>(new Set());
+
+  // Drag & Drop state
+  type DropType = 'before' | 'child' | 'after';
+  const [draggingEntityId, setDraggingEntityId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ entityId: string; dropType: DropType } | null>(null);
 
   // Ref to track entities for subscription updates (avoids stale closure)
   const entitiesRef = useRef<EntityNode[]>([]);
@@ -61,8 +66,28 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     });
   }, []);
 
+  // Helper: Reorder childNodes based on hierarchy.children order
+  const reorderChildren = useCallback((
+    childNodes: EntityNode[] | undefined,
+    hierarchyChildren: number[]
+  ): EntityNode[] | undefined => {
+    if (!childNodes || childNodes.length <= 1) return childNodes;
+
+    return [...childNodes].sort((a, b) => {
+      const aId = parseInt(a.id, 10);
+      const bId = parseInt(b.id, 10);
+      const aIdx = hierarchyChildren.indexOf(aId);
+      const bIdx = hierarchyChildren.indexOf(bId);
+      if (aIdx === -1 && bIdx === -1) return 0;
+      if (aIdx === -1) return 1;
+      if (bIdx === -1) return -1;
+      return aIdx - bIdx;
+    });
+  }, []);
+
   // Handle root entities update from WebSocket
   const handleRootInfosUpdate = useCallback((rootInfos: EntityInfo[]) => {
+    // console.log("###", rootInfos);
     setEntities(prevEntities => {
       // Create a map of existing entities for quick lookup (preserve childNodes)
       const existingMap = new Map<string, EntityNode>();
@@ -74,10 +99,10 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
       return rootInfos.map(info => {
         const existing = existingMap.get(info.id);
         if (existing) {
-          // Preserve childNodes and childrenLoaded state
+          // Preserve childNodes but reorder based on new hierarchy.children
           return {
             ...info,
-            childNodes: existing.childNodes,
+            childNodes: reorderChildren(existing.childNodes, info.hierarchy.children),
             childrenLoaded: existing.childrenLoaded,
           };
         }
@@ -86,68 +111,108 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     });
     setLoading(false);
     setError(null);
+  }, [reorderChildren]);
+
+  // Helper: Remove entity from tree (returns tree without the entity, and the removed node if found)
+  const removeEntityFromTree = useCallback((
+    nodes: EntityNode[],
+    id: string
+  ): { nodes: EntityNode[]; removed: EntityNode | null } => {
+    let removed: EntityNode | null = null;
+
+    // Check if entity is in root level
+    const rootIndex = nodes.findIndex(n => n.id === id);
+    if (rootIndex !== -1) {
+      removed = nodes[rootIndex];
+      return {
+        nodes: [...nodes.slice(0, rootIndex), ...nodes.slice(rootIndex + 1)],
+        removed,
+      };
+    }
+
+    // Recursively search and remove from children
+    const newNodes = nodes.map(node => {
+      if (!node.childNodes || removed) return node;
+
+      const childIndex = node.childNodes.findIndex(c => c.id === id);
+      if (childIndex !== -1) {
+        removed = node.childNodes[childIndex];
+        return {
+          ...node,
+          childNodes: [
+            ...node.childNodes.slice(0, childIndex),
+            ...node.childNodes.slice(childIndex + 1),
+          ],
+        };
+      }
+
+      // Recurse into children
+      const result = removeEntityFromTree(node.childNodes, id);
+      if (result.removed) {
+        removed = result.removed;
+        return { ...node, childNodes: result.nodes };
+      }
+
+      return node;
+    });
+
+    return { nodes: newNodes, removed };
   }, []);
 
   // Handle entity info update from WebSocket
   const handleEntityInfoUpdate = useCallback((entityInfos: EntityInfo[]) => {
+    // console.log("!!!", entityInfos);
     setEntities(prevEntities => {
       let updated = prevEntities;
 
+      // First pass: Update/move entities
       for (const info of entityInfos) {
-        // Find the parent entity that should contain this as child
         const parentId = info.hierarchy.parent;
 
+        // Remove the entity from its current position (preserving childNodes)
+        const { nodes: withoutEntity, removed } = removeEntityFromTree(updated, info.id);
+        updated = withoutEntity;
+
+        // Preserve childNodes but reorder based on new hierarchy.children
+        const newNode: EntityNode = {
+          ...info,
+          childNodes: reorderChildren(removed?.childNodes, info.hierarchy.children),
+          childrenLoaded: removed?.childrenLoaded,
+        };
+
         if (parentId === null) {
-          // This is a root entity, update in root list
-          updated = updated.map(node => {
-            if (node.id === info.id) {
-              return {
-                ...info,
-                childNodes: node.childNodes,
-                childrenLoaded: node.childrenLoaded,
-              };
-            }
-            return node;
-          });
+          // Add to root level
+          updated = [...updated, newNode];
         } else {
-          // This is a child entity, find and update in tree
-          updated = updateEntityInTree(updated, info.id, node => ({
-            ...info,
-            childNodes: node.childNodes,
-            childrenLoaded: node.childrenLoaded,
-          }));
-
-          // Also update parent's childNodes if this entity is new
+          // Add as child of parent
           const parentIdStr = String(parentId);
-          updated = updateEntityInTree(updated, parentIdStr, parentNode => {
-            if (!parentNode.childNodes) return parentNode;
 
-            // Check if child exists
-            const childExists = parentNode.childNodes.some(c => c.id === info.id);
-            if (childExists) {
-              // Update existing child
-              return {
-                ...parentNode,
-                childNodes: parentNode.childNodes.map(c =>
-                  c.id === info.id
-                    ? { ...info, childNodes: c.childNodes, childrenLoaded: c.childrenLoaded }
-                    : c
-                ),
-              };
-            } else {
-              // Add new child
-              return {
-                ...parentNode,
-                childNodes: [...parentNode.childNodes, info],
-              };
-            }
+          updated = updateEntityInTree(updated, parentIdStr, parentNode => {
+            const childNodes = parentNode.childNodes || [];
+            return {
+              ...parentNode,
+              childNodes: [...childNodes, newNode],
+            };
           });
+
+          // If parent not found in tree (not loaded yet), entity won't be visible
+          // This is expected - it will appear when parent is expanded
         }
+      }
+
+      // Second pass: Reorder parent's children based on hierarchy.children
+      // This handles the case where the parent is also in entityInfos
+      for (const info of entityInfos) {
+        updated = updateEntityInTree(updated, info.id, node => {
+          const reordered = reorderChildren(node.childNodes, node.hierarchy.children);
+          if (reordered === node.childNodes) return node;
+          return { ...node, childNodes: reordered };
+        });
       }
 
       return updated;
     });
-  }, [updateEntityInTree]);
+  }, [updateEntityInTree, removeEntityFromTree, reorderChildren]);
 
   // Subscribe to root infos on mount
   useEffect(() => {
@@ -192,23 +257,29 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
   // Update entity info subscription when expanded entities change
   useEffect(() => {
     // Collect all entity IDs we need to subscribe to:
+    // - Expanded entities themselves (to get hierarchy.children updates)
     // - Children of expanded entities (to get updates when children change)
     const idsToSubscribe: number[] = [];
 
-    const collectChildIds = (nodes: EntityNode[]) => {
+    const collectIds = (nodes: EntityNode[]) => {
       for (const node of nodes) {
-        if (expandedEntities.has(node.id) && node.childNodes) {
-          // Subscribe to children of expanded nodes
-          for (const child of node.childNodes) {
-            idsToSubscribe.push(parseInt(child.id, 10));
+        if (expandedEntities.has(node.id)) {
+          // Subscribe to expanded entity itself (for hierarchy.children updates)
+          idsToSubscribe.push(parseInt(node.id, 10));
+
+          if (node.childNodes) {
+            // Subscribe to children of expanded nodes
+            for (const child of node.childNodes) {
+              idsToSubscribe.push(parseInt(child.id, 10));
+            }
+            // Recursively collect from children
+            collectIds(node.childNodes);
           }
-          // Recursively collect from children
-          collectChildIds(node.childNodes);
         }
       }
     };
 
-    collectChildIds(entities);
+    collectIds(entities);
 
     // Update subscription
     gameEngineAPI.updateEntityInfoSubscription(idsToSubscribe);
@@ -290,6 +361,124 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     }
   }, []);
 
+  // Drag & Drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, entityId: string) => {
+    e.dataTransfer.setData('text/plain', entityId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingEntityId(entityId);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingEntityId(null);
+    setDropTarget(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, entityId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    // Calculate drop zone based on mouse position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const height = rect.height;
+
+    let dropType: DropType;
+    if (y < height * 0.25) {
+      dropType = 'before';
+    } else if (y > height * 0.75) {
+      dropType = 'after';
+    } else {
+      dropType = 'child';
+    }
+
+    // Don't allow dropping on self
+    if (draggingEntityId === entityId) {
+      setDropTarget(null);
+      return;
+    }
+
+    setDropTarget({ entityId, dropType });
+  }, [draggingEntityId]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if actually leaving the element (not entering a child)
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDropTarget(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetEntityId: string) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent bubbling to content container (handleDropOnRoot)
+    const draggedEntityId = e.dataTransfer.getData('text/plain');
+
+    if (!draggedEntityId || draggedEntityId === targetEntityId || !dropTarget) {
+      setDropTarget(null);
+      setDraggingEntityId(null);
+      return;
+    }
+
+    try {
+      const request: MoveEntityHierarchyRequest = {};
+
+      // Find target entity to get its parent
+      const targetEntity = findEntityInTree(entities, targetEntityId);
+
+      switch (dropTarget.dropType) {
+        case 'before':
+          request.insertBefore = parseInt(targetEntityId, 10);
+          break;
+        case 'after':
+          request.insertAfter = parseInt(targetEntityId, 10);
+          break;
+        case 'child':
+          request.parentId = parseInt(targetEntityId, 10);
+          break;
+      }
+
+      await gameEngineAPI.moveEntityHierarchy(draggedEntityId, request);
+
+      // Refresh will happen automatically via WebSocket subscription
+      console.log(`Moved entity ${draggedEntityId} ${dropTarget.dropType} ${targetEntityId}`);
+    } catch (err) {
+      const error = err as Error & { code?: string };
+      if (error.code === 'CIRCULAR_REFERENCE') {
+        console.warn('Cannot create circular reference in hierarchy');
+      } else {
+        console.error('Failed to move entity:', err);
+      }
+    } finally {
+      setDropTarget(null);
+      setDraggingEntityId(null);
+    }
+  }, [dropTarget, entities, findEntityInTree]);
+
+  // Handle drop on empty area (move to root)
+  const handleDropOnRoot = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    const draggedEntityId = e.dataTransfer.getData('text/plain');
+
+    if (!draggedEntityId) {
+      return;
+    }
+
+    try {
+      await gameEngineAPI.moveEntityHierarchy(draggedEntityId, { parentId: null });
+      console.log(`Moved entity ${draggedEntityId} to root`);
+    } catch (err) {
+      console.error('Failed to move entity to root:', err);
+    } finally {
+      setDropTarget(null);
+      setDraggingEntityId(null);
+    }
+  }, []);
+
+  const handleDragOverRoot = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
   const getDepthClass = useCallback((depth: number): string => {
     if (depth >= 5) return styles.depth5;
     return styles[`depth${depth}` as keyof typeof styles] || '';
@@ -301,10 +490,17 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     const isLoadingChildren = loadingChildren.has(entity.id);
     const hasChildren = entityHasChildren(entity);
     const isPrefab = entityHasPrefab(entity);
+    const isDragging = draggingEntityId === entity.id;
+    const isDropTarget = dropTarget?.entityId === entity.id;
+    const currentDropType = isDropTarget ? dropTarget.dropType : null;
 
     const itemClasses = [
       styles.entityItem,
       isSelected && styles.entityItemSelected,
+      isDragging && styles.entityItemDragging,
+      isDropTarget && currentDropType === 'before' && styles.dropBefore,
+      isDropTarget && currentDropType === 'after' && styles.dropAfter,
+      isDropTarget && currentDropType === 'child' && styles.dropChild,
       getDepthClass(depth),
     ].filter(Boolean).join(' ');
 
@@ -319,6 +515,12 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
         <div
           className={itemClasses}
           onClick={() => handleEntityClick(entity.id)}
+          draggable
+          onDragStart={(e) => handleDragStart(e, entity.id)}
+          onDragEnd={handleDragEnd}
+          onDragOver={(e) => handleDragOver(e, entity.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, entity.id)}
         >
           <div className={styles.entityIcon}>
             {hasChildren ? (
@@ -362,7 +564,7 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
         )}
       </React.Fragment>
     );
-  }, [selectedEntityId, expandedEntities, loadingChildren, getDepthClass, handleEntityClick, handleExpandToggle]);
+  }, [selectedEntityId, expandedEntities, loadingChildren, getDepthClass, handleEntityClick, handleExpandToggle, draggingEntityId, dropTarget, handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop]);
 
   return (
     <Surface className={styles.container}>
@@ -372,7 +574,11 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
         </IconButton>
       </div>
 
-      <div className={styles.content}>
+      <div
+        className={styles.content}
+        onDragOver={handleDragOverRoot}
+        onDrop={handleDropOnRoot}
+      >
         {loading && (
           <div className={styles.loadingContainer}>
             <Spinner />

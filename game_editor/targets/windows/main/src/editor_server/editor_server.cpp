@@ -41,6 +41,9 @@ struct APIResponse {
     static APIResponse internal_error(std::string body) {
         return {"500 Internal Server Error", std::move(body)};
     }
+    static APIResponse conflict(std::string body) {
+        return {"409 Conflict", std::move(body)};
+    }
 };
 
 // API request info
@@ -51,6 +54,7 @@ struct APIRequest {
         GET_ENTITY_INFO,
         GET_RESOURCE,
         PATCH_ENTITY_COMPONENTS,
+        PATCH_ENTITY_HIERARCHY,
         PUT_RESOURCE,
         GET_REGISTERED_COMPONENTS,
         POST_ENTITY_COMPONENT,
@@ -271,6 +275,44 @@ public:
 
                     if (is_last) {
                         queue_request(APIRequest::PATCH_ENTITY_COMPONENTS, captured_entity_id, std::move(*body_buffer),
+                            [res, response_state](const APIResponse& response) {
+                                if (*response_state) {
+                                    res->writeStatus(response.status);
+                                    res->end(response.body);
+                                }
+                            });
+                    }
+                });
+            })
+            .patch("/api/entities/ids/:id/hierarchy", [this](auto *res, auto *req) {
+                res->writeHeader("Content-Type", "application/json");
+                res->writeHeader("Access-Control-Allow-Origin", "*");
+                res->writeHeader("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS");
+                res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+
+                std::string id_str(req->getParameter(0));
+                uint32_t entity_id = 0;
+                try {
+                    entity_id = std::stoul(id_str);
+                } catch (...) {
+                    res->writeStatus("400 Bad Request");
+                    res->end("{\"error\":\"Invalid entity ID\"}");
+                    return;
+                }
+
+                auto response_state = std::make_shared<bool>(true);
+                auto body_buffer = std::make_shared<std::string>();
+                auto captured_entity_id = entity_id;
+
+                res->onAborted([response_state]() {
+                    *response_state = false;
+                });
+
+                res->onData([this, res, response_state, body_buffer, captured_entity_id](std::string_view chunk, bool is_last) {
+                    body_buffer->append(chunk.data(), chunk.size());
+
+                    if (is_last) {
+                        queue_request(APIRequest::PATCH_ENTITY_HIERARCHY, captured_entity_id, std::move(*body_buffer),
                             [res, response_state](const APIResponse& response) {
                                 if (*response_state) {
                                     res->writeStatus(response.status);
@@ -575,6 +617,9 @@ public:
                     case APIRequest::PATCH_ENTITY_COMPONENTS:
                         response = update_entity_components(request.entity_id, request.request_body);
                         break;
+                    case APIRequest::PATCH_ENTITY_HIERARCHY:
+                        response = update_entity_hierarchy(request.entity_id, request.request_body);
+                        break;
                     case APIRequest::PUT_RESOURCE:
                         response = update_resource_json(request.resource_type, request.resource_name, request.request_body);
                         break;
@@ -768,19 +813,22 @@ private:
         }
 
         // Generate root_infos JSON (array of root entity infos)
+        // Use hierarchy_system's root_hierarchy for proper ordering
+        // (not EnTT view iteration which has unpredictable order)
         if (any_subscribed_root_infos) {
             nodec::StringBuilder json(root_infos_message);
             json << "{\"event\":\"notify_root_infos\",\"payload\":[";
 
+            const auto& root_hierarchy = world_->scene().hierarchy_system().root_hierarchy();
             bool first = true;
-            auto view = registry.view<nodec_scene::components::Hierarchy>();
-            for (auto entity : view) {
+            auto entity = root_hierarchy.first;
+            while (entity != nodec::entities::null_entity) {
+                if (!first) json << ",";
+                build_entity_info_json(json, entity, registry);
+                first = false;
+                // Follow linked list to next root entity
                 const auto& hierarchy = registry.get_component<nodec_scene::components::Hierarchy>(entity);
-                if (hierarchy.parent == nodec::entities::null_entity) {
-                    if (!first) json << ",";
-                    build_entity_info_json(json, entity, registry);
-                    first = false;
-                }
+                entity = hierarchy.next;
             }
 
             json << "]}";
@@ -909,15 +957,18 @@ private:
             auto& scene = world_->scene();
             auto& registry = scene.registry();
 
+            // Use hierarchy_system's root_hierarchy for proper ordering
+            // (not EnTT view iteration which has unpredictable order)
+            const auto& root_hierarchy = scene.hierarchy_system().root_hierarchy();
             bool first = true;
-            auto view = registry.view<nodec_scene::components::Hierarchy>();
-            for (auto entity : view) {
+            auto entity = root_hierarchy.first;
+            while (entity != nodec::entities::null_entity) {
+                if (!first) json << ",";
+                build_entity_info_json(json, entity, registry);
+                first = false;
+                // Follow linked list to next root entity
                 const auto& hierarchy = registry.get_component<nodec_scene::components::Hierarchy>(entity);
-                if (hierarchy.parent == nodec::entities::null_entity) {
-                    if (!first) json << ",";
-                    build_entity_info_json(json, entity, registry);
-                    first = false;
-                }
+                entity = hierarchy.next;
             }
 
         } catch (const std::exception& e) {
@@ -1092,6 +1143,178 @@ private:
         } catch (const std::exception& e) {
             logger_->error(__FILE__, __LINE__) << "Error updating entity components: " << e.what();
             return APIResponse::bad_request("{\"error\":\"" + std::string(e.what()) + "\"}");
+        }
+    }
+
+    APIResponse update_entity_hierarchy(uint32_t entity_id, const std::string& json_body) {
+        using namespace nodec::entities;
+        using namespace nodec_scene::components;
+
+        auto entity = static_cast<nodec::entities::Entity>(entity_id);
+        auto& scene = world_->scene();
+        auto& registry = scene.registry();
+        auto& hierarchy_system = scene.hierarchy_system();
+
+        if (!registry.is_valid(entity)) {
+            return APIResponse::not_found("{\"error\":\"Entity not found\",\"id\":" + std::to_string(entity_id) + "}");
+        }
+
+        try {
+            // Parse JSON manually using cereal
+            // Expected format: { "parentId": number|null, "insertBefore": number, "insertAfter": number }
+            std::optional<std::optional<uint32_t>> parent_id;  // outer optional = specified, inner optional = null or value
+            std::optional<uint32_t> insert_before;
+            std::optional<uint32_t> insert_after;
+
+            // Simple JSON parsing using cereal
+            {
+                std::istringstream iss(json_body);
+                cereal::JSONInputArchive archive(iss);
+
+                // Try to read each field
+                try {
+                    // parentId can be null or a number
+                    // Check if parentId exists in JSON
+                    if (json_body.find("\"parentId\"") != std::string::npos) {
+                        if (json_body.find("\"parentId\":null") != std::string::npos ||
+                            json_body.find("\"parentId\": null") != std::string::npos) {
+                            parent_id = std::optional<uint32_t>(std::nullopt);  // null means move to root
+                        } else {
+                            uint32_t pid;
+                            archive(cereal::make_nvp("parentId", pid));
+                            parent_id = std::optional<uint32_t>(pid);
+                        }
+                    }
+                } catch (...) {}
+
+                try {
+                    if (json_body.find("\"insertBefore\"") != std::string::npos) {
+                        uint32_t ib;
+                        std::istringstream iss2(json_body);
+                        cereal::JSONInputArchive archive2(iss2);
+                        archive2(cereal::make_nvp("insertBefore", ib));
+                        insert_before = ib;
+                    }
+                } catch (...) {}
+
+                try {
+                    if (json_body.find("\"insertAfter\"") != std::string::npos) {
+                        uint32_t ia;
+                        std::istringstream iss3(json_body);
+                        cereal::JSONInputArchive archive3(iss3);
+                        archive3(cereal::make_nvp("insertAfter", ia));
+                        insert_after = ia;
+                    }
+                } catch (...) {}
+            }
+
+            // Validate: insertBefore and insertAfter are mutually exclusive
+            if (insert_before && insert_after) {
+                return APIResponse::bad_request("{\"error\":\"Cannot specify both insertBefore and insertAfter\",\"code\":\"INVALID_REQUEST\"}");
+            }
+
+            // Ensure entity has Hierarchy component
+            registry.emplace_component<Hierarchy>(entity);
+
+            // Handle insert_before or insert_after (sibling reordering)
+            if (insert_before) {
+                auto dest = static_cast<nodec::entities::Entity>(*insert_before);
+                if (!registry.is_valid(dest)) {
+                    return APIResponse::not_found("{\"error\":\"insertBefore entity not found\",\"id\":" + std::to_string(*insert_before) + "}");
+                }
+                registry.emplace_component<Hierarchy>(dest);
+
+                // If parentId is specified, first move to that parent
+                if (parent_id) {
+                    if (*parent_id) {
+                        auto parent = static_cast<nodec::entities::Entity>(**parent_id);
+                        if (!registry.is_valid(parent)) {
+                            return APIResponse::not_found("{\"error\":\"Parent entity not found\",\"id\":" + std::to_string(**parent_id) + "}");
+                        }
+                        registry.emplace_component<Hierarchy>(parent);
+                        hierarchy_system.append_child(parent, entity);
+                    }
+                    // If parentId is null, the insert_before will handle the parent
+                }
+
+                hierarchy_system.insert_before(entity, dest);
+            } else if (insert_after) {
+                auto dest = static_cast<nodec::entities::Entity>(*insert_after);
+                if (!registry.is_valid(dest)) {
+                    return APIResponse::not_found("{\"error\":\"insertAfter entity not found\",\"id\":" + std::to_string(*insert_after) + "}");
+                }
+                registry.emplace_component<Hierarchy>(dest);
+
+                // If parentId is specified, first move to that parent
+                if (parent_id) {
+                    if (*parent_id) {
+                        auto parent = static_cast<nodec::entities::Entity>(**parent_id);
+                        if (!registry.is_valid(parent)) {
+                            return APIResponse::not_found("{\"error\":\"Parent entity not found\",\"id\":" + std::to_string(**parent_id) + "}");
+                        }
+                        registry.emplace_component<Hierarchy>(parent);
+                        hierarchy_system.append_child(parent, entity);
+                    }
+                }
+
+                hierarchy_system.insert_after(entity, dest);
+            } else if (parent_id) {
+                // Only parentId specified - move to new parent or root
+                if (*parent_id) {
+                    // Move to new parent
+                    auto parent = static_cast<nodec::entities::Entity>(**parent_id);
+                    if (!registry.is_valid(parent)) {
+                        return APIResponse::not_found("{\"error\":\"Parent entity not found\",\"id\":" + std::to_string(**parent_id) + "}");
+                    }
+                    registry.emplace_component<Hierarchy>(parent);
+                    hierarchy_system.append_child(parent, entity);
+                } else {
+                    // Move to root (parentId is null)
+                    auto& entity_hierarchy = registry.get_component<Hierarchy>(entity);
+                    if (entity_hierarchy.parent != null_entity) {
+                        hierarchy_system.remove_child(entity_hierarchy.parent, entity);
+                    }
+                }
+            } else {
+                return APIResponse::bad_request("{\"error\":\"No operation specified. Provide parentId, insertBefore, or insertAfter\",\"code\":\"INVALID_REQUEST\"}");
+            }
+
+            // Build response with updated hierarchy info
+            auto& updated_hierarchy = registry.get_component<Hierarchy>(entity);
+            std::ostringstream response;
+            response << "{\"id\":" << entity_id << ",\"hierarchy\":{";
+            response << "\"parent\":";
+            if (updated_hierarchy.parent == null_entity) {
+                response << "null";
+            } else {
+                response << static_cast<uint32_t>(updated_hierarchy.parent);
+            }
+            response << ",\"children\":[";
+
+            bool first = true;
+            auto child = updated_hierarchy.first;
+            while (child != null_entity) {
+                if (!first) response << ",";
+                response << static_cast<uint32_t>(child);
+                first = false;
+                child = registry.get_component<Hierarchy>(child).next;
+            }
+            response << "]}}";
+
+            logger_->info(__FILE__, __LINE__) << "Updated hierarchy for entity " << entity_id;
+            return APIResponse::ok(response.str());
+
+        } catch (const std::runtime_error& e) {
+            // Circular reference errors from hierarchy_system throw runtime_error
+            std::string error_msg = e.what();
+            if (error_msg.find("cannot set itself as a parent") != std::string::npos) {
+                return APIResponse::conflict("{\"error\":\"Circular reference detected\",\"code\":\"CIRCULAR_REFERENCE\"}");
+            }
+            logger_->error(__FILE__, __LINE__) << "Error updating entity hierarchy: " << e.what();
+            return APIResponse::bad_request("{\"error\":\"" + error_msg + "\"}");
+        } catch (const std::exception& e) {
+            logger_->error(__FILE__, __LINE__) << "Error updating entity hierarchy: " << e.what();
+            return APIResponse::internal_error("{\"error\":\"" + std::string(e.what()) + "\"}");
         }
     }
 

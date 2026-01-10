@@ -128,3 +128,20 @@
 .depth3 { padding-left: 64px; }
 .depth4 { padding-left: 80px; }
 .depth5 { padding-left: 96px; }
+
+/* Drag & Drop states */
+.entityItemDragging {
+  opacity: 0.5;
+}
+
+.dropBefore {
+  border-top: 2px solid var(--md-sys-color-primary);
+}
+
+.dropAfter {
+  border-bottom: 2px solid var(--md-sys-color-primary);
+}
+
+.dropChild {
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+}
