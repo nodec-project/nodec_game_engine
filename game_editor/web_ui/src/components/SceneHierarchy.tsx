@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Surface, Alert, Spinner, IconButton, Collapse, List, Typography, Icon } from '@/ui';
-import { gameEngineAPI, EntityInfo, entityHasChildren } from '../api/gameEngine';
+import { gameEngineAPI, EntityInfo, entityHasChildren, entityHasPrefab } from '../api/gameEngine';
 import { useEditor } from '../contexts/EditorContext';
 import styles from './SceneHierarchy.module.css';
 
@@ -300,6 +300,7 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     const isExpanded = expandedEntities.has(entity.id);
     const isLoadingChildren = loadingChildren.has(entity.id);
     const hasChildren = entityHasChildren(entity);
+    const isPrefab = entityHasPrefab(entity);
 
     const itemClasses = [
       styles.entityItem,
@@ -310,6 +311,7 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     const nameClasses = [
       styles.entityName,
       isSelected && styles.entityNameSelected,
+      isPrefab && styles.entityNamePrefab,
     ].filter(Boolean).join(' ');
 
     return (
@@ -342,6 +344,9 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
             )}
           </div>
           <span className={nameClasses}>{entity.name}</span>
+          {isPrefab && (
+            <Icon name="deployed_code" size={16} className={styles.prefabIcon} />
+          )}
           {hasChildren && (
             <div className={styles.folderIcon}>
               {isExpanded ? <Icon name="folder_open" size={18} /> : <Icon name="folder" size={18} />}
