@@ -629,15 +629,16 @@ export class GameEngineAPI {
   updateEntityInfoSubscription(entityIds: number[]): void {
     const newIds = new Set(entityIds);
 
-    // Find IDs to add (in new but not in current)
-    const toAdd = entityIds.filter(id => !this.entityInfoSubscribedIds.has(id));
+    // Check if the set has changed
+    const hasChanged = entityIds.length !== this.entityInfoSubscribedIds.size ||
+      entityIds.some(id => !this.entityInfoSubscribedIds.has(id));
 
     // Update the tracked set
     this.entityInfoSubscribedIds = newIds;
 
-    // Send subscription for new IDs (server handles idempotent subscription)
-    if (toAdd.length > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.sendEntityInfoSubscribe(toAdd);
+    // Send FULL subscription list to server (server replaces its subscription)
+    if (hasChanged && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.sendEntityInfoSubscribe(entityIds);
     }
   }
 

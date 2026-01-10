@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Surface, Alert, Spinner, IconButton, Collapse, List, Typography, Icon } from '@/ui';
 import { gameEngineAPI, EntityInfo, entityHasChildren, entityHasPrefab, MoveEntityHierarchyRequest } from '../api/gameEngine';
 import { useEditor } from '../contexts/EditorContext';
@@ -28,25 +28,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
   type DropType = 'before' | 'child' | 'after';
   const [draggingEntityId, setDraggingEntityId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ entityId: string; dropType: DropType } | null>(null);
-
-  // Ref to track entities for subscription updates (avoids stale closure)
-  const entitiesRef = useRef<EntityNode[]>([]);
-  entitiesRef.current = entities;
-
-  // Ref to track expanded entities for subscription management
-  const expandedEntitiesRef = useRef<Set<string>>(new Set());
-  expandedEntitiesRef.current = expandedEntities;
-
-  // Debug: Only log after drag operation (for 3 seconds)
-  const debugLogEnabledRef = useRef<boolean>(false);
-  const enableDebugLog = () => {
-    debugLogEnabledRef.current = true;
-    console.log("=== DEBUG LOG ENABLED (drag started) ===");
-    setTimeout(() => {
-      debugLogEnabledRef.current = false;
-      console.log("=== DEBUG LOG DISABLED ===");
-    }, 3000);
-  };
 
   // Helper: Find entity by ID in tree
   const findEntityInTree = useCallback((nodes: EntityNode[], id: string): EntityNode | null => {
@@ -102,9 +83,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
 
   // Handle root entities update from WebSocket
   const handleRootInfosUpdate = useCallback((rootInfos: EntityInfo[]) => {
-    if (debugLogEnabledRef.current) {
-      console.log("[RootInfos] Received:", rootInfos.map(e => `${e.name}(${e.id}):children=[${e.hierarchy.children}]`));
-    }
     setEntities(prevEntities => {
       // Create a map of existing entities for quick lookup (preserve childNodes)
       const existingMap = new Map<string, EntityNode>();
@@ -125,9 +103,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
         }
         return info;
       });
-      if (debugLogEnabledRef.current) {
-        console.log("[RootInfos] setEntities result:", JSON.stringify(result.map(e => ({ name: e.name, id: e.id, childNodes: (e as EntityNode).childNodes?.map((c: EntityNode) => c.name) })), null, 2));
-      }
       return result;
     });
     setLoading(false);
@@ -187,9 +162,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
 
   // Handle entity info update from WebSocket
   const handleEntityInfoUpdate = useCallback((entityInfos: EntityInfo[]) => {
-    if (debugLogEnabledRef.current) {
-      console.log("[EntityInfo] Received:", entityInfos.map(e => `${e.name}(${e.id}):parent=${e.hierarchy.parent},children=[${e.hierarchy.children}]`));
-    }
     setEntities(prevEntities => {
       let updated = prevEntities;
 
@@ -254,19 +226,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
           if (reordered === node.childNodes) return node;
           return { ...node, childNodes: reordered };
         });
-      }
-
-      // Log final tree structure
-      if (debugLogEnabledRef.current) {
-        const logTree = (nodes: EntityNode[], indent = ''): string[] => {
-          const lines: string[] = [];
-          for (const n of nodes) {
-            lines.push(`${indent}${n.name}(${n.id})`);
-            if (n.childNodes) lines.push(...logTree(n.childNodes, indent + '  '));
-          }
-          return lines;
-        };
-        console.log("[EntityInfo] setEntities result:\n" + logTree(updated).join('\n'));
       }
 
       return updated;
@@ -478,9 +437,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
       return;
     }
 
-    // Enable debug logging for 3 seconds after drop
-    enableDebugLog();
-
     try {
       const request: MoveEntityHierarchyRequest = {};
 
@@ -670,20 +626,6 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
 
         {!loading && !error && entities.length > 0 && (
           <List dense>
-            {(() => {
-              if (debugLogEnabledRef.current) {
-                const logTree = (nodes: EntityNode[], indent = ''): string[] => {
-                  const lines: string[] = [];
-                  for (const n of nodes) {
-                    lines.push(`${indent}${n.name}(${n.id})`);
-                    if (n.childNodes) lines.push(...logTree(n.childNodes, indent + '  '));
-                  }
-                  return lines;
-                };
-                console.log("[RENDER] entities:\n" + logTree(entities).join('\n'));
-              }
-              return null;
-            })()}
             {entities.map((entity) => renderEntity(entity))}
           </List>
         )}
