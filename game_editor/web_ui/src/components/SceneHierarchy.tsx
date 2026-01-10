@@ -275,29 +275,33 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
   // Update entity info subscription when expanded entities change
   useEffect(() => {
     // Collect all entity IDs we need to subscribe to:
-    // - Expanded entities themselves (to get hierarchy.children updates)
+    // - Root entities (always, to track when they move to/from root)
+    // - Expanded entities (to get hierarchy.children updates)
     // - Children of expanded entities (to get updates when children change)
     const idsToSubscribe: number[] = [];
 
-    const collectIds = (nodes: EntityNode[]) => {
+    const collectIds = (nodes: EntityNode[], isRoot: boolean) => {
       for (const node of nodes) {
-        if (expandedEntities.has(node.id)) {
-          // Subscribe to expanded entity itself (for hierarchy.children updates)
-          idsToSubscribe.push(parseInt(node.id, 10));
+        const isExpanded = expandedEntities.has(node.id);
 
-          if (node.childNodes) {
-            // Subscribe to children of expanded nodes
-            for (const child of node.childNodes) {
-              idsToSubscribe.push(parseInt(child.id, 10));
-            }
-            // Recursively collect from children
-            collectIds(node.childNodes);
+        // Always subscribe to root entities (even if not expanded)
+        // so we can track when they move to become children
+        if (isRoot || isExpanded) {
+          idsToSubscribe.push(parseInt(node.id, 10));
+        }
+
+        if (isExpanded && node.childNodes) {
+          // Subscribe to children of expanded nodes
+          for (const child of node.childNodes) {
+            idsToSubscribe.push(parseInt(child.id, 10));
           }
+          // Recursively collect from children (no longer root level)
+          collectIds(node.childNodes, false);
         }
       }
     };
 
-    collectIds(entities);
+    collectIds(entities, true);
 
     // Update subscription
     gameEngineAPI.updateEntityInfoSubscription(idsToSubscribe);
