@@ -77,21 +77,25 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     });
   }, []);
 
-  // Helper: Reorder childNodes based on hierarchy.children order
+  // Helper: Filter and reorder childNodes based on hierarchy.children
+  // Removes children that have moved away (not in hierarchyChildren)
   const reorderChildren = useCallback((
     childNodes: EntityNode[] | undefined,
     hierarchyChildren: number[]
   ): EntityNode[] | undefined => {
-    if (!childNodes || childNodes.length <= 1) return childNodes;
+    if (!childNodes) return childNodes;
 
-    return [...childNodes].sort((a, b) => {
-      const aId = parseInt(a.id, 10);
-      const bId = parseInt(b.id, 10);
-      const aIdx = hierarchyChildren.indexOf(aId);
-      const bIdx = hierarchyChildren.indexOf(bId);
-      if (aIdx === -1 && bIdx === -1) return 0;
-      if (aIdx === -1) return 1;
-      if (bIdx === -1) return -1;
+    // Filter out children that are no longer in hierarchy.children
+    const hierarchyChildrenSet = new Set(hierarchyChildren);
+    const filtered = childNodes.filter(c => hierarchyChildrenSet.has(parseInt(c.id, 10)));
+
+    if (filtered.length === 0) return undefined;
+    if (filtered.length === 1) return filtered;
+
+    // Sort remaining children by hierarchy order
+    return filtered.sort((a, b) => {
+      const aIdx = hierarchyChildren.indexOf(parseInt(a.id, 10));
+      const bIdx = hierarchyChildren.indexOf(parseInt(b.id, 10));
       return aIdx - bIdx;
     });
   }, []);
@@ -214,6 +218,15 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
 
           updated = updateEntityInTree(updated, parentIdStr, parentNode => {
             const childNodes = parentNode.childNodes || [];
+            // Check if child already exists to avoid duplicates
+            const alreadyExists = childNodes.some(c => c.id === info.id);
+            if (alreadyExists) {
+              // Update existing child instead of adding duplicate
+              return {
+                ...parentNode,
+                childNodes: childNodes.map(c => c.id === info.id ? newNode : c),
+              };
+            }
             // Also update hierarchy.children to include the new child
             const updatedHierarchyChildren = parentNode.hierarchy.children.includes(newNodeId)
               ? parentNode.hierarchy.children
