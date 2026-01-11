@@ -50,7 +50,7 @@ protected:
         // Create EditorWindow for ImGui (uses shared device)
         editor_window_.reset(new EditorWindow(
             *graphics_device_,
-            1280, 720,
+            1920, 1080,
             L"nodec Game Editor"
         ));
 

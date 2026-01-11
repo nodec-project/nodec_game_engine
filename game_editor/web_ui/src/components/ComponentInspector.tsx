@@ -18,6 +18,7 @@ import {
   Button,
   Menu,
   MenuItem,
+  Checkbox,
 } from '@/ui';
 import { gameEngineAPI, ComponentInfo, EntityDetailsResponse, SerializableComponent, RegisteredComponent } from '../api/gameEngine';
 import styles from './ComponentInspector.module.css';
@@ -120,6 +121,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   const [isLiveUpdating, setIsLiveUpdating] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const isDirtyRef = useRef(false);
+  const componentsRef = useRef<ComponentInfo[]>([]);
   const [expandedAccordions, setExpandedAccordions] = useState<string[]>(['component-0']);
   const [registeredComponents, setRegisteredComponents] = useState<RegisteredComponent[]>([]);
   const [componentSearchQuery, setComponentSearchQuery] = useState('');
@@ -176,6 +178,11 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
 
     fetchEntityData();
   }, [entityId]);
+
+  // Keep componentsRef in sync with components state for use in callbacks
+  useEffect(() => {
+    componentsRef.current = components;
+  }, [components]);
 
   useEffect(() => {
     if (unsubscribeRef.current) {
@@ -240,6 +247,8 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
       }
 
       newComponents[componentIndex] = component;
+      // Update ref synchronously for immediate commits (e.g., checkbox)
+      componentsRef.current = newComponents;
       return newComponents;
     });
   }, []);
@@ -247,7 +256,8 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
   const handleCommit = useCallback(async (componentIndex: number) => {
     if (entityId === null) return;
 
-    const component = components[componentIndex];
+    // Use ref to get latest components state (important for immediate commits like checkbox)
+    const component = componentsRef.current[componentIndex];
     const serializableComponent = gameEngineAPI.extractSerializableComponent(component);
 
     if (!serializableComponent) {
@@ -268,7 +278,7 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     } finally {
       isDirtyRef.current = false;
     }
-  }, [entityId, components]);
+  }, [entityId]);
 
   const handleRemoveComponent = useCallback(async (typeIndex: number) => {
     if (entityId === null) return;
@@ -326,6 +336,29 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                 <Typography variant="body-small" color="secondary">
                   {key}: <em>null</em>
                 </Typography>
+              </div>
+            );
+          }
+
+          if (typeof value === 'boolean') {
+            return (
+              <div key={key} className={styles.fieldContainer}>
+                <div className={styles.checkboxField}>
+                  <Checkbox
+                    checked={value}
+                    size="small"
+                    onChange={(_, checked) => {
+                      handlePropertyChange(
+                        componentIndex,
+                        ['component', 'ptr_wrapper', 'data', ...currentPath],
+                        checked
+                      );
+                      // Use setTimeout to ensure state update completes before commit
+                      setTimeout(() => handleCommit(componentIndex), 0);
+                    }}
+                  />
+                  <Typography variant="body-small">{key}</Typography>
+                </div>
               </div>
             );
           }
@@ -400,14 +433,20 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
     );
   };
 
+  // Check if a component has serializable data
+  const hasSerializableData = (component: ComponentInfo): boolean => {
+    return gameEngineAPI.extractSerializableComponent(component) !== null;
+  };
+
   const renderSerializableComponent = (
     component: ComponentInfo,
     componentIndex: number
   ): React.ReactNode => {
     const serializableComponent = gameEngineAPI.extractSerializableComponent(component);
 
+    // Skip rendering if no serializable component (handled separately)
     if (!serializableComponent) {
-      return renderReadOnlyData(component.data);
+      return null;
     }
 
     const displayName = getComponentDisplayName(serializableComponent.polymorphic_name);
@@ -422,16 +461,25 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
             <Chip size="small" variant="outlined" className={styles.typeChip}>
               Type: {component.type_index}
             </Chip>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRemoveComponent(component.type_index);
-              }}
-              className={styles.removeButton}
+            <Menu
+              trigger={
+                <IconButton
+                  size="small"
+                  onClick={(e) => e.stopPropagation()}
+                  className={styles.menuButton}
+                >
+                  <Icon name="more_vert" size={16} />
+                </IconButton>
+              }
+              placement="bottom-end"
             >
-              <Icon name="delete" size={16} />
-            </IconButton>
+              <MenuItem
+                onClick={() => handleRemoveComponent(component.type_index)}
+              >
+                <Icon name="delete" size={16} />
+                Delete
+              </MenuItem>
+            </Menu>
           </div>
         </AccordionHeader>
         <AccordionPanel>
@@ -525,16 +573,6 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
             <span className={styles.entityName}>Entity: {entityDetails.name}</span>
             <span className={styles.entityId}>ID: {entityDetails.id}</span>
           </div>
-          {isLiveUpdating && (
-            <Chip
-              icon={<Icon name="sync" size={14} className={styles.liveChipIcon} />}
-              size="small"
-              variant="outlined"
-              className={styles.liveChip}
-            >
-              Live
-            </Chip>
-          )}
         </div>
       )}
 
@@ -658,20 +696,34 @@ export const ComponentInspector: React.FC<ComponentInspectorProps> = ({ entityId
                 </div>
               )}
 
-              {components.length === 0 ? (
-                <Alert severity="info">
-                  No components found for this entity
-                </Alert>
-              ) : (
-                <Accordion
-                  value={expandedAccordions}
-                  onValueChange={setExpandedAccordions}
-                >
-                  {components.map((component, index) =>
-                    renderSerializableComponent(component, index)
-                  )}
-                </Accordion>
-              )}
+              {(() => {
+                const serializableComponents = components.filter(hasSerializableData);
+                const noDataCount = components.length - serializableComponents.length;
+
+                return (
+                  <>
+                    {serializableComponents.length === 0 ? (
+                      <Alert severity="info">
+                        No components found for this entity
+                      </Alert>
+                    ) : (
+                      <Accordion
+                        value={expandedAccordions}
+                        onValueChange={setExpandedAccordions}
+                      >
+                        {components.map((component, index) =>
+                          renderSerializableComponent(component, index)
+                        )}
+                      </Accordion>
+                    )}
+                    {noDataCount > 0 && (
+                      <Typography variant="body-small" color="secondary" className={styles.noDataCount}>
+                        + {noDataCount} component{noDataCount > 1 ? 's' : ''} without data
+                      </Typography>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </>
         )}

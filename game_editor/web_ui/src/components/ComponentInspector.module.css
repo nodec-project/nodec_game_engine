@@ -128,6 +128,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .componentIcon {
@@ -140,6 +142,10 @@
   font-size: var(--md-sys-typescale-body-large-size);
   color: var(--md-sys-color-on-surface);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Remove button in accordion header */
@@ -173,6 +179,7 @@
 .typeChip {
   font-size: 11px;
   height: 20px;
+  flex-shrink: 0;
 }
 
 /* Children count */
@@ -197,4 +204,29 @@
 .componentMenuList {
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* Checkbox field */
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Menu button in accordion header */
+.menuButton {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.menuButton:hover {
+  opacity: 1;
+}
+
+/* No data components count */
+.noDataCount {
+  margin-top: 8px;
+  opacity: 0.5;
+  font-size: 12px;
 }

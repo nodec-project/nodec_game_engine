@@ -234,18 +234,18 @@ void Editor::update() {
         editor_server_->process_pending_requests();
     }
 
-    {
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-        bool open = true;
-        ImGui::Begin("Editor DockSpace", &open, window_flags);
+    // {
+    //     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    //     bool open = true;
+    //     ImGui::Begin("Editor DockSpace", &open, window_flags);
 
-        ImGuiDockNodeFlags dock_space_flags = ImGuiDockNodeFlags_None;
-        ImGui::DockSpace(ImGui::GetID("editor-dock-space"), ImVec2(0.0f, 0.0f), dock_space_flags);
+    //     ImGuiDockNodeFlags dock_space_flags = ImGuiDockNodeFlags_None;
+    //     ImGui::DockSpace(ImGui::GetID("editor-dock-space"), ImVec2(0.0f, 0.0f), dock_space_flags);
 
-        imessentials::impl::show_menu_bar();
-
-        ImGui::End();
-    }
+    //     ImGui::End();
+    // }
+    
+    imessentials::impl::show_main_menu_bar();
 
     ImGuizmo::BeginFrame();
 
