@@ -92,6 +92,20 @@ public:
         return frustum_;
     }
 
+    // Get projection matrix as nodec::Matrix4x4f
+    nodec::Matrix4x4f get_projection_matrix() const {
+        nodec::Matrix4x4f result;
+        DirectX::XMStoreFloat4x4(reinterpret_cast<DirectX::XMFLOAT4X4 *>(result.m), matrix_p_);
+        return result;
+    }
+
+    // Get view matrix (world2camera) as nodec::Matrix4x4f
+    nodec::Matrix4x4f get_view_matrix() const {
+        nodec::Matrix4x4f result;
+        DirectX::XMStoreFloat4x4(reinterpret_cast<DirectX::XMFLOAT4X4 *>(result.m), matrix_v_);
+        return result;
+    }
+
     // btCollisionObject *frustum_object() const {
     //     return frustum_object_.get();
     // }

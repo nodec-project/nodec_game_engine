@@ -99,7 +99,15 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
 
             auto ghost_body_backend = std::make_unique<GhostObjectBackend>(entity, std::move(shape_backend), world_trs.translation, world_trs.rotation);
 
-            ghost_body_backend->bind_world(*dynamics_world_);
+            std::uint32_t group = 0x1;
+            std::uint32_t mask = 0xFFFFFFFF;
+            auto *filter = scene_registry.try_get_component<CollisionFilter>(entity);
+            if (filter) {
+                group = filter->group;
+                mask = filter->mask;
+            }
+
+            ghost_body_backend->bind_world(*dynamics_world_, group, mask);
             activity.collision_object_backend = std::move(ghost_body_backend);
         });
 
@@ -254,7 +262,11 @@ void PhysicsSystemBackend::on_stepped(nodec_world::World &world) {
         });
 }
 
-nodec::optional<nodec_physics::RayCastHit> PhysicsSystemBackend::ray_cast(const nodec::Vector3f &ray_start, const nodec::Vector3f &ray_end) {
+nodec::optional<nodec_physics::RayCastHit> PhysicsSystemBackend::ray_cast(
+    const nodec::Vector3f &ray_start,
+    const nodec::Vector3f &ray_end,
+    std::uint32_t collision_filter_group,
+    std::uint32_t collision_filter_mask) {
     using namespace nodec;
     using namespace nodec_physics;
 
@@ -262,6 +274,8 @@ nodec::optional<nodec_physics::RayCastHit> PhysicsSystemBackend::ray_cast(const 
     btVector3 bt_ray_end(ray_end.x, ray_end.y, ray_end.z);
 
     btCollisionWorld::ClosestRayResultCallback ray_callback(bt_ray_start, bt_ray_end);
+    ray_callback.m_collisionFilterGroup = static_cast<int>(collision_filter_group);
+    ray_callback.m_collisionFilterMask = static_cast<int>(collision_filter_mask);
 
     dynamics_world_->rayTest(bt_ray_start, bt_ray_end, ray_callback);
 

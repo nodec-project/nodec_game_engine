@@ -814,7 +814,7 @@ private:
 
         // Generate root_infos JSON (array of root entity infos)
         // Use hierarchy_system's root_hierarchy for proper ordering
-        // (not EnTT view iteration which has unpredictable order)
+        // (not registry view iteration which has unpredictable order)
         if (any_subscribed_root_infos) {
             nodec::StringBuilder json(root_infos_message);
             json << "{\"event\":\"notify_root_infos\",\"payload\":[";
@@ -958,7 +958,7 @@ private:
             auto& registry = scene.registry();
 
             // Use hierarchy_system's root_hierarchy for proper ordering
-            // (not EnTT view iteration which has unpredictable order)
+            // (not registry view iteration which has unpredictable order)
             const auto& root_hierarchy = scene.hierarchy_system().root_hierarchy();
             bool first = true;
             auto entity = root_hierarchy.first;

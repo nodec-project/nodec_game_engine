@@ -30,6 +30,7 @@
 #include <nodec_scene_serialization/impl/entity_loader_impl.hpp>
 #include <nodec_scene_serialization/scene_serialization.hpp>
 #include <nodec_scene_serialization/systems/prefab_load_system.hpp>
+#include <nodec_ui/systems/ui_raycaster_system.hpp>
 #include <nodec_world/impl/world_impl.hpp>
 
 #include <thread>
@@ -123,6 +124,18 @@ private:
     std::shared_ptr<nodec_animation::ComponentRegistry> animation_component_registry_;
     std::unique_ptr<nodec_animation::systems::AnimatorSystem> animator_system_;
 
+    // UI system
+    nodec_ui::systems::UiRaycasterSystem ui_raycaster_system_;
+
+    // Mouse state tracking for UI
+    struct MouseState {
+        nodec::Vector2f position{0, 0};
+        bool button_down{false};
+        bool button_pressed{false};
+        bool button_released{false};
+    } mouse_state_;
+
+    nodec::signals::Connection mouse_event_connection_;
 };
 
 #if CEREAL_THREAD_SAFE != 1

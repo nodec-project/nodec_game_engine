@@ -1,6 +1,7 @@
 #ifndef NODEC_GAME_ENGINE__PHYSICS__GHOST_OBJECT_BACKEND_HPP_
 #define NODEC_GAME_ENGINE__PHYSICS__GHOST_OBJECT_BACKEND_HPP_
 
+#include <cstdint>
 #include <memory>
 
 #include <BulletCollision/CollisionDispatch/btGhostObject.h>
@@ -43,8 +44,8 @@ public:
         return *native_;
     }
 
-    void bind_world(btDynamicsWorld &world) {
-        world.addCollisionObject(native_.get());
+    void bind_world(btDynamicsWorld &world, std::uint32_t group, std::uint32_t mask) {
+        world.addCollisionObject(native_.get(), static_cast<int>(group), static_cast<int>(mask));
         world_ = &world;
     }
 

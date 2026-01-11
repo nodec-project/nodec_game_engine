@@ -40,6 +40,9 @@ add_subdirectory(modules/nodec_animation)
 set(NODEC_PHYSICS_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
 add_subdirectory(modules/nodec_physics)
 
+set(NODEC_UI_ENABLE_SERIALIZATION ON CACHE BOOL "" FORCE)
+add_subdirectory(modules/nodec_ui)
+
 add_subdirectory(modules/imgui)
 
 if(NODEC_GAME_EDITOR_ENABLED)

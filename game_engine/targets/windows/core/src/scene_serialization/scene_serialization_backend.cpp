@@ -22,6 +22,7 @@
 #include <nodec_scene_audio/serialization/components/audio_source.hpp>
 #include <nodec_scene_serialization/components/non_serialized.hpp>
 #include <nodec_scene_serialization/components/prefab.hpp>
+#include <nodec_ui/serialization/components/ui_button.hpp>
 
 SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management::ResourceRegistry *resource_registry,
                                                      nodec_scene_serialization::SceneSerialization &serialization) {
@@ -103,5 +104,12 @@ SceneSerializationBackend::SceneSerializationBackend(nodec::resource_management:
         serialization.register_component<Animator, SerializableAnimator>();
         serialization.register_component<AnimatorStart, SerializableAnimatorStart>();
         serialization.register_component<AnimatorStop, SerializableAnimatorStop>();
+    }
+
+    {
+        using namespace nodec_ui::components;
+        serialization.register_component<UiButton, SerializableUiButton>();
+        serialization.register_component<UiInteractable, SerializableUiInteractable>();
+        serialization.register_component<UiRaycastCamera, SerializableUiRaycastCamera>();
     }
 }

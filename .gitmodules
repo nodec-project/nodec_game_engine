@@ -61,3 +61,6 @@
 [submodule "sdks/freetype/freetype-windows-binaries"]
 	path = sdks/freetype/freetype-windows-binaries
 	url = https://github.com/ubawurinna/freetype-windows-binaries.git
+[submodule "modules/nodec_ui"]
+	path = modules/nodec_ui
+	url = https://github.com/nodec-project/nodec_ui.git

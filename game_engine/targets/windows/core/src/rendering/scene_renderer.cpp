@@ -274,6 +274,13 @@ void SceneRenderer::render(nodec_scene::Scene &scene,
             camera_activity.state->update_projection(camera, aspect);
             camera_activity.state->update_transform(camera_local_to_world.value);
 
+            // Write back computed matrices to Camera component for use by other systems (e.g., UI raycasting)
+            {
+                auto &camera_mut = scene_registry.get_component<Camera>(camera_entity);
+                camera_mut.projection_matrix = camera_activity.state->get_projection_matrix();
+                camera_mut.world2camera_matrix = camera_activity.state->get_view_matrix();
+            }
+
             // Clear buffers based on camera type
             if (is_base_camera) {
                 // BaseCamera: clear all (target_buffer, geometry buffers, depth stencil)

@@ -55,6 +55,7 @@ target_link_libraries(${PROJECT_NAME}
     nodec_world
     nodec_animation
     nodec_physics
+    nodec_ui
     imgui
     freetype
     DirectXTex

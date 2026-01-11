@@ -26,7 +26,11 @@ public:
     ~PhysicsSystemBackend() {
     }
 
-    nodec::optional<nodec_physics::RayCastHit> ray_cast(const nodec::Vector3f &ray_start, const nodec::Vector3f &ray_end) override;
+    nodec::optional<nodec_physics::RayCastHit> ray_cast(
+        const nodec::Vector3f &ray_start,
+        const nodec::Vector3f &ray_end,
+        std::uint32_t collision_filter_group = 0xFFFFFFFF,
+        std::uint32_t collision_filter_mask = 0xFFFFFFFF) override;
 
     void contact_test(nodec_scene::SceneEntity entity, std::function<void(nodec_physics::CollisionInfo &)> callback) override;
 
