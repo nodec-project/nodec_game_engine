@@ -216,6 +216,16 @@ export interface WsEntityInfoSubscribedMessage {
   payload: { entities: number[] };
 }
 
+// Selection update messages
+export interface WsSelectionUpdateMessage {
+  event: 'notify_selection_update';
+  payload: { selected: number[] };
+}
+
+export interface WsSelectionSubscribedMessage {
+  event: 'subscribed_selection_update';
+}
+
 // All server event types (individual event in batch)
 export type WsServerEvent =
   | WsComponentUpdateMessage
@@ -224,6 +234,8 @@ export type WsServerEvent =
   | WsRootInfosSubscribedMessage
   | WsEntityInfoMessage
   | WsEntityInfoSubscribedMessage
+  | WsSelectionUpdateMessage
+  | WsSelectionSubscribedMessage
   | WsErrorMessage;
 
 // Batched message from server (array of events)
@@ -283,6 +295,11 @@ export class GameEngineAPI {
   // Entity info listeners (single callback for all subscribed entities)
   private entityInfoListeners: Set<(entities: EntityInfo[]) => void> = new Set();
   private entityInfoSubscribedIds: Set<number> = new Set();
+
+  // Selection listeners
+  private selectionListeners: Set<(selected: number[]) => void> = new Set();
+  private selectionSubscribed: boolean = false;
+  private lastSentSelection: number[] = [];
 
   private constructor() { }
 
@@ -431,6 +448,11 @@ export class GameEngineAPI {
       if (this.entityInfoSubscribedIds.size > 0) {
         this.sendEntityInfoSubscribe(Array.from(this.entityInfoSubscribedIds));
       }
+
+      // Re-subscribe to selection
+      if (this.selectionSubscribed) {
+        this.sendSelectionSubscribe();
+      }
     } catch (e) {
       console.error('Failed to reconnect WebSocket:', e);
     }
@@ -467,12 +489,18 @@ export class GameEngineAPI {
         this.entityInfoListeners.forEach((cb) => cb(entities));
         break;
       }
+      case 'notify_selection_update': {
+        const selected: number[] = msg.payload.selected;
+        this.selectionListeners.forEach((cb) => cb(selected));
+        break;
+      }
       // Confirmation messages - can be logged if needed
       case 'subscribed_components_update':
       case 'unsubscribed_components_update':
       case 'subscribed_root_infos':
       case 'unsubscribed_root_infos':
       case 'subscribed_entity_info':
+      case 'subscribed_selection_update':
         // Subscriptions confirmed
         break;
       case 'error':
@@ -525,6 +553,19 @@ export class GameEngineAPI {
         payload: { entities: entityIds },
       };
       this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  // Selection subscription send methods
+  private sendSelectionSubscribe() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ event: 'subscribe_selection_update' }));
+    }
+  }
+
+  private sendSelectionUnsubscribe() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ event: 'unsubscribe_selection_update' }));
     }
   }
 
@@ -640,6 +681,66 @@ export class GameEngineAPI {
     if (hasChanged && this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.sendEntityInfoSubscribe(entityIds);
     }
+  }
+
+  /**
+   * Subscribe to real-time selection updates
+   * @param callback Called whenever selection changes
+   * @returns Unsubscribe function
+   */
+  async subscribeToSelection(
+    callback: (selected: number[]) => void
+  ): Promise<() => void> {
+    // Add listener
+    this.selectionListeners.add(callback);
+
+    // Connect and subscribe if first listener
+    if (!this.selectionSubscribed) {
+      try {
+        await this.connectWebSocket();
+        this.sendSelectionSubscribe();
+        this.selectionSubscribed = true;
+      } catch (e) {
+        console.error('Failed to subscribe to selection:', e);
+      }
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.selectionListeners.delete(callback);
+      if (this.selectionListeners.size === 0 && this.selectionSubscribed) {
+        this.sendSelectionUnsubscribe();
+        this.selectionSubscribed = false;
+      }
+    };
+  }
+
+  /**
+   * Send selection update to server
+   * @param selected Array of selected entity IDs
+   */
+  sendSelectionUpdate(selected: number[]): void {
+    // Check if selection actually changed to avoid duplicate sends
+    if (this.arraysEqual(selected, this.lastSentSelection)) return;
+    this.lastSentSelection = [...selected];
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        event: 'update_selection',
+        payload: { selected }
+      }));
+    }
+  }
+
+  /**
+   * Helper: Compare two arrays for equality
+   */
+  private arraysEqual(a: number[], b: number[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
   }
 
   /**

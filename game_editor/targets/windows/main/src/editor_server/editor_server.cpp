@@ -23,6 +23,7 @@
 
 #include <nodec_animation/resources/animation_clip.hpp>
 #include <nodec_animation/serialization/resources/animation_clip.hpp>
+#include <nodec_scene_editor/components/selected.hpp>
 
 // API response with HTTP status
 struct APIResponse {
@@ -58,7 +59,8 @@ struct APIRequest {
         PUT_RESOURCE,
         GET_REGISTERED_COMPONENTS,
         POST_ENTITY_COMPONENT,
-        DELETE_ENTITY_COMPONENT
+        DELETE_ENTITY_COMPONENT,
+        UPDATE_SELECTION
     };
 
     Type type;
@@ -67,6 +69,7 @@ struct APIRequest {
     std::string resource_type;
     std::string resource_name;
     std::string request_body;
+    std::vector<std::uint32_t> selected_entities;  // For UPDATE_SELECTION
     std::function<void(const APIResponse&)> response_callback;
     bool is_valid = true;
 
@@ -90,6 +93,10 @@ struct APIRequest {
     // Constructor for DELETE_ENTITY_COMPONENT (entity_id, type_index)
     APIRequest(Type t, uint32_t id, uint32_t type_idx, std::function<void(const APIResponse&)> callback)
         : type(t), entity_id(id), type_index(type_idx), response_callback(std::move(callback)) {}
+
+    // Constructor for UPDATE_SELECTION (selected entity IDs, no response callback)
+    APIRequest(Type t, std::vector<std::uint32_t> selected)
+        : type(t), entity_id(0), type_index(0), selected_entities(std::move(selected)) {}
 };
 
 // WebSocket per-socket data
@@ -97,6 +104,7 @@ struct WebSocketData {
     std::set<uint32_t> subscribed_components;   // For component updates
     std::set<uint32_t> subscribed_entity_info;  // For entity_info updates
     bool subscribed_root_infos{false};          // For root entities updates
+    bool subscribed_selection{false};           // For selection updates
 };
 
 // Pending WebSocket broadcast message
@@ -149,6 +157,27 @@ struct WsComponentsMessage {
 struct WsEntityInfoMessage {
     std::string event;
     WsEntityInfoPayload payload;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("event", event));
+        archive(cereal::make_nvp("payload", payload));
+    }
+};
+
+// Selection update payload (client → server)
+struct WsUpdateSelectionPayload {
+    std::vector<std::uint32_t> selected;
+
+    template<class Archive>
+    void serialize(Archive& archive) {
+        archive(cereal::make_nvp("selected", selected));
+    }
+};
+
+struct WsUpdateSelectionMessage {
+    std::string event;
+    WsUpdateSelectionPayload payload;
 
     template<class Archive>
     void serialize(Archive& archive) {
@@ -632,12 +661,31 @@ public:
                     case APIRequest::DELETE_ENTITY_COMPONENT:
                         response = remove_entity_component(request.entity_id, request.type_index);
                         break;
+                    case APIRequest::UPDATE_SELECTION: {
+                        // Apply selection directly (no response needed)
+                        using namespace nodec_scene_editor::components;
+                        auto& registry = world_->scene().registry();
+
+                        // Clear all existing selections
+                        registry.view<Selected>().each([&](auto entity, auto&) {
+                            registry.remove_component<Selected>(entity);
+                        });
+
+                        // Add new selections
+                        for (std::uint32_t id : request.selected_entities) {
+                            auto entity = static_cast<nodec_scene::SceneEntity>(id);
+                            if (registry.is_valid(entity) && !registry.try_get_component<Selected>(entity)) {
+                                registry.emplace_component<Selected>(entity);
+                            }
+                        }
+                        continue;  // Skip response callback
+                    }
                     default:
                         response = APIResponse::bad_request("{\"error\": \"Unknown request type\"}");
                         break;
                 }
 
-                if (main_loop_) {
+                if (main_loop_ && request.response_callback) {
                     main_loop_->defer([callback = std::move(request.response_callback), response = std::move(response)]() {
                         callback(response);
                     });
@@ -729,6 +777,27 @@ private:
                 logger_->info(__FILE__, __LINE__) << "Client unsubscribed from root_infos";
                 ws->send("{\"event\":\"unsubscribed_root_infos\"}", uWS::OpCode::TEXT);
 
+            } else if (event == "subscribe_selection_update") {
+                data->subscribed_selection = true;
+                logger_->info(__FILE__, __LINE__) << "Client subscribed to selection_update";
+                ws->send(R"({"event":"subscribed_selection_update"})", uWS::OpCode::TEXT);
+
+            } else if (event == "unsubscribe_selection_update") {
+                data->subscribed_selection = false;
+                logger_->info(__FILE__, __LINE__) << "Client unsubscribed from selection_update";
+                ws->send(R"({"event":"unsubscribed_selection_update"})", uWS::OpCode::TEXT);
+
+            } else if (event == "update_selection") {
+                std::istringstream iss(wrapped_json);
+                cereal::JSONInputArchive archive(iss);
+                WsUpdateSelectionMessage msg;
+                archive(cereal::make_nvp("message", msg));
+
+                // Queue selection update to game thread
+                queue_request(std::move(msg.payload.selected));
+
+                ws->send(R"({"event":"selection_updated"})", uWS::OpCode::TEXT);
+
             } else {
                 ws->send("{\"event\":\"error\",\"payload\":{\"message\":\"Unknown event type\"}}", uWS::OpCode::TEXT);
             }
@@ -748,10 +817,11 @@ private:
             if (ws_clients_.empty()) return;
         }
 
-        // Collect subscribed entity IDs for components, entity_info, and root_infos (lock scope minimized)
+        // Collect subscribed entity IDs for components, entity_info, root_infos, and selection (lock scope minimized)
         std::set<uint32_t> all_subscribed_components;
         std::set<uint32_t> all_subscribed_entity_info;
         bool any_subscribed_root_infos = false;
+        bool any_subscribed_selection = false;
         {
             std::lock_guard<std::mutex> lock(ws_clients_mutex_);
             for (auto* ws : ws_clients_) {
@@ -767,12 +837,16 @@ private:
                 if (data->subscribed_root_infos) {
                     any_subscribed_root_infos = true;
                 }
+                if (data->subscribed_selection) {
+                    any_subscribed_selection = true;
+                }
             }
         }
 
         std::vector<WsBroadcastMessage> component_messages;
         std::vector<WsBroadcastMessage> entity_info_messages;
         std::string root_infos_message;
+        std::string selection_message;
 
         // Generate component JSON for each subscribed entity
         if (!all_subscribed_components.empty()) {
@@ -834,12 +908,30 @@ private:
             json << "]}";
         }
 
+        // Generate selection JSON (array of selected entity IDs)
+        if (any_subscribed_selection) {
+            using namespace nodec_scene_editor::components;
+            nodec::StringBuilder json(selection_message);
+            json << R"({"event":"notify_selection_update","payload":{"selected":[)";
+
+            bool first = true;
+            registry.view<Selected>().each([&](auto entity, auto&) {
+                if (!first) json << ",";
+                json << static_cast<std::uint32_t>(entity);
+                first = false;
+            });
+
+            json << "]}}";
+        }
+
         // Queue messages for uWS thread - batch all events into single message per client
-        if (main_loop_ && (!component_messages.empty() || !entity_info_messages.empty() || !root_infos_message.empty())) {
+        if (main_loop_ && (!component_messages.empty() || !entity_info_messages.empty() ||
+                           !root_infos_message.empty() || !selection_message.empty())) {
             main_loop_->defer([this,
                                component_messages = std::move(component_messages),
                                entity_info_messages = std::move(entity_info_messages),
-                               root_infos_message = std::move(root_infos_message)]() {
+                               root_infos_message = std::move(root_infos_message),
+                               selection_message = std::move(selection_message)]() {
                 // This runs on uWS thread - safe to access ws_clients_ and send
                 for (auto* ws : ws_clients_) {
                     const auto* data = ws->getUserData();
@@ -881,6 +973,13 @@ private:
                     if (data->subscribed_root_infos && !root_infos_message.empty()) {
                         if (!first_event) batch_message += ",";
                         batch_message += root_infos_message;
+                        first_event = false;
+                    }
+
+                    // Add selection updates
+                    if (data->subscribed_selection && !selection_message.empty()) {
+                        if (!first_event) batch_message += ",";
+                        batch_message += selection_message;
                         first_event = false;
                     }
 
@@ -1467,6 +1566,12 @@ private:
                        std::function<void(const APIResponse&)> callback) {
         std::lock_guard<std::mutex> lock(request_queue_mutex_);
         request_queue_.emplace(type, entity_id, type_index, std::move(callback));
+    }
+
+    // Queue UPDATE_SELECTION request (no response callback)
+    void queue_request(std::vector<std::uint32_t> selected_entities) {
+        std::lock_guard<std::mutex> lock(request_queue_mutex_);
+        request_queue_.emplace(APIRequest::UPDATE_SELECTION, std::move(selected_entities));
     }
 
 private:

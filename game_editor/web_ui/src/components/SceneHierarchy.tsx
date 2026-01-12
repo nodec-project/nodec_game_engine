@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Surface, Alert, Spinner, IconButton, Collapse, List, Typography, Icon } from '@/ui';
 import { gameEngineAPI, EntityInfo, entityHasChildren, entityHasPrefab, MoveEntityHierarchyRequest } from '../api/gameEngine';
 import { useEditor } from '../contexts/EditorContext';
@@ -28,6 +28,13 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
   type DropType = 'before' | 'child' | 'after';
   const [draggingEntityId, setDraggingEntityId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ entityId: string; dropType: DropType } | null>(null);
+
+  // Refs for selection sync
+  const entitiesRef = useRef<EntityNode[]>([]);
+  const prevSelectionRef = useRef<number[]>([]);
+
+  // Keep entitiesRef in sync with entities state
+  useEffect(() => { entitiesRef.current = entities; }, [entities]);
 
   // Helper: Find entity by ID in tree
   const findEntityInTree = useCallback((nodes: EntityNode[], id: string): EntityNode | null => {
@@ -327,9 +334,119 @@ export const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ onEntitySelect }
     }
   }, []);
 
+  // Expand tree to show a selected entity (load ancestors from root down)
+  const expandToEntity = useCallback(async (targetEntityId: string) => {
+    // Build ancestor path from target to root via API
+    const ancestorPath: string[] = [];
+    let currentId = targetEntityId;
+
+    while (true) {
+      try {
+        const info = await gameEngineAPI.getEntityDetails(currentId);
+        if (!info.hierarchy.parent) break;  // Reached root
+        currentId = String(info.hierarchy.parent);
+        ancestorPath.unshift(currentId);  // Add to beginning (root-first)
+      } catch {
+        break;  // Entity not found
+      }
+    }
+
+    if (ancestorPath.length === 0) return;  // Target is at root level
+
+    // Expand and load children for each ancestor from root down
+    for (const ancestorId of ancestorPath) {
+      // Skip if already expanded
+      if (expandedEntities.has(ancestorId)) continue;
+
+      // Add to expanded set
+      setExpandedEntities(prev => {
+        const next = new Set(prev);
+        next.add(ancestorId);
+        return next;
+      });
+
+      // Find node in current tree
+      const node = findEntityInTree(entitiesRef.current, ancestorId);
+      if (!node) continue;  // Node not in tree yet
+
+      // Load children if not already loaded
+      if (entityHasChildren(node) && !node.childrenLoaded) {
+        setLoadingChildren(prev => {
+          const next = new Set(prev);
+          next.add(ancestorId);
+          return next;
+        });
+
+        try {
+          const children = await fetchChildEntities(node);
+          setEntities(prev => updateEntityInTree(prev, ancestorId, n => ({
+            ...n,
+            childNodes: children,
+            childrenLoaded: true,
+          })));
+        } finally {
+          setLoadingChildren(prev => {
+            const next = new Set(prev);
+            next.delete(ancestorId);
+            return next;
+          });
+        }
+
+        // Wait for state update to propagate
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+  }, [expandedEntities, findEntityInTree, fetchChildEntities, updateEntityInTree]);
+
+  // Helper: Compare two arrays for equality
+  const arraysEqual = useCallback((a: number[], b: number[]): boolean => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }, []);
+
+  // Subscribe to selection updates from native editor
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    const subscribe = async () => {
+      try {
+        unsubscribe = await gameEngineAPI.subscribeToSelection((selected) => {
+          // Only react if selection actually changed
+          if (arraysEqual(selected, prevSelectionRef.current)) return;
+          prevSelectionRef.current = [...selected];
+
+          // Update local selection state
+          if (selected.length > 0) {
+            const primaryId = String(selected[0]);
+            setSelectedEntityId(primaryId);
+            onEntitySelect?.(primaryId);
+            // Auto-expand to show selected entity
+            expandToEntity(primaryId);
+          } else {
+            setSelectedEntityId(null);
+            onEntitySelect?.(null as unknown as string);
+          }
+        });
+      } catch (err) {
+        console.error('Failed to subscribe to selection:', err);
+      }
+    };
+
+    subscribe();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [arraysEqual, expandToEntity, onEntitySelect]);
+
   const handleEntityClick = useCallback((entityId: string) => {
     setSelectedEntityId(entityId);
     onEntitySelect?.(entityId);
+    // Send selection to server
+    gameEngineAPI.sendSelectionUpdate([parseInt(entityId, 10)]);
   }, [onEntitySelect]);
 
   const handleExpandToggle = useCallback(async (entity: EntityNode) => {
