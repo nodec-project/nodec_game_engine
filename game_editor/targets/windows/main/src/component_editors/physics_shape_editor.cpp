@@ -40,6 +40,9 @@ void PhysicsShapeEditor::on_scene_gui(nodec_scene_editor::SceneGizmo &gizmo,
     using namespace nodec;
     using namespace nodec_scene_editor::components;
     using namespace nodec_physics::components;
+
+    static const nodec::Vector4f wire_color{0.0f, 1.0f, 0.0f, 0.5f};
+
     scene_registry.view<Selected, PhysicsShape>().each(
         [&](nodec_scene::SceneEntity entity, Selected &, PhysicsShape &shape) {
             using namespace nodec_scene::components;
@@ -55,20 +58,20 @@ void PhysicsShapeEditor::on_scene_gui(nodec_scene_editor::SceneGizmo &gizmo,
             switch (shape.shape_type) {
             case PhysicsShape::ShapeType::Box: {
                 const auto size = shape.size * world_scale;
-                gizmo.draw_wire_cube(world_position, size, world_rotation);
+                gizmo.draw_wire_cube(world_position, size, world_rotation, wire_color);
             } break;
 
             case PhysicsShape::ShapeType::Sphere:
-                gizmo.draw_wire_sphere(world_position, shape.radius * scale);
+                gizmo.draw_wire_sphere(world_position, shape.radius * scale, wire_color);
                 break;
 
             case PhysicsShape::ShapeType::Capsule: {
                 const auto radius = shape.radius * scale;
                 const auto height = shape.height * scale;
                 const auto half_extent_up = gfx::rotate(Vector3f(0.0f, height / 2.0f, 0.0f), world_rotation);
-                
-                gizmo.draw_wire_sphere(world_position + half_extent_up, radius);
-                gizmo.draw_wire_sphere(world_position - half_extent_up, radius);
+
+                gizmo.draw_wire_sphere(world_position + half_extent_up, radius, wire_color);
+                gizmo.draw_wire_sphere(world_position - half_extent_up, radius, wire_color);
             } break;
 
             default:

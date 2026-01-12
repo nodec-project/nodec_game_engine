@@ -85,6 +85,10 @@ void SceneGizmoRenderer::render(nodec_scene::Scene &scene,
         [&](const SceneEntity &entity, const ::components::GizmoWire &wire, const LocalToWorld &local_to_world) {
             if (!wire.mesh) return;
 
+            // --- update material color ---
+            gizmo_wire_material_->set_vector4_property("color", wire.color);
+            gizmo_wire_material_->bind_constant_buffer(&gfx_, MATERIAL_PROPERTIES_CB_SLOT);
+
             // --- update cb_model_properties ---
             {
                 XMMATRIX matrix_m{local_to_world.value.m};

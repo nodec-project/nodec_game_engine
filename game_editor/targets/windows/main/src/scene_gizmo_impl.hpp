@@ -21,23 +21,25 @@ public:
     }
 
     void draw_wire_cube(const nodec::Vector3f &center, const nodec::Vector3f &size,
-                        const nodec::Quaternionf &rotation) override {
+                        const nodec::Quaternionf &rotation, const nodec::Vector4f &color) override {
         using namespace nodec_scene::components;
 
         auto gizmo_entity = scene_.registry().create_entity();
         auto &gizmo_wire = scene_.registry().emplace_component<components::GizmoWire>(gizmo_entity).first;
         gizmo_wire.mesh = wire_cube_mesh_;
+        gizmo_wire.color = color;
         auto &local_to_world = scene_.registry().emplace_component<LocalToWorld>(gizmo_entity).first;
         local_to_world.value = nodec::gfx::trs(center, rotation, size);
         local_to_world.dirty = true;
     }
 
-    void draw_wire_sphere(const nodec::Vector3f &center, float radius) override {
+    void draw_wire_sphere(const nodec::Vector3f &center, float radius, const nodec::Vector4f &color) override {
         using namespace nodec_scene::components;
 
         auto gizmo_entity = scene_.registry().create_entity();
         auto &gizmo_wire = scene_.registry().emplace_component<components::GizmoWire>(gizmo_entity).first;
         gizmo_wire.mesh = wire_sphere_mesh_;
+        gizmo_wire.color = color;
         auto &local_to_world = scene_.registry().emplace_component<LocalToWorld>(gizmo_entity).first;
         local_to_world.value = nodec::gfx::trs(center, nodec::Quaternionf::identity, nodec::Vector3f::ones * radius);
         local_to_world.dirty = true;
